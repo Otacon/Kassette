@@ -1,8 +1,8 @@
 package frontend.controllerSettings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,11 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import frontend.components.Dialog
 import frontend.components.HorizontalDivider
@@ -39,11 +35,10 @@ fun ControllerSettingsDialog(
 
     val gamepadCaptureTarget = state.captureTarget?.takeIf { it.device == InputDevice.Gamepad }
     LaunchedEffect(gamepadCaptureTarget) {
-        val target = gamepadCaptureTarget ?: return@LaunchedEffect
         controllerInput.clearPressedBindings()
         while (true) {
-            controllerInput.pressedBindings().firstOrNull()?.let { binding ->
-                viewModel.onBindingCaptured(target.button, target.device, binding)
+            controllerInput.pressedButtons().firstOrNull()?.let { button ->
+                viewModel.onGamepadInputCaptured(button)
                 return@LaunchedEffect
             }
             delay(50.milliseconds)
@@ -65,9 +60,7 @@ fun ControllerSettingsDialog(
             rows = state.rows,
             captureTarget = state.captureTarget,
             onCaptureStarted = viewModel::onCaptureStarted,
-            onKeyboardCaptured = { button, binding ->
-                viewModel.onBindingCaptured(button, InputDevice.Keyboard, binding)
-            },
+            onKeyboardCaptured = viewModel::onKeyboardInputCaptured,
             onCaptureCancelled = viewModel::onCaptureCancelled,
             modifier = Modifier
                 .fillMaxWidth()
@@ -81,7 +74,7 @@ fun ButtonTable(
     rows: List<ButtonRow>,
     captureTarget: CaptureTarget?,
     onCaptureStarted: (Int, InputDevice) -> Unit,
-    onKeyboardCaptured: (Int, InputBinding) -> Unit,
+    onKeyboardCaptured: (InputButton) -> Unit,
     onCaptureCancelled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -101,7 +94,7 @@ fun ButtonTable(
                 if (event.key == Key.Escape) {
                     onCaptureCancelled()
                 } else if (target.device == InputDevice.Keyboard) {
-                    onKeyboardCaptured(target.button, event.key.mappingBinding())
+                    onKeyboardCaptured(event.key.inputButton())
                 }
                 true
             }

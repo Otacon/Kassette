@@ -2,135 +2,71 @@ package frontend.controllerSettings
 
 import androidx.compose.ui.input.key.Key
 import io.ControllerMappings
+import io.DEFAULT_CONTROLLER_MAPPINGS
 import io.DeviceMappings
-import nes.input.NesController
+import kotlin.jvm.JvmInline
 
-enum class InputDevice {
-    Keyboard,
-    Gamepad,
-}
+@JvmInline
+value class InputButton(val id: Int)
 
-data class InputBinding(
-    val code: String,
-    val label: String,
-)
+enum class InputDevice { Keyboard, Gamepad }
 
-class ControllerInputMapper(
-    initialMappings: ControllerMappings?,
-) {
-    var mappings: ControllerMappings = initialMappings ?: defaultControllerMappings()
+class ControllerInputMapper(initialMappings: ControllerMappings?) {
+    var mappings: ControllerMappings = initialMappings ?: DEFAULT_CONTROLLER_MAPPINGS
         private set
 
-    private var keyboardLookup = mappings.keyboard.toButtonLookup()
-    private var gamepadLookup = mappings.controller.toButtonLookup()
+    private val keyboardLookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
+    private val gamepadLookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
+
+    init {
+        rebuildLookups()
+    }
 
     fun updateMappings(mappings: ControllerMappings) {
         this.mappings = mappings
-        keyboardLookup = mappings.keyboard.toButtonLookup()
-        gamepadLookup = mappings.controller.toButtonLookup()
+        rebuildLookups()
     }
 
-    fun map(device: InputDevice, code: String): Int? = when (device) {
-        InputDevice.Keyboard -> keyboardLookup[code]
-        InputDevice.Gamepad -> gamepadLookup[code]
+    fun map(device: InputDevice, button: InputButton): Int = when (device) {
+        InputDevice.Keyboard -> keyboardLookup.valueAt(button.id)
+        InputDevice.Gamepad -> gamepadLookup.valueAt(button.id)
+    }
+
+    private fun rebuildLookups() {
+        keyboardLookup.fill(NO_NES_BUTTON)
+        gamepadLookup.fill(NO_NES_BUTTON)
+        mappings.keyboard.installInto(keyboardLookup)
+        mappings.controller.installInto(gamepadLookup)
     }
 }
 
-fun ControllerMappings.valueFor(device: InputDevice, button: Int): String = when (device) {
-    InputDevice.Keyboard -> keyboard.valueFor(button)
-    InputDevice.Gamepad -> controller.valueFor(button)
-}
+fun Key.inputButton(): InputButton = InputButton(keyCode.toInt())
 
-fun ControllerMappings.withValue(device: InputDevice, button: Int, value: String): ControllerMappings =
-    when (device) {
-        InputDevice.Keyboard -> copy(keyboard = keyboard.withValue(button, value))
-        InputDevice.Gamepad -> copy(controller = controller.withValue(button, value))
-    }
+fun gamepadButton(index: Int): InputButton = InputButton(GAMEPAD_BUTTON_OFFSET + index)
 
-fun defaultControllerMappings(): ControllerMappings = ControllerMappings(
-    keyboard = DeviceMappings(
-        a = Key.Z.mappingCode(),
-        b = Key.X.mappingCode(),
-        select = Key.ShiftLeft.mappingCode(),
-        start = Key.Enter.mappingCode(),
-        up = Key.DirectionUp.mappingCode(),
-        down = Key.DirectionDown.mappingCode(),
-        left = Key.DirectionLeft.mappingCode(),
-        right = Key.DirectionRight.mappingCode(),
-    ),
-    controller = DeviceMappings(
-        a = gamepadButtonCode(1),
-        b = gamepadButtonCode(0),
-        select = gamepadButtonCode(8),
-        start = gamepadButtonCode(9),
-        up = gamepadAxisCode(1, negative = true),
-        down = gamepadAxisCode(1, negative = false),
-        left = gamepadAxisCode(0, negative = true),
-        right = gamepadAxisCode(0, negative = false),
-    ),
-)
+fun gamepadAxis(index: Int, direction: Int): InputButton = InputButton(GAMEPAD_AXIS_OFFSET + index * 2 + direction)
 
-fun Key.mappingBinding(): InputBinding = InputBinding(
-    code = mappingCode(),
-    label = mappingCode().bindingLabel(InputDevice.Keyboard),
-)
+fun gamepadPov(direction: Int): InputButton = InputButton(GAMEPAD_POV_OFFSET + direction)
 
-fun Key.mappingCode(): String = toString()
-
-fun gamepadButtonBinding(index: Int): InputBinding = InputBinding(
-    code = gamepadButtonCode(index),
-    label = "Button $index",
-)
-
-fun gamepadAxisBinding(index: Int, negative: Boolean): InputBinding = InputBinding(
-    code = gamepadAxisCode(index, negative),
-    label = "Axis $index ${if (negative) "-" else "+"}",
-)
-
-fun gamepadPovBinding(direction: String): InputBinding = InputBinding(
-    code = gamepadPovCode(direction),
-    label = "D-pad ${direction.replaceFirstChar { it.uppercase() }}",
-)
-
-private fun DeviceMappings.valueFor(button: Int): String = valuesByButton().getOrElse(button) {
-    throw IllegalArgumentException("Button $button is not supported.")
-}
-
-private fun DeviceMappings.withValue(button: Int, value: String): DeviceMappings = when (button) {
-    NesController.BUTTON_A -> copy(a = value)
-    NesController.BUTTON_B -> copy(b = value)
-    NesController.BUTTON_SELECT -> copy(select = value)
-    NesController.BUTTON_START -> copy(start = value)
-    NesController.BUTTON_UP -> copy(up = value)
-    NesController.BUTTON_DOWN -> copy(down = value)
-    NesController.BUTTON_LEFT -> copy(left = value)
-    NesController.BUTTON_RIGHT -> copy(right = value)
-    else -> throw IllegalArgumentException("Button $button is not supported.")
-}
-
-private fun DeviceMappings.valuesByButton()= arrayOf(
-    a, b, select, start, up, down, left, right,
-)
-
-private fun DeviceMappings.toButtonLookup(): Map<String, Int> = valuesByButton()
-    .mapIndexed { button, code -> code to button }
-    .toMap()
-
-private fun gamepadButtonCode(index: Int): String = "button:$index"
-
-private fun gamepadAxisCode(index: Int, negative: Boolean): String = "axis:$index:${if (negative) "-" else "+"}"
-
-private fun gamepadPovCode(direction: String): String = "pov:$direction"
-
-fun String.bindingLabel(device: InputDevice): String = when (device) {
-    InputDevice.Keyboard -> substringAfterLast('.')
-    InputDevice.Gamepad -> when {
-        startsWith("button:") -> "Button ${substringAfter(':')}"
-        startsWith("axis:") -> split(':').let { parts ->
-            if (parts.size == 3) "Axis ${parts[1]} ${parts[2]}" else this
-        }
-
-        startsWith("pov:") -> "D-pad ${substringAfter(':').replaceFirstChar { it.uppercase() }}"
-        else -> this
+private fun DeviceMappings.installInto(lookup: IntArray) {
+    buttons.forEachIndexed { nesButton, inputButton ->
+        if (inputButton in lookup.indices) lookup[inputButton] = nesButton
     }
 }
+
+private fun IntArray.valueAt(index: Int): Int = if (index in indices) this[index] else NO_NES_BUTTON
+
+const val NO_NES_BUTTON = -1
+const val AXIS_NEGATIVE = 0
+const val AXIS_POSITIVE = 1
+const val POV_UP = 0
+const val POV_DOWN = 1
+const val POV_LEFT = 2
+const val POV_RIGHT = 3
+const val KEYBOARD_BUTTON_COUNT = 65536
+const val GAMEPAD_BUTTON_OFFSET = KEYBOARD_BUTTON_COUNT
+const val GAMEPAD_BUTTON_COUNT = 64
+const val GAMEPAD_AXIS_OFFSET = GAMEPAD_BUTTON_OFFSET + GAMEPAD_BUTTON_COUNT
+const val GAMEPAD_AXIS_COUNT = 16
+const val GAMEPAD_POV_OFFSET = GAMEPAD_AXIS_OFFSET + GAMEPAD_AXIS_COUNT * 2
+const val INPUT_BUTTON_COUNT = GAMEPAD_POV_OFFSET + 4

@@ -2,7 +2,7 @@ package frontend
 
 import androidx.compose.ui.input.key.KeyEvent
 import frontend.controllerSettings.ControllerInputMapper
-import frontend.controllerSettings.InputBinding
+import frontend.controllerSettings.InputButton
 import io.VideoFilter
 import nes.input.NesController
 import org.jetbrains.skia.Canvas
@@ -33,7 +33,7 @@ expect class PlatformKeyboardInput(controller: NesController, inputMapper: Contr
 
 expect class PlatformControllerInput(controller: NesController, inputMapper: ControllerInputMapper) : EmulatorInput {
 
-    fun pressedBindings(): List<InputBinding>
+    fun pressedButtons(): Set<InputButton>
 
     fun clearPressedBindings()
 

@@ -6,7 +6,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.InputDevice
-import frontend.controllerSettings.mappingBinding
+import frontend.controllerSettings.NO_NES_BUTTON
+import frontend.controllerSettings.inputButton
 import nes.input.NesController
 
 actual class PlatformKeyboardInput actual constructor(
@@ -16,7 +17,8 @@ actual class PlatformKeyboardInput actual constructor(
     private var pressedButtons = 0
 
     actual fun onKeyEvent(event: KeyEvent): Boolean {
-        val button = inputMapper.map(InputDevice.Keyboard, event.key.mappingBinding().code) ?: return false
+        val button = inputMapper.map(InputDevice.Keyboard, event.key.inputButton())
+        if (button == NO_NES_BUTTON) return false
         val mask = 1 shl button
         when (event.type) {
             KeyEventType.KeyDown -> pressedButtons = pressedButtons or mask
