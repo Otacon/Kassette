@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cyanotic.kassette.BuildKonfig
 import dev.zacsweers.metro.Inject
+import frontend.controllerSettings.ControllerInputMapper
+import frontend.controllerSettings.toInputMappings
 import io.Preferences
 import io.VideoFilter
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +24,7 @@ class MainScreenViewModel(
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,
     private val preferences: Preferences,
+    private val inputMapper: ControllerInputMapper,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainWindowState())
@@ -37,6 +40,7 @@ class MainScreenViewModel(
                 _state.update { it.copy(isRunning = isPoweredOn, isPaused = isPoweredOn && it.isPaused) }
             }
         }
+        inputMapper.updateMappings(preferences.mappings.toInputMappings())
         config.rom?.let { loadRom(it) }
         _state.update { it.copy(videoFilter = preferences.videoFilter) }
     }

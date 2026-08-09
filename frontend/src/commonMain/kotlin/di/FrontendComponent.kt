@@ -1,15 +1,15 @@
 package di
 
 import com.cyanotic.kassette.BuildKonfig
+import dev.zacsweers.metro.DependencyGraph
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.Scope
+import dev.zacsweers.metro.createGraph
 import frontend.*
 import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.ControllerSettingsViewModel
 import io.Nes20Db
 import io.Nes20DbCsv
-import dev.zacsweers.metro.DependencyGraph
-import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.Scope
-import dev.zacsweers.metro.createGraph
 import io.Preferences
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
@@ -102,11 +102,11 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun preferences() : Preferences = Preferences()
+    fun preferences(): Preferences = Preferences()
 
     @AppScope
     @Provides
-    fun controllerInputMapper(preferences: Preferences): ControllerInputMapper = ControllerInputMapper(preferences.mappings)
+    fun controllerInputMapper(preferences: Preferences): ControllerInputMapper = ControllerInputMapper()
 
     @AppScope
     @Provides
@@ -122,7 +122,7 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun buildKonfig() : BuildKonfig = BuildKonfig
+    fun buildKonfig(): BuildKonfig = BuildKonfig
 }
 
 @Scope

@@ -1,10 +1,9 @@
 package frontend.controllerSettings
 
-import androidx.lifecycle.ViewModel
 import androidx.compose.ui.input.key.Key
+import androidx.lifecycle.ViewModel
 import dev.zacsweers.metro.Inject
 import io.ControllerMappings
-import io.DEFAULT_CONTROLLER_MAPPINGS
 import io.DeviceMappings
 import io.Preferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +20,7 @@ class ControllerSettingsViewModel(
     val state = _state.asStateFlow()
 
     fun onCreate() {
-        val mappings = preferences.mappings ?: DEFAULT_CONTROLLER_MAPPINGS
+        val mappings = preferences.mappings.toInputMappings()
         _state.value = ControllerSettingsState(mappings = mappings).withRows()
     }
 
@@ -53,7 +52,7 @@ class ControllerSettingsViewModel(
 
     fun onSave() {
         val mappings = _state.value.mappings
-        preferences.mappings = mappings
+        preferences.mappings = mappings.toControllerMappings()
         inputMapper.updateMappings(mappings)
     }
 
@@ -78,27 +77,27 @@ class ControllerSettingsViewModel(
 
     private fun labelFor(device: InputDevice, button: InputButton): String = button.label(device)
 
-    private fun ControllerMappings.valueFor(device: InputDevice, nesButton: Int): InputButton = when (device) {
-        InputDevice.Keyboard -> keyboard[nesButton]
-        InputDevice.Gamepad -> controller[nesButton]
+    private fun InputMappings.valueFor(device: InputDevice, nesButton: Int): InputButton = when (device) {
+        InputDevice.Keyboard -> keyboard.inputButtonAt(nesButton)
+        InputDevice.Gamepad -> gamepad.inputButtonAt(nesButton)
     }
 
-    private fun ControllerMappings.withValue(
+    private fun InputMappings.withValue(
         device: InputDevice,
         nesButton: Int,
         value: InputButton,
-    ): ControllerMappings = when (device) {
+    ): InputMappings = when (device) {
         InputDevice.Keyboard -> copy(keyboard = keyboard.with(nesButton, value))
-        InputDevice.Gamepad -> copy(controller = controller.with(nesButton, value))
+        InputDevice.Gamepad -> copy(gamepad = gamepad.with(nesButton, value))
     }
 
-    private operator fun DeviceMappings.get(nesButton: Int): InputButton = InputButton(buttons.getOrElse(nesButton) {
+    private fun List<Int>.inputButtonAt(nesButton: Int): InputButton = InputButton(getOrElse(nesButton) {
         throw IllegalArgumentException("Button $nesButton is not supported")
     })
 
-    private fun DeviceMappings.with(nesButton: Int, value: InputButton): DeviceMappings {
-        require(nesButton in buttons.indices) { "Button $nesButton is not supported" }
-        return DeviceMappings(buttons.toMutableList().also { it[nesButton] = value.id })
+    private fun List<Int>.with(nesButton: Int, value: InputButton): List<Int> {
+        require(nesButton in indices) { "Button $nesButton is not supported" }
+        return toMutableList().also { it[nesButton] = value.id }
     }
 
     private fun Int.asButtonLabel(): String = NES_BUTTON_LABELS.getOrElse(this) {
@@ -125,13 +124,18 @@ class ControllerSettingsViewModel(
         else -> direction.toString()
     }
 
+    private fun InputMappings.toControllerMappings(): ControllerMappings = ControllerMappings(
+        keyboard = DeviceMappings(keyboard),
+        controller = DeviceMappings(gamepad),
+    )
+
     private companion object {
         val NES_BUTTON_LABELS = arrayOf("A", "B", "Select", "Start", "Up", "Down", "Left", "Right")
     }
 }
 
 data class ControllerSettingsState(
-    val mappings: ControllerMappings = DEFAULT_CONTROLLER_MAPPINGS,
+    val mappings: InputMappings = InputMappings(emptyList(), emptyList()),
     val captureTarget: CaptureTarget? = null,
     val rows: List<ButtonRow> = emptyList(),
 )

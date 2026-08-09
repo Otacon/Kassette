@@ -2,8 +2,6 @@ package frontend.controllerSettings
 
 import androidx.compose.ui.input.key.Key
 import io.ControllerMappings
-import io.DEFAULT_CONTROLLER_MAPPINGS
-import io.DeviceMappings
 import kotlin.jvm.JvmInline
 
 @JvmInline
@@ -11,18 +9,22 @@ value class InputButton(val id: Int)
 
 enum class InputDevice { Keyboard, Gamepad }
 
-class ControllerInputMapper(initialMappings: ControllerMappings?) {
-    var mappings: ControllerMappings = initialMappings ?: DEFAULT_CONTROLLER_MAPPINGS
-        private set
+data class InputMappings(
+    val keyboard: List<Int>,
+    val gamepad: List<Int>,
+)
+
+class ControllerInputMapper {
 
     private val keyboardLookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
     private val gamepadLookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
+    private var mappings: InputMappings = InputMappings(emptyList(), emptyList())
 
     init {
         rebuildLookups()
     }
 
-    fun updateMappings(mappings: ControllerMappings) {
+    fun updateMappings(mappings: InputMappings) {
         this.mappings = mappings
         rebuildLookups()
     }
@@ -36,7 +38,7 @@ class ControllerInputMapper(initialMappings: ControllerMappings?) {
         keyboardLookup.fill(NO_NES_BUTTON)
         gamepadLookup.fill(NO_NES_BUTTON)
         mappings.keyboard.installInto(keyboardLookup)
-        mappings.controller.installInto(gamepadLookup)
+        mappings.gamepad.installInto(gamepadLookup)
     }
 }
 
@@ -48,8 +50,13 @@ fun gamepadAxis(index: Int, direction: Int): InputButton = InputButton(GAMEPAD_A
 
 fun gamepadPov(direction: Int): InputButton = InputButton(GAMEPAD_POV_OFFSET + direction)
 
-private fun DeviceMappings.installInto(lookup: IntArray) {
-    buttons.forEachIndexed { nesButton, inputButton ->
+fun ControllerMappings.toInputMappings(): InputMappings = InputMappings(
+    keyboard = keyboard.buttons,
+    gamepad = controller.buttons,
+)
+
+private fun List<Int>.installInto(lookup: IntArray) {
+    forEachIndexed { nesButton, inputButton ->
         if (inputButton in lookup.indices) lookup[inputButton] = nesButton
     }
 }

@@ -20,8 +20,8 @@ class Preferences {
     private val settings = Settings()
 
     @OptIn(ExperimentalSettingsApi::class)
-    var mappings: ControllerMappings?
-        get() = settings.decodeValueOrNull(KEY_GAMEPAD_MAPPINGS)
+    var mappings: ControllerMappings
+        get() = settings.decodeValueOrNull(KEY_GAMEPAD_MAPPINGS) ?: DEFAULT_CONTROLLER_MAPPINGS
         set(value) = settings.encodeValue(key = KEY_GAMEPAD_MAPPINGS, value = value)
 
     var videoFilter: VideoFilter
@@ -36,6 +36,30 @@ class Preferences {
     companion object {
         private const val KEY_VIDEO_FILTER = "video-filter"
         private const val KEY_GAMEPAD_MAPPINGS = "gamepad-mappings"
+
+        private val DEFAULT_CONTROLLER_MAPPINGS = ControllerMappings(
+            keyboard = DeviceMappings(listOf(
+                Key.Z.inputButton().id,
+                Key.X.inputButton().id,
+                Key.ShiftLeft.inputButton().id,
+                Key.Enter.inputButton().id,
+                Key.DirectionUp.inputButton().id,
+                Key.DirectionDown.inputButton().id,
+                Key.DirectionLeft.inputButton().id,
+                Key.DirectionRight.inputButton().id,
+            )),
+            controller = DeviceMappings(listOf(
+                gamepadButton(1).id,
+                gamepadButton(0).id,
+                gamepadButton(8).id,
+                gamepadButton(9).id,
+                gamepadAxis(1, AXIS_NEGATIVE).id,
+                gamepadAxis(1, AXIS_POSITIVE).id,
+                gamepadAxis(0, AXIS_NEGATIVE).id,
+                gamepadAxis(0, AXIS_POSITIVE).id,
+            )),
+        )
+
     }
 }
 
@@ -54,25 +78,3 @@ data class DeviceMappings(
     @SerialName("buttons") val buttons: List<Int>,
 )
 
-val DEFAULT_CONTROLLER_MAPPINGS = ControllerMappings(
-    keyboard = DeviceMappings(listOf(
-        Key.Z.inputButton().id,
-        Key.X.inputButton().id,
-        Key.ShiftLeft.inputButton().id,
-        Key.Enter.inputButton().id,
-        Key.DirectionUp.inputButton().id,
-        Key.DirectionDown.inputButton().id,
-        Key.DirectionLeft.inputButton().id,
-        Key.DirectionRight.inputButton().id,
-    )),
-    controller = DeviceMappings(listOf(
-        gamepadButton(1).id,
-        gamepadButton(0).id,
-        gamepadButton(8).id,
-        gamepadButton(9).id,
-        gamepadAxis(1, AXIS_NEGATIVE).id,
-        gamepadAxis(1, AXIS_POSITIVE).id,
-        gamepadAxis(0, AXIS_NEGATIVE).id,
-        gamepadAxis(0, AXIS_POSITIVE).id,
-    )),
-)
