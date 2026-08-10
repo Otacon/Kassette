@@ -66,6 +66,34 @@ val lwjglNatives = when (desktopPlatform) {
     else -> error("Unsupported desktop platform: $desktopPlatform")
 }
 
+val nes20DbXml = rootProject.layout.projectDirectory.file("nes20db.xml").asFile
+val nes20DbCsv = layout.projectDirectory.file("src/commonMain/resources/nes20db.csv").asFile
+val nes20DbToCsv = rootProject.layout.projectDirectory.file("scripts/nes20db_to_csv.py").asFile
+
+val generateNes20DbCsv = tasks.register<Exec>("generateNes20DbCsv") {
+    group = "build setup"
+    description = "Generates nes20db.csv from nes20db.xml when the CSV is missing."
+
+    inputs.file(nes20DbXml)
+    outputs.file(nes20DbCsv)
+    onlyIf("nes20db.csv is missing") { !outputs.files.singleFile.isFile }
+
+    commandLine(
+        "python3",
+        nes20DbToCsv.absolutePath,
+        nes20DbXml.absolutePath,
+        nes20DbCsv.absolutePath,
+    )
+}
+
+tasks.named("build") {
+    dependsOn(generateNes20DbCsv)
+}
+
+tasks.matching { it.name.endsWith("ProcessResources") }.configureEach {
+    dependsOn(generateNes20DbCsv)
+}
+
 kotlin {
     jvm()
     @OptIn(ExperimentalWasmDsl::class)

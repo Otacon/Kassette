@@ -44,3 +44,6 @@ bin/
 ### ROMs / user-supplied media
 *.nes
 *.NES
+
+### Generated resources
+/frontend/src/commonMain/resources/nes20db.csv
