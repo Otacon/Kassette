@@ -1,4 +1,4 @@
-name: Create release
+name: CI
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   desktop:
@@ -55,11 +57,76 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  wasm:
+    name: WebAssembly
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build WebAssembly distribution
+        run: ./gradlew :frontend:wasmJsBrowserDistribution -PappVersion="${{ github.ref_name }}" -Pbuildkonfig.flavor=release
+
+      - name: Zip WebAssembly artifact
+        working-directory: frontend/build/dist/wasmJs/productionExecutable
+        run: zip -r "${{ github.workspace }}/kassette-${{ github.ref_name }}-wasm.zip" .
+
+      - name: Upload WebAssembly artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kassette-wasm
+          path: kassette-${{ github.ref_name }}-wasm.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/build/dist/wasmJs/productionExecutable/
+
+  deploy-pages:
+    name: Deploy GitHub Pages
+
+    needs:
+      - desktop
+      - wasm
+
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
   release:
     name: Create GitHub Release
 
     needs:
       - desktop
+      - deploy-pages
+      - wasm
 
     runs-on: ubuntu-latest
 
