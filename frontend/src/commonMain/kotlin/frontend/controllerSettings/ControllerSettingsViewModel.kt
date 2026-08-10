@@ -1,6 +1,5 @@
 package frontend.controllerSettings
 
-import androidx.compose.ui.input.key.Key
 import androidx.lifecycle.ViewModel
 import dev.zacsweers.metro.Inject
 import io.Preferences
@@ -94,7 +93,7 @@ class ControllerSettingsViewModel(
         in GAMEPAD_BUTTON_OFFSET until GAMEPAD_AXIS_OFFSET -> "Button ${id - GAMEPAD_BUTTON_OFFSET}"
         in GAMEPAD_AXIS_OFFSET until GAMEPAD_POV_OFFSET -> "Axis ${(id - GAMEPAD_AXIS_OFFSET) / 2} ${if ((id - GAMEPAD_AXIS_OFFSET) % 2 == 0) "-" else "+"}"
         in GAMEPAD_POV_OFFSET until INPUT_BUTTON_COUNT -> "D-pad ${povLabel(id - GAMEPAD_POV_OFFSET)}"
-        else -> Key(id.toLong()).toString().substringAfterLast('.')
+        else -> keyboardLabel(id)
     }
 
     private fun povLabel(direction: Int): String = when (direction) {
