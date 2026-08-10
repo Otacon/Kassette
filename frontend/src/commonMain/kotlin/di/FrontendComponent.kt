@@ -11,6 +11,7 @@ import frontend.controllerSettings.ControllerSettingsViewModel
 import io.Nes20Db
 import io.Nes20DbCsv
 import io.Preferences
+import io.toInputMappings
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParserUtils
@@ -106,7 +107,8 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun controllerInputMapper(preferences: Preferences): ControllerInputMapper = ControllerInputMapper()
+    fun controllerInputMapper(preferences: Preferences): ControllerInputMapper =
+        ControllerInputMapper(preferences.mappings.toInputMappings())
 
     @AppScope
     @Provides

@@ -7,6 +7,7 @@ import com.russhwolf.settings.serialization.decodeValueOrNull
 import com.russhwolf.settings.serialization.encodeValue
 import frontend.controllerSettings.AXIS_NEGATIVE
 import frontend.controllerSettings.AXIS_POSITIVE
+import frontend.controllerSettings.InputMappings
 import frontend.controllerSettings.gamepadAxis
 import frontend.controllerSettings.gamepadButton
 import frontend.controllerSettings.inputButton
@@ -21,7 +22,9 @@ class Preferences {
 
     @OptIn(ExperimentalSettingsApi::class)
     var mappings: ControllerMappings
-        get() = settings.decodeValueOrNull(KEY_GAMEPAD_MAPPINGS) ?: DEFAULT_CONTROLLER_MAPPINGS
+        get() = runCatching {
+            settings.decodeValueOrNull<ControllerMappings>(KEY_GAMEPAD_MAPPINGS)
+        }.getOrNull() ?: DEFAULT_CONTROLLER_MAPPINGS
         set(value) = settings.encodeValue(key = KEY_GAMEPAD_MAPPINGS, value = value)
 
     var videoFilter: VideoFilter
@@ -38,28 +41,17 @@ class Preferences {
         private const val KEY_GAMEPAD_MAPPINGS = "gamepad-mappings"
 
         private val DEFAULT_CONTROLLER_MAPPINGS = ControllerMappings(
-            keyboard = DeviceMappings(listOf(
-                Key.Z.inputButton().id,
-                Key.X.inputButton().id,
-                Key.ShiftLeft.inputButton().id,
-                Key.Enter.inputButton().id,
-                Key.DirectionUp.inputButton().id,
-                Key.DirectionDown.inputButton().id,
-                Key.DirectionLeft.inputButton().id,
-                Key.DirectionRight.inputButton().id,
-            )),
-            controller = DeviceMappings(listOf(
-                gamepadButton(1).id,
-                gamepadButton(0).id,
-                gamepadButton(8).id,
-                gamepadButton(9).id,
-                gamepadAxis(1, AXIS_NEGATIVE).id,
-                gamepadAxis(1, AXIS_POSITIVE).id,
-                gamepadAxis(0, AXIS_NEGATIVE).id,
-                gamepadAxis(0, AXIS_POSITIVE).id,
-            )),
+            buttons = listOf(
+                Key.Z.inputButton().id to gamepadButton(1).id,
+                Key.X.inputButton().id to gamepadButton(0).id,
+                Key.ShiftLeft.inputButton().id to gamepadButton(8).id,
+                Key.Enter.inputButton().id to gamepadButton(9).id,
+                Key.DirectionUp.inputButton().id to gamepadAxis(1, AXIS_NEGATIVE).id,
+                Key.DirectionDown.inputButton().id to gamepadAxis(1, AXIS_POSITIVE).id,
+                Key.DirectionLeft.inputButton().id to gamepadAxis(0, AXIS_NEGATIVE).id,
+                Key.DirectionRight.inputButton().id to gamepadAxis(0, AXIS_POSITIVE).id,
+            ),
         )
-
     }
 }
 
@@ -69,12 +61,9 @@ enum class VideoFilter {
 
 @Serializable
 data class ControllerMappings(
-    @SerialName("controller") val controller: DeviceMappings,
-    @SerialName("keyboard") val keyboard: DeviceMappings,
+    @SerialName("buttons") val buttons: List<Pair<Int, Int>>,
 )
 
-@Serializable
-data class DeviceMappings(
-    @SerialName("buttons") val buttons: List<Int>,
-)
+fun ControllerMappings.toInputMappings(): InputMappings = InputMappings(buttons = buttons)
 
+fun InputMappings.toControllerMappings(): ControllerMappings = ControllerMappings(buttons = buttons)

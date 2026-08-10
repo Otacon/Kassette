@@ -1,44 +1,37 @@
 package frontend.controllerSettings
 
 import androidx.compose.ui.input.key.Key
-import io.ControllerMappings
 import kotlin.jvm.JvmInline
 
 @JvmInline
 value class InputButton(val id: Int)
 
-enum class InputDevice { Keyboard, Gamepad }
-
 data class InputMappings(
-    val keyboard: List<Int>,
-    val gamepad: List<Int>,
+    val buttons: List<Pair<Int, Int>>,
 )
 
-class ControllerInputMapper {
-
-    private val keyboardLookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
-    private val gamepadLookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
-    private var mappings: InputMappings = InputMappings(emptyList(), emptyList())
+class ControllerInputMapper(
+    private var mappings: InputMappings,
+) {
+    private val lookup = IntArray(INPUT_BUTTON_COUNT) { NO_NES_BUTTON }
 
     init {
-        rebuildLookups()
+        rebuildLookup()
     }
 
     fun updateMappings(mappings: InputMappings) {
         this.mappings = mappings
-        rebuildLookups()
+        rebuildLookup()
     }
 
-    fun map(device: InputDevice, button: InputButton): Int = when (device) {
-        InputDevice.Keyboard -> keyboardLookup.valueAt(button.id)
-        InputDevice.Gamepad -> gamepadLookup.valueAt(button.id)
-    }
+    fun map(button: InputButton): Int = lookup.valueAt(button.id)
 
-    private fun rebuildLookups() {
-        keyboardLookup.fill(NO_NES_BUTTON)
-        gamepadLookup.fill(NO_NES_BUTTON)
-        mappings.keyboard.installInto(keyboardLookup)
-        mappings.gamepad.installInto(gamepadLookup)
+    private fun rebuildLookup() {
+        lookup.fill(NO_NES_BUTTON)
+        mappings.buttons.forEachIndexed { nesButton, (primary, secondary) ->
+            if (primary in lookup.indices) lookup[primary] = nesButton
+            if (secondary in lookup.indices) lookup[secondary] = nesButton
+        }
     }
 }
 
@@ -49,17 +42,6 @@ fun gamepadButton(index: Int): InputButton = InputButton(GAMEPAD_BUTTON_OFFSET +
 fun gamepadAxis(index: Int, direction: Int): InputButton = InputButton(GAMEPAD_AXIS_OFFSET + index * 2 + direction)
 
 fun gamepadPov(direction: Int): InputButton = InputButton(GAMEPAD_POV_OFFSET + direction)
-
-fun ControllerMappings.toInputMappings(): InputMappings = InputMappings(
-    keyboard = keyboard.buttons,
-    gamepad = controller.buttons,
-)
-
-private fun List<Int>.installInto(lookup: IntArray) {
-    forEachIndexed { nesButton, inputButton ->
-        if (inputButton in lookup.indices) lookup[inputButton] = nesButton
-    }
-}
 
 private fun IntArray.valueAt(index: Int): Int = if (index in indices) this[index] else NO_NES_BUTTON
 

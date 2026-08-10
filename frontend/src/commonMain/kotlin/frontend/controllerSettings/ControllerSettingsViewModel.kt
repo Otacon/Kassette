@@ -3,9 +3,9 @@ package frontend.controllerSettings
 import androidx.compose.ui.input.key.Key
 import androidx.lifecycle.ViewModel
 import dev.zacsweers.metro.Inject
-import io.ControllerMappings
-import io.DeviceMappings
 import io.Preferences
+import io.toControllerMappings
+import io.toInputMappings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -24,30 +24,22 @@ class ControllerSettingsViewModel(
         _state.value = ControllerSettingsState(mappings = mappings).withRows()
     }
 
-    fun onCaptureStarted(button: Int, device: InputDevice) {
-        _state.update { it.copy(captureTarget = CaptureTarget(button, device)).withRows() }
+    fun onCaptureStarted(button: Int, primary: Boolean) {
+        _state.update { it.copy(captureButton = button, capturePrimary = primary).withRows() }
     }
 
-    fun onKeyboardInputCaptured(inputButton: InputButton) {
-        onInputCaptured(InputDevice.Keyboard, inputButton)
-    }
-
-    fun onGamepadInputCaptured(inputButton: InputButton) {
-        onInputCaptured(InputDevice.Gamepad, inputButton)
-    }
-
-    private fun onInputCaptured(device: InputDevice, inputButton: InputButton) {
+    fun onInputCaptured(inputButton: InputButton) {
         _state.update { state ->
-            val target = state.captureTarget?.takeIf { it.device == device } ?: return@update state
+            val button = state.captureButton ?: return@update state
             state.copy(
-                mappings = state.mappings.withValue(device, target.button, inputButton),
-                captureTarget = null,
+                mappings = state.mappings.withValue(state.capturePrimary, button, inputButton),
+                captureButton = null,
             ).withRows()
         }
     }
 
     fun onCaptureCancelled() {
-        _state.update { it.copy(captureTarget = null).withRows() }
+        _state.update { it.copy(captureButton = null).withRows() }
     }
 
     fun onSave() {
@@ -56,64 +48,53 @@ class ControllerSettingsViewModel(
         inputMapper.updateMappings(mappings)
     }
 
-    private fun ControllerSettingsState.withRows(): ControllerSettingsState = copy(rows = rowsFor(this))
+    private fun ControllerSettingsState.withRows(): ControllerSettingsState {
+        val rows = NES_BUTTONS.map { button ->
+            ButtonRow(
+                button = button,
+                label = button.asButtonLabel(),
+                primaryBinding = if (captureButton == button && capturePrimary) {
+                    "Press input..."
+                } else {
+                    mappings.valueFor(primary = true, button).label()
+                },
+                secondaryBinding = if (captureButton == button && !capturePrimary) {
+                    "Press input..."
+                } else {
+                    mappings.valueFor(primary = false, button).label()
+                },
+            )
 
-    private fun rowsFor(state: ControllerSettingsState): List<ButtonRow> = NES_BUTTONS.map { button ->
-        ButtonRow(
-            button = button,
-            label = button.asButtonLabel(),
-            keyboardBinding = if (state.captureTarget == CaptureTarget(button, InputDevice.Keyboard)) {
-                "Press keyboard input..."
+        }
+        return copy(rows = rows)
+    }
+
+    private fun InputMappings.valueFor(primary: Boolean, nesButton: Int): InputButton {
+        val pair = buttons.getOrElse(nesButton) { throw IllegalArgumentException("Button $nesButton is not supported") }
+        return InputButton(if (primary) pair.first else pair.second)
+    }
+
+    private fun InputMappings.withValue(primary: Boolean, nesButton: Int, value: InputButton): InputMappings {
+        require(nesButton in buttons.indices) { "Button $nesButton is not supported" }
+        return copy(buttons = buttons.toMutableList().also { mappings ->
+            val current = mappings[nesButton]
+            mappings[nesButton] = if (primary) {
+                value.id to current.second
             } else {
-                labelFor(InputDevice.Keyboard, state.mappings.valueFor(InputDevice.Keyboard, button))
-            },
-            gamepadBinding = if (state.captureTarget == CaptureTarget(button, InputDevice.Gamepad)) {
-                "Press gamepad input..."
-            } else {
-                labelFor(InputDevice.Gamepad, state.mappings.valueFor(InputDevice.Gamepad, button))
-            },
-        )
-    }
-
-    private fun labelFor(device: InputDevice, button: InputButton): String = button.label(device)
-
-    private fun InputMappings.valueFor(device: InputDevice, nesButton: Int): InputButton = when (device) {
-        InputDevice.Keyboard -> keyboard.inputButtonAt(nesButton)
-        InputDevice.Gamepad -> gamepad.inputButtonAt(nesButton)
-    }
-
-    private fun InputMappings.withValue(
-        device: InputDevice,
-        nesButton: Int,
-        value: InputButton,
-    ): InputMappings = when (device) {
-        InputDevice.Keyboard -> copy(keyboard = keyboard.with(nesButton, value))
-        InputDevice.Gamepad -> copy(gamepad = gamepad.with(nesButton, value))
-    }
-
-    private fun List<Int>.inputButtonAt(nesButton: Int): InputButton = InputButton(getOrElse(nesButton) {
-        throw IllegalArgumentException("Button $nesButton is not supported")
-    })
-
-    private fun List<Int>.with(nesButton: Int, value: InputButton): List<Int> {
-        require(nesButton in indices) { "Button $nesButton is not supported" }
-        return toMutableList().also { it[nesButton] = value.id }
+                current.first to value.id
+            }
+        })
     }
 
     private fun Int.asButtonLabel(): String = NES_BUTTON_LABELS.getOrElse(this) {
         throw IllegalArgumentException("Button type not supported: $this")
     }
 
-    private fun InputButton.label(device: InputDevice): String = when (device) {
-        InputDevice.Keyboard -> Key(id.toLong()).toString().substringAfterLast('.')
-        InputDevice.Gamepad -> gamepadLabel()
-    }
-
-    private fun InputButton.gamepadLabel(): String = when (id) {
+    private fun InputButton.label(): String = when (id) {
         in GAMEPAD_BUTTON_OFFSET until GAMEPAD_AXIS_OFFSET -> "Button ${id - GAMEPAD_BUTTON_OFFSET}"
         in GAMEPAD_AXIS_OFFSET until GAMEPAD_POV_OFFSET -> "Axis ${(id - GAMEPAD_AXIS_OFFSET) / 2} ${if ((id - GAMEPAD_AXIS_OFFSET) % 2 == 0) "-" else "+"}"
         in GAMEPAD_POV_OFFSET until INPUT_BUTTON_COUNT -> "D-pad ${povLabel(id - GAMEPAD_POV_OFFSET)}"
-        else -> "Input $id"
+        else -> Key(id.toLong()).toString().substringAfterLast('.')
     }
 
     private fun povLabel(direction: Int): String = when (direction) {
@@ -124,23 +105,14 @@ class ControllerSettingsViewModel(
         else -> direction.toString()
     }
 
-    private fun InputMappings.toControllerMappings(): ControllerMappings = ControllerMappings(
-        keyboard = DeviceMappings(keyboard),
-        controller = DeviceMappings(gamepad),
-    )
-
     private companion object {
         val NES_BUTTON_LABELS = arrayOf("A", "B", "Select", "Start", "Up", "Down", "Left", "Right")
     }
 }
 
 data class ControllerSettingsState(
-    val mappings: InputMappings = InputMappings(emptyList(), emptyList()),
-    val captureTarget: CaptureTarget? = null,
+    val mappings: InputMappings = InputMappings(emptyList()),
+    val captureButton: Int? = null,
+    val capturePrimary: Boolean = true,
     val rows: List<ButtonRow> = emptyList(),
-)
-
-data class CaptureTarget(
-    val button: Int,
-    val device: InputDevice,
 )

@@ -4,7 +4,6 @@ import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.AXIS_NEGATIVE
 import frontend.controllerSettings.AXIS_POSITIVE
 import frontend.controllerSettings.InputButton
-import frontend.controllerSettings.InputDevice
 import frontend.controllerSettings.GAMEPAD_BUTTON_COUNT
 import frontend.controllerSettings.NO_NES_BUTTON
 import frontend.controllerSettings.POV_DOWN
@@ -94,7 +93,7 @@ actual class PlatformControllerInput actual constructor(
     }
 
     private fun pressMapped(button: InputButton) {
-        val nesButton = inputMapper.map(InputDevice.Gamepad, button)
+        val nesButton = inputMapper.map(button)
         if (nesButton != NO_NES_BUTTON) controller.press(nesButton)
     }
 

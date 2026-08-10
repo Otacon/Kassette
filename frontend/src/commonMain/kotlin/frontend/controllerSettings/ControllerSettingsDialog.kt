@@ -33,12 +33,13 @@ fun ControllerSettingsDialog(
         viewModel.onCreate()
     }
 
-    val gamepadCaptureTarget = state.captureTarget?.takeIf { it.device == InputDevice.Gamepad }
-    LaunchedEffect(gamepadCaptureTarget) {
+    val captureButton = state.captureButton
+    LaunchedEffect(captureButton) {
+        if (captureButton == null) return@LaunchedEffect
         controllerInput.clearPressedBindings()
         while (true) {
             controllerInput.pressedButtons().firstOrNull()?.let { button ->
-                viewModel.onGamepadInputCaptured(button)
+                viewModel.onInputCaptured(button)
                 return@LaunchedEffect
             }
             delay(50.milliseconds)
@@ -58,9 +59,9 @@ fun ControllerSettingsDialog(
     ) {
         ButtonTable(
             rows = state.rows,
-            captureTarget = state.captureTarget,
+            captureButton = state.captureButton,
             onCaptureStarted = viewModel::onCaptureStarted,
-            onKeyboardCaptured = viewModel::onKeyboardInputCaptured,
+            onKeyboardCaptured = viewModel::onInputCaptured,
             onCaptureCancelled = viewModel::onCaptureCancelled,
             modifier = Modifier
                 .fillMaxWidth()
@@ -72,16 +73,16 @@ fun ControllerSettingsDialog(
 @Composable
 fun ButtonTable(
     rows: List<ButtonRow>,
-    captureTarget: CaptureTarget?,
-    onCaptureStarted: (Int, InputDevice) -> Unit,
+    captureButton: Int?,
+    onCaptureStarted: (Int, Boolean) -> Unit,
     onKeyboardCaptured: (InputButton) -> Unit,
     onCaptureCancelled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(captureTarget) {
-        if (captureTarget != null) focusRequester.requestFocus()
+    LaunchedEffect(captureButton) {
+        if (captureButton != null) focusRequester.requestFocus()
     }
 
     Column(
@@ -89,11 +90,11 @@ fun ButtonTable(
             .fillMaxWidth()
             .focusRequester(focusRequester)
             .onPreviewKeyEvent { event ->
-                val target = captureTarget ?: return@onPreviewKeyEvent false
+                captureButton ?: return@onPreviewKeyEvent false
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
                 if (event.key == Key.Escape) {
                     onCaptureCancelled()
-                } else if (target.device == InputDevice.Keyboard) {
+                } else {
                     onKeyboardCaptured(event.key.inputButton())
                 }
                 true
@@ -104,8 +105,8 @@ fun ButtonTable(
             modifier = Modifier.fillMaxWidth(),
         ) {
             TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Button")
-            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Keyboard")
-            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Gamepad")
+            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Primary")
+            TableHeaderCell(modifier = Modifier.weight(1.0f), text = "Secondary")
         }
 
         HorizontalDivider()
@@ -122,10 +123,10 @@ fun ButtonTable(
                 TableCell(
                     modifier = Modifier
                         .weight(1.0f)
-                        .clickable { onCaptureStarted(row.button, InputDevice.Keyboard) },
+                        .clickable { onCaptureStarted(row.button, true) },
                 ) {
                     BindingText(
-                        value = row.keyboardBinding,
+                        value = row.primaryBinding,
                         modifier = Modifier
                             .fillMaxWidth(),
                     )
@@ -134,10 +135,10 @@ fun ButtonTable(
                 TableCell(
                     modifier = Modifier
                         .weight(1.0f)
-                        .clickable { onCaptureStarted(row.button, InputDevice.Gamepad) },
+                        .clickable { onCaptureStarted(row.button, false) },
                 ) {
                     BindingText(
-                        value = row.gamepadBinding,
+                        value = row.secondaryBinding,
                         modifier = Modifier
                             .fillMaxWidth(),
                     )
@@ -196,6 +197,6 @@ private fun TableCell(
 data class ButtonRow(
     val button: Int,
     val label: String,
-    val keyboardBinding: String,
-    val gamepadBinding: String,
+    val primaryBinding: String,
+    val secondaryBinding: String,
 )
