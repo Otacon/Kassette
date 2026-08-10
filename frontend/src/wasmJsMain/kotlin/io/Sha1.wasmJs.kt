@@ -6,7 +6,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-actual suspend fun sha1Hex(bytes: ByteArray): String = suspendCancellableCoroutine { continuation ->
+actual suspend fun sha1Hex(bytes: ByteArray): String? {
+    if (!hasSubtleCrypto()) return null
+
+    return suspendCancellableCoroutine { continuation ->
     val input = uint8Array(bytes.size)
     bytes.forEachIndexed { index, byte -> uint8ArraySet(input, index, byte.toInt() and 0xff) }
 
@@ -20,6 +23,10 @@ actual suspend fun sha1Hex(bytes: ByteArray): String = suspendCancellableCorouti
         },
     )
 }
+}
+
+@JsFun("() => !!(globalThis.crypto && globalThis.crypto.subtle && globalThis.crypto.subtle.digest)")
+private external fun hasSubtleCrypto(): Boolean
 
 private fun JsAny?.toByteArray(): ByteArray {
     val buffer = requireNotNull(this) { "Missing SHA-1 digest" }
@@ -35,7 +42,7 @@ private external fun uint8ArraySet(array: JsAny, index: Int, value: Int)
 @JsFun(
     """
     (bytes, onSuccess, onError) => {
-        crypto.subtle.digest('SHA-1', bytes).then(onSuccess, onError);
+        globalThis.crypto.subtle.digest('SHA-1', bytes).then(onSuccess, onError);
     }
     """
 )

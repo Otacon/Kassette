@@ -17,14 +17,14 @@ class InesParserComposite(
         val bytes = romData.bytes
         utils.validateHeader(bytes)
         val sha1 = sha1Hex(utils.romBytesForHash(bytes))
-        val result = nes20Db.findBySha1(sha1)
+        val result = sha1?.let { nes20Db.findBySha1(it) }
         if (result != null) {
             log.d { "Found $sha1 entry on nes20DB: $result" }
         } else {
-            log.d { "No results found for ${sha1.uppercase()}" }
+            log.d { "No results found for ${sha1?.uppercase()}" }
         }
         val cartridge = if (utils.isNes2(bytes)) {
-            log.d { "ROM format: NES 2.0" }
+            log.d { "ROM format: iNES 2.0" }
             inesParserV2.parse(romData)
         } else {
             log.d { "ROM format: iNES 1.0" }
