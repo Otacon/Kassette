@@ -22,10 +22,12 @@ import kotlin.system.exitProcess
 @Inject
 class EmulatorApplication(
     private val keyboardInput: PlatformKeyboardInput,
+    private val controllerInput: PlatformControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val audio: PlatformAudioPipeline,
     private val renderer: PlatformRenderer,
     private val viewModel: MainScreenViewModel,
+    private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
 ) {
     private val log = Logger.withTag("EmulatorApplication")
 
@@ -68,11 +70,11 @@ class EmulatorApplication(
                 DisposableEffect(window) {
                     val listener = object : WindowAdapter() {
                         override fun windowActivated(event: WindowEvent) {
-                            coroutineScope.launch { runtimeHost.resume() }
+                            viewModel.onAppInForeground()
                         }
 
                         override fun windowDeactivated(event: WindowEvent) {
-                            coroutineScope.launch { runtimeHost.pause() }
+                            viewModel.onAppInBackground()
                         }
                     }
                     window.addWindowListener(listener)
@@ -82,9 +84,11 @@ class EmulatorApplication(
                 val romPicker = remember(window) { FileChooser(window) }
                 MainScreen(
                     viewModel = viewModel,
+                    controllerSettingsViewModel = controllerSettingsViewModel,
                     frameBuffer = runtimeHost.frameBuffer,
                     renderer = renderer,
                     keyboardInput = keyboardInput,
+                    controllerInput = controllerInput,
                     onTitleChanged = { window.title = it },
                     onOpenRomClick = {
                         coroutineScope.launch {
@@ -92,19 +96,10 @@ class EmulatorApplication(
                             viewModel.onRomSelected(rom)
                         }
                     },
-                    onPauseToggleClick = { paused ->
-                        coroutineScope.launch {
-                            if (paused) runtimeHost.pause() else runtimeHost.resume()
-                            viewModel.setPaused(paused)
-                        }
-                    },
-                    onResetClick = {
-                        coroutineScope.launch {
-                            runtimeHost.reset()
-                            runtimeHost.resume()
-                            viewModel.setPaused(false)
-                        }
-                    },
+                    onPauseToggleClick = viewModel::onPauseClicked,
+                    onResetClick = viewModel::onResetClicked,
+                    onDialogShown = viewModel::onDialogShown,
+                    onDialogDismissed = viewModel::onDialogDismissed,
                     onExitClick = ::exitApplication,
                 )
             }

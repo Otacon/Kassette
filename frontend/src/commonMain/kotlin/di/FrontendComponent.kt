@@ -1,14 +1,17 @@
 package di
 
 import com.cyanotic.kassette.BuildKonfig
-import frontend.*
-import io.Nes20Db
-import io.Nes20DbCsv
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.Scope
 import dev.zacsweers.metro.createGraph
+import frontend.*
+import frontend.controllerSettings.ControllerInputMapper
+import frontend.controllerSettings.ControllerSettingsViewModel
+import io.Nes20Db
+import io.Nes20DbCsv
 import io.Preferences
+import io.toInputMappings
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParserUtils
@@ -29,6 +32,7 @@ interface FrontendComponent {
     val runtimeInput: DelegatingEmulatorInput
     val runtimeHost: EmulatorRuntimeHost
     val viewModel: MainScreenViewModel
+    val controllerSettingsViewModel: ControllerSettingsViewModel
 
     @DependencyGraph.Factory
     fun interface Factory {
@@ -80,13 +84,15 @@ interface FrontendComponent {
     @Provides
     fun keyboardInput(
         machine: NesMachine,
-    ): PlatformKeyboardInput = PlatformKeyboardInput(machine.controller)
+        inputMapper: ControllerInputMapper,
+    ): PlatformKeyboardInput = PlatformKeyboardInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
     fun controllerInput(
         machine: NesMachine,
-    ): PlatformControllerInput = PlatformControllerInput(machine.controller)
+        inputMapper: ControllerInputMapper,
+    ): PlatformControllerInput = PlatformControllerInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
@@ -97,7 +103,12 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun preferences() : Preferences = Preferences()
+    fun preferences(): Preferences = Preferences()
+
+    @AppScope
+    @Provides
+    fun controllerInputMapper(preferences: Preferences): ControllerInputMapper =
+        ControllerInputMapper(preferences.mappings.toInputMappings())
 
     @AppScope
     @Provides
@@ -113,7 +124,7 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun buildKonfig() : BuildKonfig = BuildKonfig
+    fun buildKonfig(): BuildKonfig = BuildKonfig
 }
 
 @Scope

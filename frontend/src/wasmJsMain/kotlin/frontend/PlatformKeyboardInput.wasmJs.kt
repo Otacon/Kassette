@@ -1,19 +1,23 @@
 package frontend
 
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import frontend.controllerSettings.ControllerInputMapper
+import frontend.controllerSettings.NO_NES_BUTTON
+import frontend.controllerSettings.inputButton
 import nes.input.NesController
 
 actual class PlatformKeyboardInput actual constructor(
     private val controller: NesController,
+    private val inputMapper: ControllerInputMapper,
 ) : EmulatorInput {
     private var pressedButtons = 0
 
     actual fun onKeyEvent(event: KeyEvent): Boolean {
-        val button = event.key.toButton() ?: return false
+        val button = inputMapper.map(event.key.inputButton())
+        if (button == NO_NES_BUTTON) return false
         val mask = 1 shl button
         when (event.type) {
             KeyEventType.KeyDown -> pressedButtons = pressedButtons or mask
@@ -48,16 +52,4 @@ actual class PlatformKeyboardInput actual constructor(
     }
 
     private fun Int.isPressed(): Boolean = (pressedButtons and (1 shl this)) != 0
-
-    private fun Key.toButton(): Int? = when (this) {
-        Key.Z -> NesController.BUTTON_A
-        Key.X -> NesController.BUTTON_B
-        Key.ShiftLeft, Key.ShiftRight -> NesController.BUTTON_SELECT
-        Key.Enter -> NesController.BUTTON_START
-        Key.DirectionUp -> NesController.BUTTON_UP
-        Key.DirectionDown -> NesController.BUTTON_DOWN
-        Key.DirectionLeft -> NesController.BUTTON_LEFT
-        Key.DirectionRight -> NesController.BUTTON_RIGHT
-        else -> null
-    }
 }

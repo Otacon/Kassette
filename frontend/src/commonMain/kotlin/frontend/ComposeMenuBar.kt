@@ -36,6 +36,7 @@ fun ComposeMenuBar(
     videoFilter: VideoFilter,
     onToggleCrt: () -> Unit,
     onToggleCastShadow: () -> Unit,
+    onControllerSettings: () -> Unit,
     onExit: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     content: @Composable (Modifier) -> Unit,
@@ -49,6 +50,7 @@ fun ComposeMenuBar(
                     MenuId.File, null -> 4.dp.roundToPx()
                     MenuId.Game -> (4.dp + MENU_BUTTON_WIDTH).roundToPx()
                     MenuId.Video -> (4.dp + MENU_BUTTON_WIDTH * 2).roundToPx()
+                    MenuId.Input -> (4.dp + MENU_BUTTON_WIDTH * 3).roundToPx()
                 },
                 y = MENU_HEIGHT.roundToPx(),
             )
@@ -77,6 +79,11 @@ fun ComposeMenuBar(
                 label = "Video",
                 selected = expandedMenu == MenuId.Video,
                 onClick = { expandedMenu = expandedMenu.toggle(MenuId.Video, onMenuOpened) },
+            )
+            MenuButton(
+                label = "Input",
+                selected = expandedMenu == MenuId.Input,
+                onClick = { expandedMenu = expandedMenu.toggle(MenuId.Input, onMenuOpened) },
             )
         }
         Box(Modifier.fillMaxWidth().weight(1f)) {
@@ -153,6 +160,14 @@ fun ComposeMenuBar(
                         }
                     }
 
+                    MenuId.Input -> {
+                        MenuItem(
+                            label = "Bindings...",
+                        ) {
+                            expandedMenu = null
+                            onControllerSettings()
+                        }
+                    }
                     null -> Unit
                 }
             }
@@ -260,7 +275,7 @@ private fun MenuId?.toggle(menu: MenuId, onMenuOpened: () -> Unit): MenuId? =
         menu
     }
 
-private enum class MenuId { File, Game, Video }
+private enum class MenuId { File, Game, Video, Input }
 
 private val MENU_HEIGHT = 30.dp
 private val MENU_BUTTON_WIDTH = 56.dp

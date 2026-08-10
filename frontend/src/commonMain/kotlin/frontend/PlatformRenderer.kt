@@ -35,7 +35,7 @@ class PlatformRenderer : Renderer {
             this.videoFilter = videoFilter
             castShadowEnabled = videoFilter == VideoFilter.CAST_SHADOWS
             backgroundPaint = Paint().apply { color = Color.BLACK }
-            framePaint = Paint().apply { isAntiAlias = true }
+            framePaint = Paint().apply { isAntiAlias = false }
             when (videoFilter) {
                 VideoFilter.CRT -> {
                     crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))

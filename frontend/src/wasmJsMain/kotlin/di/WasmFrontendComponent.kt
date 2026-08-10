@@ -5,11 +5,13 @@ import frontend.Config
 import frontend.DelegatingEmulatorInput
 import frontend.EmulatorRuntimeHost
 import frontend.MainScreenViewModel
+import frontend.PlatformControllerInput
 import frontend.PlatformRenderer
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
 import frontend.PlatformKeyboardInput
+import frontend.controllerSettings.ControllerSettingsViewModel
 import nes.NesMachine
 
 @AppScope
@@ -37,6 +39,10 @@ interface WasmFrontendComponent {
 
     @AppScope
     @Provides
+    fun controllerInput(component: FrontendComponent): PlatformControllerInput = component.controllerInput
+
+    @AppScope
+    @Provides
     fun runtimeInput(component: FrontendComponent): DelegatingEmulatorInput = component.runtimeInput
 
     @AppScope
@@ -50,4 +56,8 @@ interface WasmFrontendComponent {
     @AppScope
     @Provides
     fun viewModel(component: FrontendComponent): MainScreenViewModel = component.viewModel
+
+    @AppScope
+    @Provides
+    fun controllerSettingsViewModel(component: FrontendComponent): ControllerSettingsViewModel = component.controllerSettingsViewModel
 }

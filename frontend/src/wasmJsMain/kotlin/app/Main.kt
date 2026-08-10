@@ -28,8 +28,10 @@ fun main() {
 class WebEmulatorApplication(
     private val machine: NesMachine,
     private val keyboardInput: PlatformKeyboardInput,
+    private val controllerInput: PlatformControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val viewModel: MainScreenViewModel,
+    private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
     private val renderer: PlatformRenderer,
 ) {
     private val romPicker = FileChooser()
@@ -41,7 +43,11 @@ class WebEmulatorApplication(
         DisposableEffect(Unit) {
             val activityListener = addPageActivityListener {
                 coroutineScope.launch {
-                    if (isPageActive()) runtimeHost.resume() else runtimeHost.pause()
+                    if (isPageActive()) {
+                        viewModel.onAppInForeground()
+                    } else {
+                        viewModel.onAppInBackground()
+                    }
                 }
             }
             runtimeHost.start(
@@ -60,9 +66,11 @@ class WebEmulatorApplication(
 
         MainScreen(
             viewModel = viewModel,
+            controllerSettingsViewModel = controllerSettingsViewModel,
             frameBuffer = runtimeHost.frameBuffer,
             renderer = renderer,
             keyboardInput = keyboardInput,
+            controllerInput = controllerInput,
             onTitleChanged = { document.title = it },
             onOpenRomClick = {
                 coroutineScope.launch {
@@ -70,19 +78,10 @@ class WebEmulatorApplication(
                     viewModel.onRomSelected(rom)
                 }
             },
-            onPauseToggleClick = { paused ->
-                coroutineScope.launch {
-                    if (paused) runtimeHost.pause() else runtimeHost.resume()
-                    viewModel.setPaused(paused)
-                }
-            },
-            onResetClick = {
-                coroutineScope.launch {
-                    runtimeHost.reset()
-                    runtimeHost.resume()
-                    viewModel.setPaused(false)
-                }
-            },
+            onPauseToggleClick = viewModel::onPauseClicked,
+            onResetClick = viewModel::onResetClicked,
+            onDialogShown = viewModel::onDialogShown,
+            onDialogDismissed = viewModel::onDialogDismissed,
         )
     }
 }

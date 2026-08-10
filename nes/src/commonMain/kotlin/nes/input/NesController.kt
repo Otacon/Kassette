@@ -12,6 +12,8 @@ class NesController {
         const val BUTTON_DOWN = 5
         const val BUTTON_LEFT = 6
         const val BUTTON_RIGHT = 7
+
+        val NES_BUTTONS = (BUTTON_A..BUTTON_RIGHT).toList()
     }
 
     private var live = 0

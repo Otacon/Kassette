@@ -1,6 +1,8 @@
 package frontend
 
 import androidx.compose.ui.input.key.KeyEvent
+import frontend.controllerSettings.ControllerInputMapper
+import frontend.controllerSettings.InputButton
 import io.VideoFilter
 import nes.input.NesController
 import org.jetbrains.skia.Canvas
@@ -19,7 +21,7 @@ expect class PlatformAudioPipeline() : AudioPipeline {
     override fun submit(samples: ShortArray, count: Int)
 }
 
-expect class PlatformKeyboardInput(controller: NesController) : EmulatorInput {
+expect class PlatformKeyboardInput(controller: NesController, inputMapper: ControllerInputMapper) : EmulatorInput {
     fun onKeyEvent(event: KeyEvent): Boolean
 
     fun releaseAll()
@@ -29,7 +31,11 @@ expect class PlatformKeyboardInput(controller: NesController) : EmulatorInput {
     override fun poll()
 }
 
-expect class PlatformControllerInput(controller: NesController) : EmulatorInput {
+expect class PlatformControllerInput(controller: NesController, inputMapper: ControllerInputMapper) : EmulatorInput {
+
+    fun pressedButtons(): Set<InputButton>
+
+    fun clearPressedBindings()
 
     override fun init()
 
