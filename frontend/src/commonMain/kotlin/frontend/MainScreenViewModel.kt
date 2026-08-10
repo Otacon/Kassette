@@ -19,6 +19,7 @@ import nes.cartridge.RomData
 class MainScreenViewModel(
     private val config: Config,
     private val machine: NesMachine,
+    private val runtime: EmulatorRuntimeHost,
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,
     private val preferences: Preferences,
@@ -30,6 +31,9 @@ class MainScreenViewModel(
     private var rom: String? = null
     private var fps: Int? = null
     private var region: ConsoleRegion? = null
+    private var dialogShown = false
+    private var appInForeground = true
+    private var userPaused = false
 
     fun onCreate() {
         viewModelScope.launch {
@@ -56,10 +60,35 @@ class MainScreenViewModel(
         it.copy(videoFilter = newVideoFilter)
     }
 
-    fun setPaused(paused: Boolean) {
-        val next = paused && _state.value.isRunning
-        _state.update { it.copy(isPaused = next) }
-        updateTitle()
+    fun onResetClicked() = viewModelScope.launch {
+        machine.reset()
+        userPaused = false
+        applyPauseState()
+    }
+
+    fun onDialogShown() {
+        dialogShown = true
+        applyPauseState()
+    }
+
+    fun onDialogDismissed() {
+        dialogShown = false
+        applyPauseState()
+    }
+
+    fun onAppInForeground() {
+        appInForeground = true
+        applyPauseState()
+    }
+
+    fun onAppInBackground() {
+        appInForeground = false
+        applyPauseState()
+    }
+
+    fun onPauseClicked(isPaused: Boolean) {
+        userPaused = isPaused
+        applyPauseState()
     }
 
     private fun loadRom(romData: RomData) = viewModelScope.launch {
@@ -69,7 +98,17 @@ class MainScreenViewModel(
         machine.powerOff()
         machine.insert(cartridge)
         machine.powerOn()
-        _state.update { it.copy(isPaused = false) }
+        applyPauseState()
+    }
+
+    private fun applyPauseState() = viewModelScope.launch {
+        val shouldPause = userPaused || dialogShown || !appInForeground
+        _state.update { it.copy(isPaused = shouldPause) }
+        if(shouldPause) {
+            runtime.pause()
+        } else {
+            runtime.resume()
+        }
         updateTitle()
     }
 

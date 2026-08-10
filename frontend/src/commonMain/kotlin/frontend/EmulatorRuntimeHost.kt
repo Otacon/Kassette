@@ -45,18 +45,12 @@ class EmulatorRuntimeHost(
     }
 
     suspend fun pause() = mutex.withLock {
-        if (!paused) {
-            paused = true
-            runtime.pause()
-        }
+        paused = true
+        runtime.pause()
     }
 
     suspend fun resume() = mutex.withLock {
         paused = false
-    }
-
-    suspend fun reset() = mutex.withLock {
-        machine.reset()
     }
 
     override fun close() {

@@ -43,7 +43,11 @@ class WebEmulatorApplication(
         DisposableEffect(Unit) {
             val activityListener = addPageActivityListener {
                 coroutineScope.launch {
-                    if (isPageActive()) runtimeHost.resume() else runtimeHost.pause()
+                    if (isPageActive()) {
+                        viewModel.onAppInForeground()
+                    } else {
+                        viewModel.onAppInBackground()
+                    }
                 }
             }
             runtimeHost.start(
@@ -74,31 +78,10 @@ class WebEmulatorApplication(
                     viewModel.onRomSelected(rom)
                 }
             },
-            onPauseToggleClick = { paused ->
-                coroutineScope.launch {
-                    if (paused) runtimeHost.pause() else runtimeHost.resume()
-                    viewModel.setPaused(paused)
-                }
-            },
-            onResetClick = {
-                coroutineScope.launch {
-                    runtimeHost.reset()
-                    runtimeHost.resume()
-                    viewModel.setPaused(false)
-                }
-            },
-            onControllerSettingsOpened = {
-                coroutineScope.launch {
-                    runtimeHost.pause()
-                    viewModel.setPaused(true)
-                }
-            },
-            onControllerSettingsClosed = {
-                coroutineScope.launch {
-                    runtimeHost.resume()
-                    viewModel.setPaused(false)
-                }
-            },
+            onPauseToggleClick = viewModel::onPauseClicked,
+            onResetClick = viewModel::onResetClicked,
+            onDialogShown = viewModel::onDialogShown,
+            onDialogDismissed = viewModel::onDialogDismissed,
         )
     }
 }

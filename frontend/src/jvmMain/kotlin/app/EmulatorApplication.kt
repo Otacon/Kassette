@@ -70,11 +70,11 @@ class EmulatorApplication(
                 DisposableEffect(window) {
                     val listener = object : WindowAdapter() {
                         override fun windowActivated(event: WindowEvent) {
-                            coroutineScope.launch { runtimeHost.resume() }
+                            viewModel.onAppInForeground()
                         }
 
                         override fun windowDeactivated(event: WindowEvent) {
-                            coroutineScope.launch { runtimeHost.pause() }
+                            viewModel.onAppInBackground()
                         }
                     }
                     window.addWindowListener(listener)
@@ -96,31 +96,10 @@ class EmulatorApplication(
                             viewModel.onRomSelected(rom)
                         }
                     },
-                    onPauseToggleClick = { paused ->
-                        coroutineScope.launch {
-                            if (paused) runtimeHost.pause() else runtimeHost.resume()
-                            viewModel.setPaused(paused)
-                        }
-                    },
-                    onResetClick = {
-                        coroutineScope.launch {
-                            runtimeHost.reset()
-                            runtimeHost.resume()
-                            viewModel.setPaused(false)
-                        }
-                    },
-                    onControllerSettingsOpened = {
-                        coroutineScope.launch {
-                            runtimeHost.pause()
-                            viewModel.setPaused(true)
-                        }
-                    },
-                    onControllerSettingsClosed = {
-                        coroutineScope.launch {
-                            runtimeHost.resume()
-                            viewModel.setPaused(false)
-                        }
-                    },
+                    onPauseToggleClick = viewModel::onPauseClicked,
+                    onResetClick = viewModel::onResetClicked,
+                    onDialogShown = viewModel::onDialogShown,
+                    onDialogDismissed = viewModel::onDialogDismissed,
                     onExitClick = ::exitApplication,
                 )
             }

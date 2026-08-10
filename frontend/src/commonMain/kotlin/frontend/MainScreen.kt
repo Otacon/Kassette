@@ -18,8 +18,8 @@ fun MainScreen(
     onOpenRomClick: () -> Unit,
     onPauseToggleClick: (Boolean) -> Unit,
     onResetClick: () -> Unit,
-    onControllerSettingsOpened: () -> Unit,
-    onControllerSettingsClosed: () -> Unit,
+    onDialogShown: () -> Unit,
+    onDialogDismissed: () -> Unit,
     onTitleChanged: (String) -> Unit,
     onExitClick: (() -> Unit)? = null,
 ) {
@@ -45,7 +45,7 @@ fun MainScreen(
         onMenuOpened = { keyboardInput.releaseAll() },
         onMenuDismissed = { focusRequestKey = !focusRequestKey },
         onControllerSettings = {
-            onControllerSettingsOpened()
+            onDialogShown()
             showControllerSettings = true
         },
         videoFilter = state.videoFilter,
@@ -68,7 +68,7 @@ fun MainScreen(
             controllerInput = controllerInput,
             onDismiss = {
                 showControllerSettings = false
-                onControllerSettingsClosed()
+                onDialogDismissed()
             },
         )
     }
