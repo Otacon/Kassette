@@ -13,7 +13,10 @@ import kotlinx.coroutines.launch
 import nes.ConsoleRegion
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
+import nes.cartridge.InesParseResult
 import nes.cartridge.RomData
+import nes.cartridge.UnzipRomResult
+import nes.cartridge.unzipRom
 
 @Inject
 class MainScreenViewModel(
@@ -48,6 +51,8 @@ class MainScreenViewModel(
     fun onRomSelected(romData: RomData?) {
         romData?.let { loadRom(it) }
     }
+
+    fun onLoadErrorDismissed() = _state.update { it.copy(loadError = null) }
 
     fun onFpsUpdated(fps: Int) {
         this.fps = fps
@@ -92,13 +97,33 @@ class MainScreenViewModel(
     }
 
     private fun loadRom(romData: RomData) = viewModelScope.launch {
-        this@MainScreenViewModel.rom = romData.name
-        val cartridge = parser.parse(romData)
-        this@MainScreenViewModel.region = cartridge.region
-        machine.powerOff()
-        machine.insert(cartridge)
-        machine.powerOn()
-        applyPauseState()
+        val resolvedRom = resolveRom(romData) ?: return@launch
+        when (val result = parser.parse(resolvedRom)) {
+            is InesParseResult.Success -> {
+                val cartridge = result.cartridge
+                this@MainScreenViewModel.rom = resolvedRom.name
+                this@MainScreenViewModel.region = cartridge.region
+                machine.powerOff()
+                machine.insert(cartridge)
+                machine.powerOn()
+                applyPauseState()
+            }
+
+            InesParseResult.InvalidRom -> _state.update { it.copy(loadError = "Invalid ROM") }
+            InesParseResult.UnknownError -> _state.update { it.copy(loadError = "Unable to load ROM") }
+        }
+    }
+
+    private suspend fun resolveRom(romData: RomData): RomData? {
+        if (!romData.name.endsWith(".zip", ignoreCase = true)) return romData
+        val message = when (val result = unzipRom(romData)) {
+            is UnzipRomResult.Success -> return result.romData
+            UnzipRomResult.NotFound -> "ZIP archive does not contain a .nes ROM"
+            UnzipRomResult.MultipleRoms -> "ZIP archive contains multiple .nes ROMs"
+            UnzipRomResult.UnknownError -> "Unable to unzip ROM archive"
+        }
+        _state.update { it.copy(loadError = message) }
+        return null
     }
 
     private fun applyPauseState() = viewModelScope.launch {
@@ -139,4 +164,5 @@ data class MainWindowState(
     val showRomPicker: Boolean = false,
     val isPaused: Boolean = false,
     val videoFilter: VideoFilter = VideoFilter.NONE,
+    val loadError: String? = null,
 )

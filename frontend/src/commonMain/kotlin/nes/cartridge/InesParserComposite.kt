@@ -13,7 +13,15 @@ class InesParserComposite(
 ) : InesParser {
     private val log = Logger.withTag("InesParserComposite")
 
-    override suspend fun parse(romData: RomData): Cartridge {
+    override suspend fun parse(romData: RomData): InesParseResult = try {
+        InesParseResult.Success(parseCartridge(romData))
+    } catch (_: RomFormatException) {
+        InesParseResult.InvalidRom
+    } catch (_: Throwable) {
+        InesParseResult.UnknownError
+    }
+
+    private suspend fun parseCartridge(romData: RomData): Cartridge {
         val bytes = romData.bytes
         utils.validateHeader(bytes)
         val sha1 = sha1Hex(utils.romBytesForHash(bytes))
@@ -23,12 +31,16 @@ class InesParserComposite(
         } else {
             log.d { "No results found for ${sha1?.uppercase()}" }
         }
-        val cartridge = if (utils.isNes2(bytes)) {
+        val cartridge = when (val parseResult = if (utils.isNes2(bytes)) {
             log.d { "ROM format: iNES 2.0" }
             inesParserV2.parse(romData)
         } else {
             log.d { "ROM format: iNES 1.0" }
             inesParserV1.parse(romData)
+        }) {
+            is InesParseResult.Success -> parseResult.cartridge
+            InesParseResult.InvalidRom -> throw RomFormatException("Invalid ROM")
+            InesParseResult.UnknownError -> error("Unable to parse ROM")
         }
         return result?.let { cartridge.withNes20DbMetadata(it) } ?: cartridge
     }

@@ -12,7 +12,9 @@ actual class FileChooser(
     actual suspend fun pickRom(): RomData? {
         val dialog = FileDialog(parent, "Open NES ROM", FileDialog.LOAD)
         return try {
-            dialog.filenameFilter = java.io.FilenameFilter { _, name -> name.endsWith(".nes", ignoreCase = true) }
+            dialog.filenameFilter = java.io.FilenameFilter { _, name ->
+                name.endsWith(".nes", ignoreCase = true) || name.endsWith(".zip", ignoreCase = true)
+            }
             dialog.isVisible = true
             val file = dialog.file ?: return null
             val path = Path.of(dialog.directory, file)

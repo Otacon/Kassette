@@ -13,10 +13,10 @@ import androidx.compose.ui.window.Dialog as BasicDialog
 fun Dialog(
     title: String,
     onPositive: () -> Unit,
-    onNegative: () -> Unit,
-    onDismissRequest: () -> Unit = onNegative,
+    onNegative: (() -> Unit)? = null,
+    onDismissRequest: () -> Unit = onNegative ?: onPositive,
     positiveText: String = "OK",
-    negativeText: String = "Cancel",
+    negativeText: String? = "Cancel",
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BasicDialog(
@@ -46,12 +46,14 @@ fun Dialog(
                     .padding(vertical = 8.dp, horizontal = 16.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                Button(
-                    text = negativeText,
-                    onClick = onNegative,
-                )
+                if (onNegative != null && negativeText != null) {
+                    Button(
+                        text = negativeText,
+                        onClick = onNegative,
+                    )
 
-                Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
 
                 Button(
                     text = positiveText,

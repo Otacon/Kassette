@@ -17,7 +17,7 @@ class CliArgsParser : CliktCommand("kassette") {
     val debug: Boolean by option(names = arrayOf("-d", "--debug"), help = "Enable debug logging")
         .flag()
 
-    val rom: Path? by argument(help = "Path to .nes ROM")
+    val rom: Path? by argument(help = "Path to .nes ROM or .zip archive")
         .path(mustExist = true, canBeDir = false)
         .optional()
 

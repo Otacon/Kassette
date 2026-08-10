@@ -1,10 +1,14 @@
 package frontend
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import frontend.controllerSettings.ControllerSettingsDialog
 import frontend.controllerSettings.ControllerSettingsViewModel
+import frontend.components.Dialog
 import io.VideoFilter
 
 @Composable
@@ -33,6 +37,17 @@ fun MainScreen(
 
     LaunchedEffect(state.windowTitle) {
         onTitleChanged(state.windowTitle)
+    }
+
+    DisposableEffect(state.loadError != null) {
+        if (state.loadError != null) {
+            onDialogShown()
+        }
+        onDispose {
+            if (state.loadError != null) {
+                onDialogDismissed()
+            }
+        }
     }
 
     ComposeMenuBar(
@@ -71,5 +86,17 @@ fun MainScreen(
                 onDialogDismissed()
             },
         )
+    }
+    state.loadError?.let { error ->
+        Dialog(
+            title = "ROM Load Error",
+            positiveText = "OK",
+            onPositive = viewModel::onLoadErrorDismissed,
+        ) {
+            BasicText(
+                text = error,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
     }
 }

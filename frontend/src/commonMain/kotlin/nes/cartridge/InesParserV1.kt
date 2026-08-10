@@ -9,7 +9,15 @@ class InesParserV1(
 ) : InesParser {
     private val log = Logger.withTag("InesParserV1")
 
-    override suspend fun parse(romData: RomData): Cartridge {
+    override suspend fun parse(romData: RomData): InesParseResult = try {
+        InesParseResult.Success(parseCartridge(romData))
+    } catch (_: RomFormatException) {
+        InesParseResult.InvalidRom
+    } catch (_: Throwable) {
+        InesParseResult.UnknownError
+    }
+
+    private fun parseCartridge(romData: RomData): Cartridge {
         val bytes = romData.bytes
         utils.validateHeader(bytes)
         if (utils.isNes2(bytes)) {

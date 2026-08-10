@@ -1,7 +1,13 @@
 package nes.cartridge
 
 interface InesParser {
-    suspend fun parse(romData: RomData): Cartridge
+    suspend fun parse(romData: RomData): InesParseResult
+}
+
+sealed interface InesParseResult {
+    data class Success(val cartridge: Cartridge) : InesParseResult
+    data object InvalidRom : InesParseResult
+    data object UnknownError : InesParseResult
 }
 
 data class RomData(
@@ -26,3 +32,12 @@ data class RomData(
         return result
     }
 }
+
+sealed interface UnzipRomResult {
+    data class Success(val romData: RomData) : UnzipRomResult
+    data object NotFound : UnzipRomResult
+    data object MultipleRoms : UnzipRomResult
+    data object UnknownError : UnzipRomResult
+}
+
+expect suspend fun unzipRom(zipData: RomData): UnzipRomResult

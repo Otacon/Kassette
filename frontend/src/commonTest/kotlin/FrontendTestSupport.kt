@@ -1,5 +1,7 @@
 import nes.cartridge.InesParser
+import nes.cartridge.InesParseResult
 import nes.cartridge.RomData
+import nes.cartridge.RomFormatException
 import kotlin.test.fail
 
 fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean = false, prgFill: Int = 0): ByteArray {
@@ -17,9 +19,15 @@ fun ines(prgBanks: Int = 1, chrBanks: Int = 1, flags6: Int = 0, trainer: Boolean
     return header + trainerBytes + prg + chr
 }
 
-suspend fun InesParser.parse(bytes: ByteArray) = parse(RomData("test.nes", bytes))
+suspend fun InesParser.parse(bytes: ByteArray) = parse(RomData("test.nes", bytes)).cartridgeOrThrow()
 
-suspend fun InesParser.parse(bytes: ByteArray, name: String) = parse(RomData(name, bytes))
+suspend fun InesParser.parse(bytes: ByteArray, name: String) = parse(RomData(name, bytes)).cartridgeOrThrow()
+
+fun InesParseResult.cartridgeOrThrow() = when (this) {
+    is InesParseResult.Success -> cartridge
+    InesParseResult.InvalidRom -> throw RomFormatException("Invalid ROM")
+    InesParseResult.UnknownError -> throw RomFormatException("Unable to parse ROM")
+}
 
 suspend inline fun <reified T : Throwable> assertFailsWithSuspend(noinline block: suspend () -> Unit): T {
     try {
