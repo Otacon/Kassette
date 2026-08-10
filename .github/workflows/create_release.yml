@@ -1,4 +1,4 @@
-name: CI
+name: Create release
 
 on:
   push:
@@ -58,7 +58,7 @@ jobs:
           retention-days: 14
 
   wasm:
-    name: WebAssembly
+    name: Web - WebAssembly
 
     runs-on: ubuntu-latest
 
