@@ -15,6 +15,14 @@ class VirtualControllerInput(
         pressedButtons = pressedButtons and (1 shl button).inv()
     }
 
+    fun setDirections(horizontal: Int, vertical: Int) {
+        pressedButtons = pressedButtons and DIRECTION_MASK.inv()
+        if (horizontal < 0) pressedButtons = pressedButtons or (1 shl NesController.BUTTON_LEFT)
+        if (horizontal > 0) pressedButtons = pressedButtons or (1 shl NesController.BUTTON_RIGHT)
+        if (vertical < 0) pressedButtons = pressedButtons or (1 shl NesController.BUTTON_UP)
+        if (vertical > 0) pressedButtons = pressedButtons or (1 shl NesController.BUTTON_DOWN)
+    }
+
     fun releaseAll() {
         pressedButtons = 0
     }
@@ -28,4 +36,12 @@ class VirtualControllerInput(
     override fun pause() = releaseAll()
 
     override fun close() = releaseAll()
+
+    private companion object {
+        const val DIRECTION_MASK =
+            (1 shl NesController.BUTTON_UP) or
+                (1 shl NesController.BUTTON_DOWN) or
+                (1 shl NesController.BUTTON_LEFT) or
+                (1 shl NesController.BUTTON_RIGHT)
+    }
 }

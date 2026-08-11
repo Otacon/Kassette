@@ -25,6 +25,24 @@ class VirtualControllerInputTest {
         assertEquals(0, input.pollAndRead(controller))
     }
 
+    @Test
+    fun `horizontal and vertical directions combine diagonally`() {
+        val controller = NesController()
+        val input = VirtualControllerInput(controller)
+
+        input.setDirections(horizontal = 1, vertical = -1)
+        assertEquals(
+            (1 shl NesController.BUTTON_RIGHT) or (1 shl NesController.BUTTON_UP),
+            input.pollAndRead(controller),
+        )
+
+        input.setDirections(horizontal = -1, vertical = 1)
+        assertEquals(
+            (1 shl NesController.BUTTON_LEFT) or (1 shl NesController.BUTTON_DOWN),
+            input.pollAndRead(controller),
+        )
+    }
+
     private fun VirtualControllerInput.pollAndRead(controller: NesController): Int {
         poll()
         controller.poll()
