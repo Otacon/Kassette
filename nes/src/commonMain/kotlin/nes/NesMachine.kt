@@ -122,7 +122,12 @@ class NesMachine(
 
     private fun clockPpu(masterClocks: Int) {
         val totalClocks = ppuMasterClockRemainder + masterClocks
-        repeat(totalClocks / timing.ppuMasterClockDivider) { ppu.step() }
+        val ppuClocks = totalClocks / timing.ppuMasterClockDivider
+        var clock = 0
+        while (clock < ppuClocks) {
+            ppu.step()
+            clock++
+        }
         ppuMasterClockRemainder = totalClocks % timing.ppuMasterClockDivider
     }
 

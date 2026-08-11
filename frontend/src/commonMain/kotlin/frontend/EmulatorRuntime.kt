@@ -8,7 +8,6 @@ class EmulatorRuntime(
     private val input: EmulatorInput,
     private val video: VideoOutput,
 ) {
-
     suspend fun step(): Boolean {
         input.poll()
         machine.controller.poll()
@@ -21,6 +20,7 @@ class EmulatorRuntime(
             }
             audio.submit(machine.apu.samples, machine.apu.sampleCount)
             video.submit(machine.ppu.completedFrameColorIds)
+
             frameRendered = true
         }
         return frameRendered
