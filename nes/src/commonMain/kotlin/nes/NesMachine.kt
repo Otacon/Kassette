@@ -148,7 +148,7 @@ class NesMachine(
     }
 
     companion object {
-        private const val INPUT_POLLS_PER_SECOND = 500
+        private const val INPUT_POLLS_PER_SECOND = 120
         private const val CPU_CYCLES_PER_YIELD = 2_000
     }
 }

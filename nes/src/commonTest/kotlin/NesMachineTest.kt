@@ -45,7 +45,7 @@ class NesMachineTest {
         assertTrue(machine.ppu.frameComplete)
         assertEquals(240, machine.ppu.scanline)
         assertTrue(machine.cpu.totalCycles > startCycles)
-        assertTrue(inputPolls in 6..10)
+        assertTrue(inputPolls in 1..3)
     }
 
     @Test
