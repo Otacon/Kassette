@@ -89,6 +89,8 @@ class Ppu(
     private var pendingDataWriteValue = 0
     private var pendingDataWriteDelay = 0
     private var pendingVramIncrement = false
+    private val paletteCache = IntArray(32)
+    private var paletteCacheMask = -1
 
     fun reset() = reset(softReset = false)
 
@@ -118,6 +120,7 @@ class Ppu(
         pendingDataReadDelay = 0
         pendingDataWriteDelay = 0
         pendingVramIncrement = false
+        paletteCacheMask = -1
         activeSpriteCount = 0
         fetchedSpriteCount = 0
         activeSpriteZero = false
@@ -578,6 +581,7 @@ class Ppu(
                 pendingDataWriteValue
             }
             bus.write(address, value)
+            if (address >= 0x3F00) paletteCacheMask = -1
             pendingVramIncrement = true
         }
         if (renderingEnabled() && (mask and (MASK_BACKGROUND or MASK_SPRITES)) == 0) {
@@ -644,7 +648,20 @@ class Ppu(
         nmiLine = asserted
     }
 
-    private fun paletteColor(index: Int): Int = Palette.COLORS[ppuRead(0x3F00 + index) and grayscaleMask()]
+    private fun paletteColor(index: Int): Int {
+        val mask = grayscaleMask()
+        if (mask != paletteCacheMask) rebuildPaletteCache(mask)
+        return paletteCache[index and 0x1F]
+    }
+
+    private fun rebuildPaletteCache(mask: Int) {
+        var index = 0
+        while (index < paletteCache.size) {
+            paletteCache[index] = Palette.COLORS[ppuRead(0x3F00 + index) and mask]
+            index++
+        }
+        paletteCacheMask = mask
+    }
 
     private fun grayscaleMask(): Int = if ((mask and 1) != 0) 0x30 else 0x3F
 
