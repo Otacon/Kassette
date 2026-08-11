@@ -374,7 +374,7 @@ class PpuTest {
 
         ppu.step()
 
-        assertEquals(Palette.COLORS[0x22], ppu.backgroundFramebuffer[2])
+        assertEquals(Palette.COLORS[0x22], ppu.framebuffer[2])
     }
 
     @Test
@@ -492,7 +492,6 @@ class PpuTest {
     }
 
     private fun renderedPixel(ppu: Ppu, index: Int): Int {
-        val sprite = ppu.spriteFramebuffer[index]
-        return if (sprite != 0) sprite else ppu.backgroundFramebuffer[index]
+        return ppu.framebuffer[index]
     }
 }

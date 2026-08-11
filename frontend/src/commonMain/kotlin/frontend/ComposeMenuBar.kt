@@ -35,7 +35,6 @@ fun ComposeMenuBar(
     onMenuDismissed: () -> Unit,
     videoFilter: VideoFilter,
     onToggleCrt: () -> Unit,
-    onToggleCastShadow: () -> Unit,
     onControllerSettings: () -> Unit,
     onExit: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -149,14 +148,6 @@ fun ComposeMenuBar(
                         ) {
                             expandedMenu = null
                             onToggleCrt()
-                        }
-                        MenuItem(
-                            label = "Cast Shadow",
-                            checked = videoFilter == VideoFilter.CAST_SHADOWS,
-                            role = Role.Checkbox,
-                        ) {
-                            expandedMenu = null
-                            onToggleCastShadow()
                         }
                     }
 

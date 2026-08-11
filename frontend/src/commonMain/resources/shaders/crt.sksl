@@ -1,5 +1,4 @@
-uniform shader backgroundTexture;
-uniform shader spriteTexture;
+uniform shader frameTexture;
 uniform float2 outputSize;
 uniform float2 destinationOrigin;
 uniform float2 destinationSize;
@@ -13,10 +12,7 @@ float randomValue(float2 point) {
 
 float3 linearSample(float2 coordinate) {
     float2 sourcePoint = coordinate * sourceSize;
-    float4 background = backgroundTexture.eval(sourcePoint);
-    float4 sprite = spriteTexture.eval(sourcePoint);
-    float3 color = mix(background.rgb, sprite.rgb, sprite.a);
-    return pow(color, float3(2.2));
+    return pow(frameTexture.eval(sourcePoint).rgb, float3(2.2));
 }
 
 float3 analogSignal(float2 coordinate) {

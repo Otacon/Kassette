@@ -158,7 +158,7 @@ Input/frontend:
 * Shared menu bar has `File`, `Game`, `Video`, and `Input` menus.
 * `File` opens local ROMs and exits on desktop.
 * `Game` pauses/resumes and resets when a ROM is running.
-* `Video` toggles preference-backed `CRT`, `CAST_SHADOWS`, or `NONE` filters.
+* `Video` toggles preference-backed `CRT` or `NONE` filters.
 * `Input` opens `Bindings...` for primary and secondary mappings per NES button.
 * Default bindings are A=`Z`/gamepad button 1, B=`X`/button 0, Select=`Left Shift`/button 8, Start=`Enter`/button 9,
   D-pad mapped to arrows and gamepad axes 0/1.

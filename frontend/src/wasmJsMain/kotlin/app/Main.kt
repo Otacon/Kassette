@@ -7,6 +7,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeViewport
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import com.cyanotic.kassette.BuildKonfig
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.createGraphFactory
 import di.WasmFrontendComponent
@@ -16,7 +19,8 @@ import kotlinx.coroutines.launch
 import nes.NesMachine
 
 fun main() {
-    val appComponent = createGraphFactory<WasmFrontendComponent.Factory>().create(Config(debug = true))
+    Logger.setMinSeverity(Severity.entries[BuildKonfig.loggingLevel])
+    val appComponent = createGraphFactory<WasmFrontendComponent.Factory>().create(Config())
     val root = document.getElementById("app") ?: document.body ?: error("Missing document body")
     ComposeViewport(root) {
         val application = remember { appComponent.webEmulatorApplication }

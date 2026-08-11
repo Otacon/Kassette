@@ -7,8 +7,14 @@ import nes.util.toUnsignedInt
 class Ppu(
     private val bus: PpuBus,
 ) {
-    val backgroundFramebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
-    val spriteFramebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
+    private val framebuffers = Array(2) { IntArray(SCREEN_WIDTH * SCREEN_HEIGHT) }
+    private var renderFramebufferIndex = 0
+    private var completedFramebufferIndex = 0
+
+    val framebuffer: IntArray
+        get() = framebuffers[renderFramebufferIndex]
+    val completedFramebuffer: IntArray
+        get() = framebuffers[completedFramebufferIndex]
     val oam = ByteArray(256)
 
     var ctrl = 0
@@ -131,8 +137,9 @@ class Ppu(
         nextAttribute = 0
         nextPatternLow = 0
         nextPatternHigh = 0
-        backgroundFramebuffer.fill(0)
-        spriteFramebuffer.fill(0)
+        renderFramebufferIndex = 0
+        completedFramebufferIndex = 0
+        framebuffers.forEach { it.fill(0) }
     }
 
     fun pollNmi(): Boolean {
@@ -208,9 +215,11 @@ class Ppu(
         }
 
         if (scanline == -1) {
+            renderFramebufferIndex = (renderFramebufferIndex + 1) % framebuffers.size
             status = status and STATUS_SPRITE_ZERO_HIT.inv() and STATUS_SPRITE_OVERFLOW.inv()
             fetchedSpriteCount = 0
         } else if (scanline == SCREEN_HEIGHT) {
+            completedFramebufferIndex = renderFramebufferIndex
             frameComplete = true
             frameNumber++
             fetchedSpriteCount = 0
@@ -299,8 +308,7 @@ class Ppu(
         val index = scanline * SCREEN_WIDTH + x
         if (!renderingEnabled()) {
             val paletteIndex = if ((v and 0x3F00) == 0x3F00) v and 0x1F else 0
-            backgroundFramebuffer[index] = paletteColor(paletteIndex)
-            spriteFramebuffer[index] = 0
+            framebuffer[index] = paletteColor(paletteIndex)
             return
         }
         var backgroundColor = 0
@@ -316,8 +324,7 @@ class Ppu(
         }
 
         val backgroundPaletteIndex = if (backgroundColor == 0) 0 else backgroundPalette * 4 + backgroundColor
-        backgroundFramebuffer[index] = paletteColor(backgroundPaletteIndex)
-        spriteFramebuffer[index] = 0
+        framebuffer[index] = paletteColor(backgroundPaletteIndex)
 
         if ((mask and MASK_SPRITES) == 0 || (x < 8 && (mask and MASK_SPRITES_LEFT) == 0)) return
 
@@ -338,7 +345,7 @@ class Ppu(
                         status = status or STATUS_SPRITE_ZERO_HIT
                     }
                     if (backgroundColor == 0 || (attributes and 0x20) == 0) {
-                        spriteFramebuffer[index] = paletteColor(0x10 + (attributes and 3) * 4 + spriteColor)
+                        framebuffer[index] = paletteColor(0x10 + (attributes and 3) * 4 + spriteColor)
                     }
                     return
                 }
