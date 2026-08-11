@@ -77,5 +77,5 @@ class PlatformRendererTest {
         }
     }
 
-    private fun testFrame(): IntArray = IntArray(256 * 240) { Color.WHITE }
+    private fun testFrame(): ByteArray = ByteArray(256 * 240) { 0x21 }
 }

@@ -10,7 +10,7 @@ import org.jetbrains.skia.Canvas
 interface Renderer {
     fun init(videoFilter: VideoFilter)
 
-    fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int)
+    fun present(framebuffer: ByteArray, windowWidth: Int, windowHeight: Int)
 
     fun draw(canvas: Canvas)
 

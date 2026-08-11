@@ -9,5 +9,5 @@ interface AudioPipeline {
 }
 
 interface VideoOutput {
-    fun submit(framebuffer: IntArray)
+    fun submit(framebuffer: ByteArray)
 }

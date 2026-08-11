@@ -5,14 +5,14 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 class SharedFrameBuffer : VideoOutput {
-    val initialFrame = IntArray(256 * 240)
-    private val _frames = MutableSharedFlow<IntArray>(
+    val initialFrame = ByteArray(256 * 240)
+    private val _frames = MutableSharedFlow<ByteArray>(
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val frames = _frames.asSharedFlow()
 
-    override fun submit(framebuffer: IntArray) {
+    override fun submit(framebuffer: ByteArray) {
         _frames.tryEmit(framebuffer)
     }
 }
