@@ -11,6 +11,7 @@ import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
 import frontend.PlatformKeyboardInput
+import frontend.VirtualControllerInput
 import frontend.controllerSettings.ControllerSettingsViewModel
 import nes.NesMachine
 
@@ -40,6 +41,10 @@ interface WasmFrontendComponent {
     @AppScope
     @Provides
     fun controllerInput(component: FrontendComponent): PlatformControllerInput = component.controllerInput
+
+    @AppScope
+    @Provides
+    fun virtualControllerInput(component: FrontendComponent): VirtualControllerInput = component.virtualControllerInput
 
     @AppScope
     @Provides
