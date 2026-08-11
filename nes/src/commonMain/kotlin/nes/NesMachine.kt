@@ -3,6 +3,7 @@ package nes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.yield
 import nes.apu.NesApu
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
@@ -72,6 +73,26 @@ class NesMachine(
         }
     }
 
+    suspend fun runUntilFrameYielding(onInputPoll: (() -> Unit)? = null) {
+        ppu.clearFrameComplete()
+        apu.beginFrame()
+        inputPollCallback = onInputPoll
+        cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        var cyclesUntilYield = CPU_CYCLES_PER_YIELD
+        try {
+            while (!ppu.frameComplete) {
+                cpu.step()
+                cyclesUntilYield--
+                if (cyclesUntilYield <= 0) {
+                    yield()
+                    cyclesUntilYield = CPU_CYCLES_PER_YIELD
+                }
+            }
+        } finally {
+            inputPollCallback = null
+        }
+    }
+
     private fun clockCpuPhase(type: CpuBus.CycleType, beforeAccess: Boolean) {
         val preAccessClocks = when (type) {
             CpuBus.CycleType.WRITE, CpuBus.CycleType.DUMMY_WRITE, CpuBus.CycleType.DMA_WRITE ->
@@ -122,5 +143,6 @@ class NesMachine(
 
     companion object {
         private const val INPUT_POLLS_PER_SECOND = 500
+        private const val CPU_CYCLES_PER_YIELD = 2_000
     }
 }

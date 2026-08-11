@@ -9,13 +9,13 @@ class EmulatorRuntime(
     private val video: VideoOutput,
 ) {
 
-    fun step(): Boolean {
+    suspend fun step(): Boolean {
         input.poll()
         machine.controller.poll()
 
         var frameRendered = false
         if (machine.isPoweredOn.value) {
-            machine.runUntilFrame {
+            machine.runUntilFrameYielding {
                 input.poll()
                 machine.controller.poll()
             }
