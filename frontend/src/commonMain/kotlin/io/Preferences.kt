@@ -56,7 +56,7 @@ class Preferences {
 }
 
 enum class VideoFilter {
-    CRT, CAST_SHADOWS, NONE
+    CRT, NONE
 }
 
 @Serializable

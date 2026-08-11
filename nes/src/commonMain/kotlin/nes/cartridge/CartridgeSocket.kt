@@ -4,6 +4,7 @@ import nes.ConsoleRegion
 
 class CartridgeSocket {
     private var cartridge: Cartridge? = null
+    private var mapper: Mapper? = null
 
     var mirroring: Mirroring? = null
         private set
@@ -13,49 +14,53 @@ class CartridgeSocket {
 
     fun insert(cartridge: Cartridge) {
         this.cartridge = cartridge
-        mirroring = cartridge.mapper.mirroring() ?: cartridge.mirroring
+        mapper = cartridge.mapper
+        mirroring = mapper?.mirroring() ?: cartridge.mirroring
         region = cartridge.region
     }
 
     fun remove() {
         cartridge = null
+        mapper = null
         mirroring = null
         region = ConsoleRegion.NTSC
     }
 
     fun reset() {
         val inserted = cartridge ?: return
-        inserted.mapper.reset()
-        mirroring = inserted.mapper.mirroring() ?: inserted.mirroring
+        val activeMapper = mapper ?: return
+        activeMapper.reset()
+        mirroring = activeMapper.mirroring() ?: inserted.mirroring
     }
 
     fun cpuRead(address: Int): Int {
-        return cartridge?.mapper?.cpuRead(address) ?: 0
+        return mapper?.cpuRead(address) ?: 0
     }
 
     fun cpuRead(address: Int, openBus: Int): Int {
-        return cartridge?.mapper?.cpuRead(address, openBus) ?: 0
+        return mapper?.cpuRead(address, openBus) ?: 0
     }
 
     fun cpuWrite(address: Int, value: Int) {
         val inserted = cartridge ?: return
-        inserted.mapper.cpuWrite(address, value)
-        mirroring = inserted.mapper.mirroring() ?: inserted.mirroring
+        val activeMapper = mapper ?: return
+        activeMapper.cpuWrite(address, value)
+        mirroring = activeMapper.mirroring() ?: inserted.mirroring
     }
 
     fun ppuRead(address: Int): Int {
-        return cartridge?.mapper?.ppuRead(address) ?: 0
+        return mapper?.ppuRead(address) ?: 0
     }
 
     fun ppuWrite(address: Int, value: Int) {
-        cartridge?.mapper?.ppuWrite(address, value)
+        mapper?.ppuWrite(address, value)
     }
 
     fun clockScanline() {
-        cartridge?.mapper?.clockScanline()
+        mapper?.clockScanline()
     }
 
     fun irqPending(): Boolean {
-        return cartridge?.mapper?.irqPending() ?: false
+        return mapper?.irqPending() ?: false
     }
 }

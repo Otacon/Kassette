@@ -8,24 +8,19 @@ class EmulatorRuntime(
     private val input: EmulatorInput,
     private val video: VideoOutput,
 ) {
-
-    fun step(): Boolean {
+    suspend fun step(): Boolean {
         input.poll()
         machine.controller.poll()
 
         var frameRendered = false
         if (machine.isPoweredOn.value) {
-            machine.runUntilFrame {
+            machine.runUntilFrameYielding {
                 input.poll()
                 machine.controller.poll()
             }
             audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            video.submit(
-                VideoFrame(
-                    machine.ppu.backgroundFramebuffer,
-                    machine.ppu.spriteFramebuffer,
-                ),
-            )
+            video.submit(machine.ppu.completedFrameColorIds)
+
             frameRendered = true
         }
         return frameRendered

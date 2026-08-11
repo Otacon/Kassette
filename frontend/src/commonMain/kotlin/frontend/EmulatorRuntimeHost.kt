@@ -87,9 +87,14 @@ private fun CoroutineScope.startEmulatorLoop(
                 fpsTime = TimeSource.Monotonic.markNow()
             }
 
-            nextFrame += frameDuration
-            if (nextFrame.elapsedNow() > frameDuration * 4) {
+            if (frameRendered) {
+                nextFrame += frameDuration
+                if (nextFrame.elapsedNow() > frameDuration * 4) {
+                    nextFrame = TimeSource.Monotonic.markNow() + frameDuration
+                }
+            } else {
                 nextFrame = TimeSource.Monotonic.markNow() + frameDuration
+                delay(1)
             }
         }
     } catch (error: CancellationException) {

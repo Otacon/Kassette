@@ -3,6 +3,7 @@ package frontend
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.Surface
+import io.VideoFilter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -30,7 +31,7 @@ class PlatformRendererTest {
         val renderer = PlatformRenderer()
         val surface = Surface.makeRasterN32Premul(512, 480)
         return try {
-            renderer.init(crt, castShadow = false)
+            renderer.init(if (crt) VideoFilter.CRT else VideoFilter.NONE)
             renderer.present(testFrame(), 512, 480)
             renderer.draw(surface.canvas)
 
@@ -55,7 +56,7 @@ class PlatformRendererTest {
         val renderer = PlatformRenderer()
         val surface = Surface.makeRasterN32Premul(800, 480)
         return try {
-            renderer.init(crt, castShadow = false)
+            renderer.init(if (crt) VideoFilter.CRT else VideoFilter.NONE)
             renderer.present(testFrame(), 800, 480)
             renderer.draw(surface.canvas)
 
@@ -76,11 +77,5 @@ class PlatformRendererTest {
         }
     }
 
-    private fun testFrame(): VideoFrame {
-        val pixels = IntArray(256 * 240) { Color.WHITE }
-        return VideoFrame(
-            background = pixels.copyOf(),
-            sprites = IntArray(256 * 240),
-        )
-    }
+    private fun testFrame(): ByteArray = ByteArray(256 * 240) { 0x21 }
 }

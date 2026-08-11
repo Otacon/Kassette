@@ -3,6 +3,7 @@ package nes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.yield
 import nes.apu.NesApu
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
@@ -72,24 +73,45 @@ class NesMachine(
         }
     }
 
+    suspend fun runUntilFrameYielding(onInputPoll: (() -> Unit)? = null) {
+        ppu.clearFrameComplete()
+        apu.beginFrame()
+        inputPollCallback = onInputPoll
+        cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        var cyclesUntilYield = CPU_CYCLES_PER_YIELD
+        try {
+            while (!ppu.frameComplete) {
+                cpu.step()
+                cyclesUntilYield--
+                if (cyclesUntilYield <= 0) {
+                    yield()
+                    cyclesUntilYield = CPU_CYCLES_PER_YIELD
+                }
+            }
+        } finally {
+            inputPollCallback = null
+        }
+    }
+
     private fun clockCpuPhase(type: CpuBus.CycleType, beforeAccess: Boolean) {
+        val currentTiming = timing
         val preAccessClocks = when (type) {
             CpuBus.CycleType.WRITE, CpuBus.CycleType.DUMMY_WRITE, CpuBus.CycleType.DMA_WRITE ->
-                timing.writePreAccessClocks
-            else -> timing.readPreAccessClocks
+                currentTiming.writePreAccessClocks
+            else -> currentTiming.readPreAccessClocks
         }
         val masterClocks = if (beforeAccess) {
             preAccessClocks
         } else {
-            timing.cpuMasterClockDivider - preAccessClocks
+            currentTiming.cpuMasterClockDivider - preAccessClocks
         }
-        clockPpu(masterClocks)
+        clockPpu(masterClocks, currentTiming.ppuMasterClockDivider)
         if (!beforeAccess) {
             sampleInterruptLines()
             return
         }
 
-        apu.step(1)
+        apu.step()
 
         val callback = inputPollCallback ?: return
         cyclesUntilInputPoll--
@@ -99,10 +121,15 @@ class NesMachine(
         }
     }
 
-    private fun clockPpu(masterClocks: Int) {
+    private fun clockPpu(masterClocks: Int, ppuMasterClockDivider: Int) {
         val totalClocks = ppuMasterClockRemainder + masterClocks
-        repeat(totalClocks / timing.ppuMasterClockDivider) { ppu.step() }
-        ppuMasterClockRemainder = totalClocks % timing.ppuMasterClockDivider
+        val ppuClocks = totalClocks / ppuMasterClockDivider
+        var clock = 0
+        while (clock < ppuClocks) {
+            ppu.step()
+            clock++
+        }
+        ppuMasterClockRemainder = totalClocks % ppuMasterClockDivider
     }
 
     private fun sampleInterruptLines() {
@@ -121,6 +148,7 @@ class NesMachine(
     }
 
     companion object {
-        private const val INPUT_POLLS_PER_SECOND = 500
+        private const val INPUT_POLLS_PER_SECOND = 120
+        private const val CPU_CYCLES_PER_YIELD = 2_000
     }
 }

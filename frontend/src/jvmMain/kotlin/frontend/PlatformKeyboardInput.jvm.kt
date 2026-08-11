@@ -29,14 +29,7 @@ actual class PlatformKeyboardInput actual constructor(
 
     @Synchronized
     actual override fun poll() {
-        if (NesController.BUTTON_A.isPressed()) controller.press(NesController.BUTTON_A)
-        if (NesController.BUTTON_B.isPressed()) controller.press(NesController.BUTTON_B)
-        if (NesController.BUTTON_SELECT.isPressed()) controller.press(NesController.BUTTON_SELECT)
-        if (NesController.BUTTON_START.isPressed()) controller.press(NesController.BUTTON_START)
-        if (NesController.BUTTON_UP.isPressed()) controller.press(NesController.BUTTON_UP)
-        if (NesController.BUTTON_DOWN.isPressed()) controller.press(NesController.BUTTON_DOWN)
-        if (NesController.BUTTON_LEFT.isPressed()) controller.press(NesController.BUTTON_LEFT)
-        if (NesController.BUTTON_RIGHT.isPressed()) controller.press(NesController.BUTTON_RIGHT)
+        controller.pressMask(pressedButtons)
     }
 
     @Synchronized
@@ -53,6 +46,4 @@ actual class PlatformKeyboardInput actual constructor(
     override fun close() {
         pressedButtons = 0
     }
-
-    private fun Int.isPressed(): Boolean = (pressedButtons and (1 shl this)) != 0
 }

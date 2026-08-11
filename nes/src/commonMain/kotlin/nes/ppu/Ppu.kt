@@ -7,8 +7,15 @@ import nes.util.toUnsignedInt
 class Ppu(
     private val bus: PpuBus,
 ) {
-    val backgroundFramebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
-    val spriteFramebuffer = IntArray(SCREEN_WIDTH * SCREEN_HEIGHT)
+    private val frameColorIds = Array(2) { ByteArray(SCREEN_WIDTH * SCREEN_HEIGHT) }
+    private val argbFramebuffers = arrayOfNulls<IntArray>(2)
+    private var renderFramebufferIndex = 0
+    private var completedFramebufferIndex = 0
+
+    val framebuffer: IntArray
+        get() = argbFramebuffer(renderFramebufferIndex)
+    val completedFrameColorIds: ByteArray
+        get() = frameColorIds[completedFramebufferIndex]
     val oam = ByteArray(256)
 
     var ctrl = 0
@@ -83,6 +90,8 @@ class Ppu(
     private var pendingDataWriteValue = 0
     private var pendingDataWriteDelay = 0
     private var pendingVramIncrement = false
+    private val paletteColorIdCache = IntArray(32)
+    private var paletteColorIdCacheMask = -1
 
     fun reset() = reset(softReset = false)
 
@@ -112,6 +121,7 @@ class Ppu(
         pendingDataReadDelay = 0
         pendingDataWriteDelay = 0
         pendingVramIncrement = false
+        paletteColorIdCacheMask = -1
         activeSpriteCount = 0
         fetchedSpriteCount = 0
         activeSpriteZero = false
@@ -131,8 +141,10 @@ class Ppu(
         nextAttribute = 0
         nextPatternLow = 0
         nextPatternHigh = 0
-        backgroundFramebuffer.fill(0)
-        spriteFramebuffer.fill(0)
+        renderFramebufferIndex = 0
+        completedFramebufferIndex = 0
+        frameColorIds.forEach { it.fill(0) }
+        argbFramebuffers.forEach { it?.fill(0) }
     }
 
     fun pollNmi(): Boolean {
@@ -208,9 +220,11 @@ class Ppu(
         }
 
         if (scanline == -1) {
+            renderFramebufferIndex = (renderFramebufferIndex + 1) % frameColorIds.size
             status = status and STATUS_SPRITE_ZERO_HIT.inv() and STATUS_SPRITE_OVERFLOW.inv()
             fetchedSpriteCount = 0
         } else if (scanline == SCREEN_HEIGHT) {
+            completedFramebufferIndex = renderFramebufferIndex
             frameComplete = true
             frameNumber++
             fetchedSpriteCount = 0
@@ -299,8 +313,7 @@ class Ppu(
         val index = scanline * SCREEN_WIDTH + x
         if (!renderingEnabled()) {
             val paletteIndex = if ((v and 0x3F00) == 0x3F00) v and 0x1F else 0
-            backgroundFramebuffer[index] = paletteColor(paletteIndex)
-            spriteFramebuffer[index] = 0
+            writePixel(index, paletteIndex)
             return
         }
         var backgroundColor = 0
@@ -316,8 +329,7 @@ class Ppu(
         }
 
         val backgroundPaletteIndex = if (backgroundColor == 0) 0 else backgroundPalette * 4 + backgroundColor
-        backgroundFramebuffer[index] = paletteColor(backgroundPaletteIndex)
-        spriteFramebuffer[index] = 0
+        writePixel(index, backgroundPaletteIndex)
 
         if ((mask and MASK_SPRITES) == 0 || (x < 8 && (mask and MASK_SPRITES_LEFT) == 0)) return
 
@@ -338,7 +350,7 @@ class Ppu(
                         status = status or STATUS_SPRITE_ZERO_HIT
                     }
                     if (backgroundColor == 0 || (attributes and 0x20) == 0) {
-                        spriteFramebuffer[index] = paletteColor(0x10 + (attributes and 3) * 4 + spriteColor)
+                        writePixel(index, 0x10 + (attributes and 3) * 4 + spriteColor)
                     }
                     return
                 }
@@ -571,6 +583,7 @@ class Ppu(
                 pendingDataWriteValue
             }
             bus.write(address, value)
+            if (address >= 0x3F00) paletteColorIdCacheMask = -1
             pendingVramIncrement = true
         }
         if (renderingEnabled() && (mask and (MASK_BACKGROUND or MASK_SPRITES)) == 0) {
@@ -637,7 +650,39 @@ class Ppu(
         nmiLine = asserted
     }
 
-    private fun paletteColor(index: Int): Int = Palette.COLORS[ppuRead(0x3F00 + index) and grayscaleMask()]
+    private fun writePixel(index: Int, paletteIndex: Int) {
+        val colorId = paletteColorId(paletteIndex)
+        frameColorIds[renderFramebufferIndex][index] = colorId.toByte()
+    }
+
+    private fun argbFramebuffer(framebufferIndex: Int): IntArray {
+        val argbFramebuffer = argbFramebuffers[framebufferIndex]
+            ?: IntArray(SCREEN_WIDTH * SCREEN_HEIGHT).also { argbFramebuffers[framebufferIndex] = it }
+
+        val colorIds = frameColorIds[framebufferIndex]
+        var index = 0
+        while (index < colorIds.size) {
+            argbFramebuffer[index] = Palette.COLORS[colorIds[index].toInt() and 0x3F]
+            index++
+        }
+
+        return argbFramebuffer
+    }
+
+    private fun paletteColorId(index: Int): Int {
+        val mask = grayscaleMask()
+        if (mask != paletteColorIdCacheMask) rebuildPaletteColorIdCache(mask)
+        return paletteColorIdCache[index and 0x1F]
+    }
+
+    private fun rebuildPaletteColorIdCache(mask: Int) {
+        var index = 0
+        while (index < paletteColorIdCache.size) {
+            paletteColorIdCache[index] = ppuRead(0x3F00 + index) and mask
+            index++
+        }
+        paletteColorIdCacheMask = mask
+    }
 
     private fun grayscaleMask(): Int = if ((mask and 1) != 0) 0x30 else 0x3F
 

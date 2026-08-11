@@ -40,6 +40,10 @@ class NesController {
         buffered = buffered or (1 shl button)
     }
 
+    fun pressMask(buttons: Int) {
+        buffered = buffered or (buttons and 0xFF)
+    }
+
     fun write(value: Int) {
         strobe = (value and 1) != 0
         if (strobe) {

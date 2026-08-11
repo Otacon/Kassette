@@ -65,7 +65,6 @@ fun MainScreen(
         },
         videoFilter = state.videoFilter,
         onToggleCrt = { viewModel.setVideoFilter(videoFilter = VideoFilter.CRT) },
-        onToggleCastShadow = { viewModel.setVideoFilter(videoFilter = VideoFilter.CAST_SHADOWS) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
         ComposeSkiaScreen(

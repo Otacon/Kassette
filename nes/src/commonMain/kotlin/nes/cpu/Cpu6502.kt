@@ -101,6 +101,7 @@ private const val BRANCH_FLAG = 1 shl 12
 private const val WRITE_FLAG = 1 shl 13
 private const val UNSTABLE_WRITE_FLAG = 1 shl 14
 private const val RMW_FLAG = 1 shl 15
+private const val READ_CYCLES_SHIFT = 8
 
 private fun opcode(operation: Int, mode: Int): Int {
     val category = when (operation) {
@@ -366,9 +367,11 @@ class Cpu6502(
         val start = totalCycles
         val stalls = bus.consumeDmaCycles()
         if (stalls > 0) {
-            repeat(stalls) {
+            var stall = 0
+            while (stall < stalls) {
                 bus.idle(CpuBus.CycleType.STALL)
                 totalCycles++
+                stall++
             }
             return stalls
         }
@@ -533,12 +536,39 @@ class Cpu6502(
         val old = read(address)
         dummyWrite(address, old)
         val result = when (instruction) {
-            SLO -> transform(ASL, old).also { a = a or it; zn(a) }
-            RLA -> transform(ROL, old).also { a = a and it; zn(a) }
-            SRE -> transform(LSR, old).also { a = a xor it; zn(a) }
-            RRA -> transform(ROR, old).also(::adc)
-            DCP -> (old - 1).low8Bits().also { compare(a, it) }
-            ISB -> (old + 1).low8Bits().also(::sbc)
+            SLO -> {
+                val transformed = transform(ASL, old)
+                a = a or transformed
+                zn(a)
+                transformed
+            }
+            RLA -> {
+                val transformed = transform(ROL, old)
+                a = a and transformed
+                zn(a)
+                transformed
+            }
+            SRE -> {
+                val transformed = transform(LSR, old)
+                a = a xor transformed
+                zn(a)
+                transformed
+            }
+            RRA -> {
+                val transformed = transform(ROR, old)
+                adc(transformed)
+                transformed
+            }
+            DCP -> {
+                val transformed = (old - 1).low8Bits()
+                compare(a, transformed)
+                transformed
+            }
+            ISB -> {
+                val transformed = (old + 1).low8Bits()
+                sbc(transformed)
+                transformed
+            }
             else -> transform(instruction, old)
         }
         write(address, result)
@@ -549,8 +579,16 @@ class Cpu6502(
         LSR -> lsrValue(value)
         ROL -> rolValue(value)
         ROR -> rorValue(value)
-        INC -> (value + 1).low8Bits().also(::zn)
-        DEC -> (value - 1).low8Bits().also(::zn)
+        INC -> {
+            val result = (value + 1).low8Bits()
+            zn(result)
+            result
+        }
+        DEC -> {
+            val result = (value - 1).low8Bits()
+            zn(result)
+            result
+        }
         else -> error("Unsupported RMW instruction $instruction")
     }
 
@@ -600,14 +638,14 @@ class Cpu6502(
 
     private fun read(address: Int, opcodeFetch: Boolean = false): Int {
         val result = bus.cpuRead(address, totalCycles, opcodeFetch = opcodeFetch)
-        totalCycles += result.cycles
-        return result.value
+        totalCycles += result ushr READ_CYCLES_SHIFT
+        return result and 0xFF
     }
 
     private fun dummyRead(address: Int, opcodeFetch: Boolean = false): Int {
         val result = bus.cpuRead(address, totalCycles, dummy = true, opcodeFetch = opcodeFetch)
-        totalCycles += result.cycles
-        return result.value
+        totalCycles += result ushr READ_CYCLES_SHIFT
+        return result and 0xFF
     }
 
     private fun fetch(): Int {
@@ -742,8 +780,7 @@ class Cpu6502(
 
     private fun zn(value: Int) {
         val result = value.low8Bits()
-        set(Z, result == 0)
-        set(N, (result and N) != 0)
+        status = (status and (Z or N).inv()) or (result and N) or if (result == 0) Z else 0
     }
 
     private fun adc(value: Int) {
@@ -771,24 +808,32 @@ class Cpu6502(
 
     private fun aslValue(value: Int): Int {
         set(C, (value and 0x80) != 0)
-        return (value shl 1).low8Bits().also(::zn)
+        val result = (value shl 1).low8Bits()
+        zn(result)
+        return result
     }
 
     private fun lsrValue(value: Int): Int {
         set(C, (value and 1) != 0)
-        return (value ushr 1).low8Bits().also(::zn)
+        val result = (value ushr 1).low8Bits()
+        zn(result)
+        return result
     }
 
     private fun rolValue(value: Int): Int {
         val carry = if (flag(C)) 1 else 0
         set(C, (value and 0x80) != 0)
-        return ((value shl 1) or carry).low8Bits().also(::zn)
+        val result = ((value shl 1) or carry).low8Bits()
+        zn(result)
+        return result
     }
 
     private fun rorValue(value: Int): Int {
         val carry = if (flag(C)) 0x80 else 0
         set(C, (value and 1) != 0)
-        return ((value ushr 1) or carry).low8Bits().also(::zn)
+        val result = ((value ushr 1) or carry).low8Bits()
+        zn(result)
+        return result
     }
 
     private fun arr(value: Int) {
