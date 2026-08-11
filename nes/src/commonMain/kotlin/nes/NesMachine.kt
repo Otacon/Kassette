@@ -94,23 +94,24 @@ class NesMachine(
     }
 
     private fun clockCpuPhase(type: CpuBus.CycleType, beforeAccess: Boolean) {
+        val currentTiming = timing
         val preAccessClocks = when (type) {
             CpuBus.CycleType.WRITE, CpuBus.CycleType.DUMMY_WRITE, CpuBus.CycleType.DMA_WRITE ->
-                timing.writePreAccessClocks
-            else -> timing.readPreAccessClocks
+                currentTiming.writePreAccessClocks
+            else -> currentTiming.readPreAccessClocks
         }
         val masterClocks = if (beforeAccess) {
             preAccessClocks
         } else {
-            timing.cpuMasterClockDivider - preAccessClocks
+            currentTiming.cpuMasterClockDivider - preAccessClocks
         }
-        clockPpu(masterClocks)
+        clockPpu(masterClocks, currentTiming.ppuMasterClockDivider)
         if (!beforeAccess) {
             sampleInterruptLines()
             return
         }
 
-        apu.step(1)
+        apu.step()
 
         val callback = inputPollCallback ?: return
         cyclesUntilInputPoll--
@@ -120,15 +121,15 @@ class NesMachine(
         }
     }
 
-    private fun clockPpu(masterClocks: Int) {
+    private fun clockPpu(masterClocks: Int, ppuMasterClockDivider: Int) {
         val totalClocks = ppuMasterClockRemainder + masterClocks
-        val ppuClocks = totalClocks / timing.ppuMasterClockDivider
+        val ppuClocks = totalClocks / ppuMasterClockDivider
         var clock = 0
         while (clock < ppuClocks) {
             ppu.step()
             clock++
         }
-        ppuMasterClockRemainder = totalClocks % timing.ppuMasterClockDivider
+        ppuMasterClockRemainder = totalClocks % ppuMasterClockDivider
     }
 
     private fun sampleInterruptLines() {

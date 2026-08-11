@@ -42,13 +42,11 @@ class CpuBus(
         fun onPhase(type: CycleType, beforeAccess: Boolean)
     }
 
-    internal data class CpuReadResult(val value: Int, val cycles: Int)
-
     val ram = ByteArray(2048)
     private val cycleListeners = mutableListOf<CycleListener>()
-    private val cyclePhaseListeners = mutableListOf<CyclePhaseListener>()
+    private var cyclePhaseListener: CyclePhaseListener? = null
     private var openBus = 0
-    private var oamDmaPage: Int? = null
+    private var oamDmaPage = NO_DMA_PAGE
 
     /** Adds a listener invoked exactly once for every CPU-owned cycle. */
     fun setCycleListener(listener: CycleListener) {
@@ -56,7 +54,7 @@ class CpuBus(
     }
 
     fun setCyclePhaseListener(listener: CyclePhaseListener) {
-        cyclePhaseListeners += listener
+        cyclePhaseListener = listener
     }
 
     /** Direct, unclocked bus access for tests, debuggers, and setup code. */
@@ -72,7 +70,7 @@ class CpuBus(
         cycle: Long,
         dummy: Boolean = false,
         opcodeFetch: Boolean = false,
-    ): CpuReadResult {
+    ): Int {
         val dmaCycles = if (cartridgeSocket.region != ConsoleRegion.PAL || opcodeFetch) {
             runPendingOamDma(address.low16Bits(), cycle)
         } else {
@@ -80,7 +78,7 @@ class CpuBus(
         }
         val type = if (dummy) CycleType.DUMMY_READ else CycleType.READ
         val value = clockedRead(address, type)
-        return CpuReadResult(value, dmaCycles + 1)
+        return value or ((dmaCycles + 1) shl READ_CYCLES_SHIFT)
     }
 
     internal fun cpuWrite(address: Int, value: Int, dummy: Boolean = false) {
@@ -98,12 +96,13 @@ class CpuBus(
     fun reset() {
         cpuStall.reset()
         openBus = 0
-        oamDmaPage = null
+        oamDmaPage = NO_DMA_PAGE
     }
 
     private fun runPendingOamDma(readAddress: Int, startCycle: Long): Int {
-        val page = oamDmaPage ?: return 0
-        oamDmaPage = null
+        val page = oamDmaPage
+        if (page == NO_DMA_PAGE) return 0
+        oamDmaPage = NO_DMA_PAGE
 
         var cycles = 0
         var value = clockedRead(readAddress, CycleType.DMA_READ)
@@ -116,10 +115,12 @@ class CpuBus(
         }
 
         val base = page shl 8
-        repeat(256) { offset ->
+        var offset = 0
+        while (offset < 256) {
             value = dmaRead(base + offset)
             clockedWrite(0x2004, value, CycleType.DMA_WRITE)
             cycles += 2
+            offset++
         }
         return cycles
     }
@@ -183,15 +184,24 @@ class CpuBus(
         return clockedRead(a, CycleType.DMA_READ)
     }
 
-    private fun notifyCycle(type: CycleType, address: Int? = null, value: Int? = null) {
+    private fun notifyCycle(type: CycleType, address: Int = NO_ADDRESS, value: Int = 0) {
         if (cycleListeners.isEmpty()) return
-        val cycle = Cycle(type, address?.low16Bits(), value?.low8Bits())
+        val cycle = Cycle(
+            type,
+            if (address == NO_ADDRESS) null else address.low16Bits(),
+            if (address == NO_ADDRESS) null else value.low8Bits(),
+        )
         var index = 0
         while (index < cycleListeners.size) cycleListeners[index++].onCycle(cycle)
     }
 
     private fun notifyPhase(type: CycleType, beforeAccess: Boolean) {
-        var index = 0
-        while (index < cyclePhaseListeners.size) cyclePhaseListeners[index++].onPhase(type, beforeAccess)
+        cyclePhaseListener?.onPhase(type, beforeAccess)
+    }
+
+    private companion object {
+        const val READ_CYCLES_SHIFT = 8
+        const val NO_DMA_PAGE = -1
+        const val NO_ADDRESS = -1
     }
 }

@@ -9,7 +9,6 @@ class Ppu(
 ) {
     private val frameColorIds = Array(2) { ByteArray(SCREEN_WIDTH * SCREEN_HEIGHT) }
     private val argbFramebuffers = arrayOfNulls<IntArray>(2)
-    private val argbFramebufferDirty = BooleanArray(2) { true }
     private var renderFramebufferIndex = 0
     private var completedFramebufferIndex = 0
 
@@ -146,7 +145,6 @@ class Ppu(
         completedFramebufferIndex = 0
         frameColorIds.forEach { it.fill(0) }
         argbFramebuffers.forEach { it?.fill(0) }
-        argbFramebufferDirty.fill(true)
     }
 
     fun pollNmi(): Boolean {
@@ -655,21 +653,17 @@ class Ppu(
     private fun writePixel(index: Int, paletteIndex: Int) {
         val colorId = paletteColorId(paletteIndex)
         frameColorIds[renderFramebufferIndex][index] = colorId.toByte()
-        argbFramebufferDirty[renderFramebufferIndex] = true
     }
 
     private fun argbFramebuffer(framebufferIndex: Int): IntArray {
         val argbFramebuffer = argbFramebuffers[framebufferIndex]
             ?: IntArray(SCREEN_WIDTH * SCREEN_HEIGHT).also { argbFramebuffers[framebufferIndex] = it }
 
-        if (argbFramebufferDirty[framebufferIndex]) {
-            val colorIds = frameColorIds[framebufferIndex]
-            var index = 0
-            while (index < colorIds.size) {
-                argbFramebuffer[index] = Palette.COLORS[colorIds[index].toInt() and 0x3F]
-                index++
-            }
-            argbFramebufferDirty[framebufferIndex] = false
+        val colorIds = frameColorIds[framebufferIndex]
+        var index = 0
+        while (index < colorIds.size) {
+            argbFramebuffer[index] = Palette.COLORS[colorIds[index].toInt() and 0x3F]
+            index++
         }
 
         return argbFramebuffer

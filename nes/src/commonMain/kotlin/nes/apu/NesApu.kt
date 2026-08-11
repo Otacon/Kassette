@@ -165,20 +165,25 @@ class NesApu(
     fun step(cpuCycles: Int) {
         var i = 0
         while (i < cpuCycles) {
-            triangle.stepTimer()
-            dmc.stepTimer()
-            noise.stepTimer()
-            apuCycle = !apuCycle
-            if (apuCycle) {
-                pulse1.stepTimer(); pulse2.stepTimer()
-            }
-            stepFrameCounter()
-            samplePhase += SAMPLE_RATE
-            if (samplePhase >= timing.cpuHz) {
-                samplePhase -= timing.cpuHz
-                appendSample(mix())
-            }
+            step()
             i++
+        }
+    }
+
+    fun step() {
+        triangle.stepTimer()
+        dmc.stepTimer()
+        noise.stepTimer()
+        apuCycle = !apuCycle
+        if (apuCycle) {
+            pulse1.stepTimer()
+            pulse2.stepTimer()
+        }
+        stepFrameCounter()
+        samplePhase += SAMPLE_RATE
+        if (samplePhase >= timing.cpuHz) {
+            samplePhase -= timing.cpuHz
+            appendSample(mix())
         }
     }
 
