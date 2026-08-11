@@ -17,6 +17,8 @@ interface Renderer {
     fun close()
 }
 
+expect fun hasTouchScreen(): Boolean
+
 expect class PlatformAudioPipeline() : AudioPipeline {
     override fun submit(samples: ShortArray, count: Int)
 }

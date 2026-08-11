@@ -33,6 +33,7 @@ class WebEmulatorApplication(
     private val machine: NesMachine,
     private val keyboardInput: PlatformKeyboardInput,
     private val controllerInput: PlatformControllerInput,
+    private val virtualControllerInput: VirtualControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val viewModel: MainScreenViewModel,
     private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
@@ -75,6 +76,7 @@ class WebEmulatorApplication(
             renderer = renderer,
             keyboardInput = keyboardInput,
             controllerInput = controllerInput,
+            virtualControllerInput = virtualControllerInput,
             onTitleChanged = { document.title = it },
             onOpenRomClick = {
                 coroutineScope.launch {

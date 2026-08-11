@@ -23,6 +23,7 @@ import kotlin.system.exitProcess
 class EmulatorApplication(
     private val keyboardInput: PlatformKeyboardInput,
     private val controllerInput: PlatformControllerInput,
+    private val virtualControllerInput: VirtualControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val audio: PlatformAudioPipeline,
     private val renderer: PlatformRenderer,
@@ -89,6 +90,7 @@ class EmulatorApplication(
                     renderer = renderer,
                     keyboardInput = keyboardInput,
                     controllerInput = controllerInput,
+                    virtualControllerInput = virtualControllerInput,
                     onTitleChanged = { window.title = it },
                     onOpenRomClick = {
                         coroutineScope.launch {

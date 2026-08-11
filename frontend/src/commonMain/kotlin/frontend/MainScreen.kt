@@ -1,6 +1,7 @@
 package frontend
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ fun MainScreen(
     renderer: PlatformRenderer,
     keyboardInput: PlatformKeyboardInput,
     controllerInput: PlatformControllerInput,
+    virtualControllerInput: VirtualControllerInput,
     onOpenRomClick: () -> Unit,
     onPauseToggleClick: (Boolean) -> Unit,
     onResetClick: () -> Unit,
@@ -29,6 +31,7 @@ fun MainScreen(
 ) {
     var focusRequestKey by remember { mutableStateOf(true) }
     var showControllerSettings by remember { mutableStateOf(false) }
+    val showVirtualController = remember { hasTouchScreen() }
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -67,16 +70,24 @@ fun MainScreen(
         onToggleCrt = { viewModel.setVideoFilter(videoFilter = VideoFilter.CRT) },
         modifier = Modifier.fillMaxSize(),
     ) { contentModifier ->
-        ComposeSkiaScreen(
-            frameBuffer = frameBuffer,
-            renderer = renderer,
-            keyboardInput = keyboardInput,
-            videoFilter = state.videoFilter,
-            focusRequestKey = focusRequestKey,
-            modifier = contentModifier,
-        )
+        Box(contentModifier) {
+            ComposeSkiaScreen(
+                frameBuffer = frameBuffer,
+                renderer = renderer,
+                keyboardInput = keyboardInput,
+                videoFilter = state.videoFilter,
+                focusRequestKey = focusRequestKey,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (showVirtualController) {
+                VirtualController(
+                    input = virtualControllerInput,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
     }
-    if(showControllerSettings) {
+    if (showControllerSettings) {
         ControllerSettingsDialog(
             viewModel = controllerSettingsViewModel,
             controllerInput = controllerInput,
