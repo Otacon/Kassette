@@ -7,8 +7,9 @@ import nes.util.toUnsignedInt
 class PpuBus(
     private val cartridgeSocket: CartridgeSocket,
 ) {
-    private val nametables = ByteArray(2048)
-    private val paletteRam = ByteArray(32)
+    private var state = PpuBusState()
+    private val nametables: ByteArray get() = state.nametables
+    private val paletteRam: ByteArray get() = state.paletteRam
 
     fun read(address: Int): Int {
         val a = address and 0x3FFF
@@ -30,6 +31,12 @@ class PpuBus(
 
     fun clockScanline() {
         cartridgeSocket.clockScanline()
+    }
+
+    fun captureState(): PpuBusState = state.copy(nametables = nametables.copyOf(), paletteRam = paletteRam.copyOf())
+
+    fun restoreState(state: PpuBusState) {
+        this.state = state
     }
 
     private fun mirrorNametable(address: Int): Int {

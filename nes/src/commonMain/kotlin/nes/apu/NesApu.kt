@@ -65,23 +65,24 @@ class NesApu(
     var sampleCount = 0
         private set
 
-    private val pulse1 = PulseChannel(channelOne = true)
-    private val pulse2 = PulseChannel(channelOne = false)
-    private val triangle = TriangleChannel()
-    private val noise = NoiseChannel()
-    private val dmc = DmcChannel(dmcDma)
-    private var frameCycle = 0
-    private var frameEventIndex = 0
-    private var frameMode = 0
-    private var frameIrqInhibit = false
-    private var frameIrqPending = false
-    private var apuCycle = false
-    private var samplePhase = 0
-    private var highPass90Input = 0.0
-    private var highPass90Output = 0.0
-    private var highPass440Input = 0.0
-    private var highPass440Output = 0.0
-    private var lowPass14kOutput = 0.0
+    private var state = ApuState()
+    private val pulse1 = PulseChannel(channelOne = true) { state.pulse1 }
+    private val pulse2 = PulseChannel(channelOne = false) { state.pulse2 }
+    private val triangle = TriangleChannel { state.triangle }
+    private val noise = NoiseChannel { state.noise }
+    private val dmc = DmcChannel(dmcDma) { state.dmc }
+    private var frameCycle: Int get() = state.frameCycle; set(value) { state.frameCycle = value }
+    private var frameEventIndex: Int get() = state.frameEventIndex; set(value) { state.frameEventIndex = value }
+    private var frameMode: Int get() = state.frameMode; set(value) { state.frameMode = value }
+    private var frameIrqInhibit: Boolean get() = state.frameIrqInhibit; set(value) { state.frameIrqInhibit = value }
+    private var frameIrqPending: Boolean get() = state.frameIrqPending; set(value) { state.frameIrqPending = value }
+    private var apuCycle: Boolean get() = state.apuCycle; set(value) { state.apuCycle = value }
+    private var samplePhase: Int get() = state.samplePhase; set(value) { state.samplePhase = value }
+    private var highPass90Input: Double get() = state.filters[0]; set(value) { state.filters[0] = value }
+    private var highPass90Output: Double get() = state.filters[1]; set(value) { state.filters[1] = value }
+    private var highPass440Input: Double get() = state.filters[2]; set(value) { state.filters[2] = value }
+    private var highPass440Output: Double get() = state.filters[3]; set(value) { state.filters[3] = value }
+    private var lowPass14kOutput: Double get() = state.filters[4]; set(value) { state.filters[4] = value }
     var timing: Timing = Timing.DEFAULT
         set(value) {
             field = value
@@ -90,27 +91,25 @@ class NesApu(
         }
 
     fun reset() {
-        pulse1.reset()
-        pulse2.reset()
-        triangle.reset()
-        noise.reset()
-        dmc.reset()
-        frameCycle = 0
-        frameEventIndex = 0
-        frameMode = 0
-        frameIrqInhibit = false
-        frameIrqPending = false
-        apuCycle = false
-        samplePhase = 0
+        state = ApuState()
         sampleCount = 0
-        highPass90Input = 0.0
-        highPass90Output = 0.0
-        highPass440Input = 0.0
-        highPass440Output = 0.0
-        lowPass14kOutput = 0.0
     }
 
     fun beginFrame() {
+        sampleCount = 0
+    }
+
+    fun captureState(): ApuState = state.copy(
+        pulse1 = state.pulse1.copy(values = state.pulse1.values.copyOf(), flags = state.pulse1.flags.copyOf()),
+        pulse2 = state.pulse2.copy(values = state.pulse2.values.copyOf(), flags = state.pulse2.flags.copyOf()),
+        triangle = state.triangle.copy(values = state.triangle.values.copyOf(), flags = state.triangle.flags.copyOf()),
+        noise = state.noise.copy(values = state.noise.values.copyOf(), flags = state.noise.flags.copyOf()),
+        dmc = state.dmc.copy(values = state.dmc.values.copyOf(), flags = state.dmc.flags.copyOf()),
+        filters = state.filters.copyOf(),
+    )
+
+    fun restoreState(state: ApuState) {
+        this.state = state
         sampleCount = 0
     }
 
@@ -239,33 +238,26 @@ class NesApu(
         samples[sampleCount++] = (clamped * Short.MAX_VALUE).toInt().toShort()
     }
 
-    private class PulseChannel(private val channelOne: Boolean) {
-        var enabled = false
-        var lengthCounter = 0
-        private var duty = 0
-        private var timer = 0
-        private var timerCounter = 0
-        private var sequence = 0
-        private var envelopeLoop = false
-        private var constantVolume = false
-        private var volume = 0
-        private var envelopeStart = false
-        private var envelopeDivider = 0
-        private var envelopeDecay = 0
-        private var sweepEnabled = false
-        private var sweepPeriod = 0
-        private var sweepNegate = false
-        private var sweepShift = 0
-        private var sweepReload = false
-        private var sweepDivider = 0
-
-        fun reset() {
-            enabled = false; lengthCounter = 0; duty = 0; timer = 0; timerCounter = 0; sequence = 0
-            envelopeLoop = false; constantVolume = false; volume = 0; envelopeStart = false; envelopeDivider =
-                0; envelopeDecay = 0
-            sweepEnabled = false; sweepPeriod = 0; sweepNegate = false; sweepShift = 0; sweepReload =
-                false; sweepDivider = 0
-        }
+    private class PulseChannel(private val channelOne: Boolean, private val stateProvider: () -> PulseState) {
+        private val state: PulseState get() = stateProvider()
+        var enabled: Boolean get() = state.enabled; set(value) { state.enabled = value }
+        var lengthCounter: Int get() = state.lengthCounter; set(value) { state.lengthCounter = value }
+        private var duty: Int get() = state.values[0]; set(value) { state.values[0] = value }
+        private var timer: Int get() = state.values[1]; set(value) { state.values[1] = value }
+        private var timerCounter: Int get() = state.values[2]; set(value) { state.values[2] = value }
+        private var sequence: Int get() = state.values[3]; set(value) { state.values[3] = value }
+        private var volume: Int get() = state.values[4]; set(value) { state.values[4] = value }
+        private var envelopeDivider: Int get() = state.values[5]; set(value) { state.values[5] = value }
+        private var envelopeDecay: Int get() = state.values[6]; set(value) { state.values[6] = value }
+        private var sweepPeriod: Int get() = state.values[7]; set(value) { state.values[7] = value }
+        private var sweepShift: Int get() = state.values[8]; set(value) { state.values[8] = value }
+        private var sweepDivider: Int get() = state.values[9]; set(value) { state.values[9] = value }
+        private var envelopeLoop: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
+        private var constantVolume: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
+        private var envelopeStart: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
+        private var sweepEnabled: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
+        private var sweepNegate: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
+        private var sweepReload: Boolean get() = state.flags[5]; set(value) { state.flags[5] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
@@ -331,22 +323,18 @@ class NesApu(
         }
     }
 
-    private class TriangleChannel {
-        var enabled = false
-        var lengthCounter = 0
-        private var control = false
-        private var reloadValue = 0
-        private var reloadFlag = false
-        private var linearCounter = 0
-        private var timer = 0
-        private var timerCounter = 0
-        private var sequence = 0
-        private var outputLevel = 0
-
-        fun reset() {
-            enabled = false; lengthCounter = 0; control = false; reloadValue = 0; reloadFlag = false; linearCounter =
-                0; timer = 0; timerCounter = 0; sequence = 0; outputLevel = 0
-        }
+    private class TriangleChannel(private val stateProvider: () -> TriangleState) {
+        private val state: TriangleState get() = stateProvider()
+        var enabled: Boolean get() = state.enabled; set(value) { state.enabled = value }
+        var lengthCounter: Int get() = state.lengthCounter; set(value) { state.lengthCounter = value }
+        private var reloadValue: Int get() = state.values[0]; set(value) { state.values[0] = value }
+        private var linearCounter: Int get() = state.values[1]; set(value) { state.values[1] = value }
+        private var timer: Int get() = state.values[2]; set(value) { state.values[2] = value }
+        private var timerCounter: Int get() = state.values[3]; set(value) { state.values[3] = value }
+        private var sequence: Int get() = state.values[4]; set(value) { state.values[4] = value }
+        private var outputLevel: Int get() = state.values[5]; set(value) { state.values[5] = value }
+        private var control: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
+        private var reloadFlag: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
@@ -384,26 +372,21 @@ class NesApu(
         fun output(): Int = outputLevel
     }
 
-    private class NoiseChannel {
+    private class NoiseChannel(private val stateProvider: () -> NoiseState) {
+        private val state: NoiseState get() = stateProvider()
         var periods: IntArray = Timing.DEFAULT.noisePeriods
-        var enabled = false
-        var lengthCounter = 0
-        private var envelopeLoop = false
-        private var constantVolume = false
-        private var volume = 0
-        private var envelopeStart = false
-        private var envelopeDivider = 0
-        private var envelopeDecay = 0
-        private var mode = false
-        private var timer = 0
-        private var timerCounter = 0
-        private var shift = 1
-
-        fun reset() {
-            enabled = false; lengthCounter = 0; envelopeLoop = false; constantVolume = false; volume =
-                0; envelopeStart = false; envelopeDivider = 0; envelopeDecay = 0; mode = false; timer =
-                0; timerCounter = 0; shift = 1
-        }
+        var enabled: Boolean get() = state.enabled; set(value) { state.enabled = value }
+        var lengthCounter: Int get() = state.lengthCounter; set(value) { state.lengthCounter = value }
+        private var volume: Int get() = state.values[0]; set(value) { state.values[0] = value }
+        private var envelopeDivider: Int get() = state.values[1]; set(value) { state.values[1] = value }
+        private var envelopeDecay: Int get() = state.values[2]; set(value) { state.values[2] = value }
+        private var timer: Int get() = state.values[3]; set(value) { state.values[3] = value }
+        private var timerCounter: Int get() = state.values[4]; set(value) { state.values[4] = value }
+        private var shift: Int get() = state.values[5]; set(value) { state.values[5] = value }
+        private var envelopeLoop: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
+        private var constantVolume: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
+        private var envelopeStart: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
+        private var mode: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
@@ -451,43 +434,26 @@ class NesApu(
 
     private class DmcChannel(
         private val dmcDma: DmcDma,
+        private val stateProvider: () -> DmcState,
     ) {
+        private val state: DmcState get() = stateProvider()
         var periods: IntArray = Timing.DEFAULT.dmcPeriods
-        private var enabled = false
-        private var irqEnabled = false
-        private var irqRequested = false
-        private var loop = false
-        private var period = periods[0]
-        private var timerCounter = period - 1
-        private var outputLevel = 0
-        private var sampleAddress = 0xC000
-        private var sampleLength = 1
-        private var currentAddress = 0xC000
-        private var bytesRemaining = 0
-        private var shiftRegister = 0
-        private var bitsRemaining = 8
-        private var sampleBuffer = 0
-        private var sampleBufferFull = false
-        private var silence = true
-
-        fun reset() {
-            enabled = false
-            irqEnabled = false
-            irqRequested = false
-            loop = false
-            period = periods[0]
-            timerCounter = period - 1
-            outputLevel = 0
-            sampleAddress = 0xC000
-            sampleLength = 1
-            currentAddress = sampleAddress
-            bytesRemaining = 0
-            shiftRegister = 0
-            bitsRemaining = 8
-            sampleBuffer = 0
-            sampleBufferFull = false
-            silence = true
-        }
+        private var period: Int get() = state.values[0]; set(value) { state.values[0] = value }
+        private var timerCounter: Int get() = if (state.values[1] < 0) period - 1 else state.values[1]; set(value) { state.values[1] = value }
+        private var outputLevel: Int get() = state.values[2]; set(value) { state.values[2] = value }
+        private var sampleAddress: Int get() = state.values[3]; set(value) { state.values[3] = value }
+        private var sampleLength: Int get() = state.values[4]; set(value) { state.values[4] = value }
+        private var currentAddress: Int get() = state.values[5]; set(value) { state.values[5] = value }
+        private var bytesRemaining: Int get() = state.values[6]; set(value) { state.values[6] = value }
+        private var shiftRegister: Int get() = state.values[7]; set(value) { state.values[7] = value }
+        private var bitsRemaining: Int get() = state.values[8]; set(value) { state.values[8] = value }
+        private var sampleBuffer: Int get() = state.values[9]; set(value) { state.values[9] = value }
+        private var channelEnabled: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
+        private var irqEnabled: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
+        private var irqRequested: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
+        private var loop: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
+        private var sampleBufferFull: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
+        private var silence: Boolean get() = !state.flags[5]; set(value) { state.flags[5] = !value }
 
         fun write(register: Int, value: Int) {
             when (register) {
@@ -505,8 +471,8 @@ class NesApu(
         }
 
         fun setEnabled(value: Boolean) {
-            enabled = value
-            if (!enabled) {
+            channelEnabled = value
+            if (!channelEnabled) {
                 bytesRemaining = 0
             } else if (bytesRemaining == 0) {
                 restartSample()

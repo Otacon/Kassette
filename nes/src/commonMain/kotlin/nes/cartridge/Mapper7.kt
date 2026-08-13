@@ -9,9 +9,10 @@ class Mapper7(
     private val chrRam: ByteArray,
     private val hasBusConflicts: Boolean = false,
 ) : Mapper {
+    private var state = Mapper7State(chrRam)
     private val bankCount = prgRom.size / PRG_BANK_SIZE
-    private var selectedBankBase = 0
-    private var mirroring = Mirroring.SINGLE_SCREEN_LOWER
+    private var selectedBankBase: Int get() = state.selectedBankBase; set(value) { state.selectedBankBase = value }
+    private var mirroring: Mirroring get() = state.mirroring; set(value) { state.mirroring = value }
 
     override fun cpuRead(address: Int): Int {
         val a = address.low16Bits()
@@ -28,11 +29,11 @@ class Mapper7(
     }
 
     override fun ppuRead(address: Int): Int {
-        return chrRam[address and 0x1FFF].toUnsignedInt()
+        return state.chrRam[address and 0x1FFF].toUnsignedInt()
     }
 
     override fun ppuWrite(address: Int, value: Int) {
-        chrRam[address and 0x1FFF] = value.toByte()
+        state.chrRam[address and 0x1FFF] = value.toByte()
     }
 
     override fun reset() {
@@ -41,6 +42,12 @@ class Mapper7(
     }
 
     override fun mirroring(): Mirroring = mirroring
+
+    override fun captureState(): MapperState = state.copy(chrRam = state.chrRam.copyOf())
+
+    override fun restoreState(state: MapperState) {
+        this.state = state as Mapper7State
+    }
 
     private companion object {
         const val PRG_BANK_SIZE = 32 * 1024

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.cyanotic.kassette.BuildKonfig
 import dev.zacsweers.metro.Inject
 import io.Preferences
+import io.SavestateStore
+import io.sha1Hex
 import io.VideoFilter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +28,8 @@ class MainScreenViewModel(
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,
     private val preferences: Preferences,
+    private val savestateStore: SavestateStore,
+    private val savestateCodec: SavestateCodec,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MainWindowState())
@@ -33,6 +37,7 @@ class MainScreenViewModel(
 
     private var rom: String? = null
     private var fps: Int? = null
+    private var romSha1: String? = null
     private var region: ConsoleRegion? = null
     private var dialogShown = false
     private var appInForeground = true
@@ -63,6 +68,31 @@ class MainScreenViewModel(
         val newVideoFilter = if(videoFilter == it.videoFilter) VideoFilter.NONE else videoFilter
         preferences.videoFilter = newVideoFilter
         it.copy(videoFilter = newVideoFilter)
+    }
+
+    fun onSaveState(slot: Int) = viewModelScope.launch {
+        val sha = romSha1 ?: return@launch
+        runCatching {
+            require(slot in SAVESTATE_SLOTS)
+            runtime.pauseForStateOperation {
+                savestateStore.saveState(sha, slot, savestateCodec.encode(machine.captureState()))
+            }
+            refreshSavestateSlots()
+        }.onFailure { error ->
+            _state.update { it.copy(loadError = error.message ?: "Unable to save state") }
+        }
+    }
+
+    fun onLoadState(slot: Int) = viewModelScope.launch {
+        val sha = romSha1 ?: return@launch
+        runCatching {
+            require(slot in SAVESTATE_SLOTS)
+            val data = savestateStore.loadState(sha, slot) ?: return@launch
+            val state = savestateCodec.decode(data)
+            runtime.pauseForStateOperation { machine.restoreState(state) }
+        }.onFailure { error ->
+            _state.update { it.copy(loadError = error.message ?: "Unable to load state") }
+        }
     }
 
     fun onResetClicked() = viewModelScope.launch {
@@ -101,12 +131,15 @@ class MainScreenViewModel(
         when (val result = parser.parse(resolvedRom)) {
             is InesParseResult.Success -> {
                 val cartridge = result.cartridge
+                val sha = sha1Hex(resolvedRom.bytes)
                 this@MainScreenViewModel.rom = resolvedRom.name
+                this@MainScreenViewModel.romSha1 = sha
                 this@MainScreenViewModel.region = cartridge.region
                 machine.powerOff()
                 machine.insert(cartridge)
                 machine.powerOn()
                 applyPauseState()
+                refreshSavestateSlots()
             }
 
             InesParseResult.InvalidRom -> _state.update { it.copy(loadError = "Invalid ROM") }
@@ -156,6 +189,20 @@ class MainScreenViewModel(
         }
         current.copy(windowTitle = "Kassette v${buildKonfig.version}$values")
     }
+
+    private fun refreshSavestateSlots() = viewModelScope.launch {
+        val sha = romSha1
+        val available = if (sha == null) {
+            emptySet()
+        } else {
+            SAVESTATE_SLOTS.filterTo(mutableSetOf()) { savestateStore.hasState(sha, it) }
+        }
+        _state.update { it.copy(loadStateSlots = available) }
+    }
+
+    companion object {
+        val SAVESTATE_SLOTS = 1..5
+    }
 }
 
 data class MainWindowState(
@@ -165,4 +212,5 @@ data class MainWindowState(
     val isPaused: Boolean = false,
     val videoFilter: VideoFilter = VideoFilter.NONE,
     val loadError: String? = null,
+    val loadStateSlots: Set<Int> = emptySet(),
 )

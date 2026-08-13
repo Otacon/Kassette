@@ -44,6 +44,16 @@ class Mapper71(
 
     override fun mirroring(): Mirroring? = if (firehawkMode) mirroring else null
 
+    override fun captureState(): MapperState = Mapper71State(chrRam.copyOf(), selectedPrgBankBase, firehawkMode, mirroring)
+
+    override fun restoreState(state: MapperState) {
+        state as Mapper71State
+        state.chrRam.copyInto(chrRam)
+        selectedPrgBankBase = state.selectedPrgBankBase
+        firehawkMode = state.firehawkMode
+        mirroring = state.mirroring
+    }
+
     private companion object {
         const val PRG_BANK_SIZE = 16 * 1024
     }

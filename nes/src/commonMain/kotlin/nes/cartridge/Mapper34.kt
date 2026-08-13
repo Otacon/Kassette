@@ -60,6 +60,23 @@ class Mapper34(
         chrBank1Base = if (chr.size > NINA_CHR_BANK_SIZE) NINA_CHR_BANK_SIZE else 0
     }
 
+    override fun captureState(): MapperState = Mapper34State(
+        chr = if (isChrRam) chr.copyOf() else ByteArray(0),
+        prgRam = prgRam.copyOf(),
+        selectedPrgBankBase = selectedPrgBankBase,
+        chrBank0Base = chrBank0Base,
+        chrBank1Base = chrBank1Base,
+    )
+
+    override fun restoreState(state: MapperState) {
+        state as Mapper34State
+        if (isChrRam) state.chr.copyInto(chr)
+        state.prgRam.copyInto(prgRam)
+        selectedPrgBankBase = state.selectedPrgBankBase
+        chrBank0Base = state.chrBank0Base
+        chrBank1Base = state.chrBank1Base
+    }
+
     private companion object {
         const val PRG_BANK_SIZE = 32 * 1024
         const val BNROM_CHR_BANK_SIZE = 8 * 1024

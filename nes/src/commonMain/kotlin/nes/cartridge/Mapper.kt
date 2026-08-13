@@ -10,4 +10,6 @@ interface Mapper {
     fun clockScanline() = Unit
     fun irqPending(): Boolean = false
     fun mirroring(): Mirroring? = null
+    fun captureState(): MapperState = error("Mapper ${this::class.simpleName} does not support savestates")
+    fun restoreState(state: MapperState): Unit = error("Mapper ${this::class.simpleName} does not support savestates")
 }

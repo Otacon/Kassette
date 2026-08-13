@@ -8,9 +8,13 @@ import dev.zacsweers.metro.createGraph
 import frontend.*
 import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.ControllerSettingsViewModel
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.cbor.Cbor
 import io.Nes20Db
 import io.Nes20DbCsv
 import io.Preferences
+import io.SavestateStore
+import io.platformSavestateStore
 import io.toInputMappings
 import nes.NesMachine
 import nes.cartridge.InesParserComposite
@@ -113,6 +117,18 @@ interface FrontendComponent {
     @AppScope
     @Provides
     fun preferences(): Preferences = Preferences()
+
+    @AppScope
+    @Provides
+    fun savestateStore(): SavestateStore = platformSavestateStore()
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @AppScope
+    @Provides
+    fun savestateCbor(): Cbor = Cbor {
+        encodeDefaults = true
+        ignoreUnknownKeys = false
+    }
 
     @AppScope
     @Provides

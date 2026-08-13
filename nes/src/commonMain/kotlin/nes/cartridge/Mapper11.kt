@@ -8,10 +8,11 @@ class Mapper11(
     private val prgRom: ByteArray,
     private val chrRom: ByteArray,
 ) : Mapper {
+    private var state = Mapper11State()
     private val prgBankCount = prgRom.size / PRG_BANK_SIZE
     private val chrBankCount = chrRom.size / CHR_BANK_SIZE
-    private var selectedPrgBankBase = 0
-    private var selectedChrBankBase = 0
+    private var selectedPrgBankBase: Int get() = state.selectedPrgBankBase; set(value) { state.selectedPrgBankBase = value }
+    private var selectedChrBankBase: Int get() = state.selectedChrBankBase; set(value) { state.selectedChrBankBase = value }
 
     override fun cpuRead(address: Int): Int {
         val a = address.low16Bits()
@@ -36,6 +37,12 @@ class Mapper11(
     override fun reset() {
         selectedPrgBankBase = 0
         selectedChrBankBase = 0
+    }
+
+    override fun captureState(): MapperState = state.copy()
+
+    override fun restoreState(state: MapperState) {
+        this.state = state as Mapper11State
     }
 
     private companion object {

@@ -300,26 +300,25 @@ class Cpu6502(
         const val OP_INC_ABSX = 0xFE
     }
 
-    var pc = 0
-        private set
-    var a = 0
-        private set
-    var x = 0
-        private set
-    var y = 0
-        private set
-    var sp = 0xFD
-        private set
-    var status = I or U
-        private set
-    var totalCycles = 0L
-        private set
+    private var state = CpuState()
+    var pc: Int get() = state.pc; private set(value) { state.pc = value }
+    var a: Int get() = state.a; private set(value) { state.a = value }
+    var x: Int get() = state.x; private set(value) { state.x = value }
+    var y: Int get() = state.y; private set(value) { state.y = value }
+    var sp: Int get() = state.sp; private set(value) { state.sp = value }
+    var status: Int get() = state.status; private set(value) { state.status = value }
+    var totalCycles: Long get() = state.totalCycles; private set(value) { state.totalCycles = value }
+    private var nmiPending: Boolean get() = state.nmiPending; set(value) { state.nmiPending = value }
+    private var irqLineAsserted: Boolean get() = state.irqLine; set(value) { state.irqLine = value }
+    private var irqPending: Boolean get() = state.irqPending; set(value) { state.irqPending = value }
+    private var irqSample: Boolean get() = state.irqSample; set(value) { state.irqSample = value }
+    private var halted: Boolean get() = state.halted; set(value) { state.halted = value }
 
-    private var nmiPending = false
-    private var irqLine = false
-    private var irqPending = false
-    private var irqSample = false
-    private var halted = false
+    fun captureState(): CpuState = state.copy()
+
+    fun restoreState(state: CpuState) {
+        this.state = state
+    }
 
     fun reset() = reset(softReset = false)
 
@@ -337,12 +336,12 @@ class Cpu6502(
             status = I or U
         }
         pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
-        repeat(8) {
+        for (i in 0..<8) {
             bus.idle(CpuBus.CycleType.RESET)
             totalCycles++
         }
         nmiPending = false
-        irqLine = false
+        irqLineAsserted = false
         irqPending = false
         irqSample = false
         halted = false
@@ -353,12 +352,12 @@ class Cpu6502(
     }
 
     fun setIrqLine(asserted: Boolean) {
-        irqLine = asserted
+        irqLineAsserted = asserted
         irqPending = asserted && !flag(I)
     }
 
     fun sampleIrqLine(asserted: Boolean) {
-        irqLine = asserted
+        irqLineAsserted = asserted
         irqPending = irqSample
         irqSample = asserted && !flag(I)
     }

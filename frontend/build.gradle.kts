@@ -30,7 +30,7 @@ val propertyVersion = providers.gradleProperty("appVersion")
 val isRelease = propertyVersion.orNull != null
 
 val appVersion = propertyVersion
-    .orElse("0.1.4-indev")
+    .orElse("0.1.5-indev")
     .map { it.removePrefix("v") }
     .get()
 
@@ -120,6 +120,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kermit)
             implementation(libs.kotlinxCoroutinesCore)
+            implementation(libs.kotlinxSerializationCbor)
             implementation(libs.kotlinxSerializationJson)
             implementation(libs.settings)
             implementation(libs.settingsSerialization)

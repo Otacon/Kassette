@@ -18,7 +18,7 @@ class NesMachine(
     val ppu: Ppu,
     val apu: NesApu,
     val cpu: Cpu6502,
-    cpuBus: CpuBus,
+    private val cpuBus: CpuBus,
 ) {
     private val _isPoweredOn = MutableStateFlow(false)
     val isPoweredOn: StateFlow<Boolean> = _isPoweredOn.asStateFlow()
@@ -50,6 +50,32 @@ class NesMachine(
 
     fun reset() {
         resetComponents(softReset = true)
+    }
+
+    fun captureState(): NesHardwareState = NesHardwareState(
+        machine = NesMachineState(
+            ppuMasterClockRemainder = ppuMasterClockRemainder,
+            previousNmiLine = previousNmiLine,
+            cyclesUntilInputPoll = cyclesUntilInputPoll,
+        ),
+        cpu = cpu.captureState(),
+        cpuBus = cpuBus.captureState(),
+        ppu = ppu.captureState(),
+        ppuBus = ppu.ppuBusState(),
+        apu = apu.captureState(),
+        mapper = cartridgeSocket.captureMapperState(),
+    )
+
+    fun restoreState(state: NesHardwareState) {
+        ppuMasterClockRemainder = state.machine.ppuMasterClockRemainder
+        previousNmiLine = state.machine.previousNmiLine
+        cyclesUntilInputPoll = state.machine.cyclesUntilInputPoll
+        cartridgeSocket.restoreMapperState(state.mapper)
+        cpuBus.restoreState(state.cpuBus)
+        ppu.restoreState(state.ppu)
+        ppu.restorePpuBusState(state.ppuBus)
+        apu.restoreState(state.apu)
+        cpu.restoreState(state.cpu)
     }
 
     private fun resetComponents(softReset: Boolean) {

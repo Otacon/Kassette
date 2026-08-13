@@ -53,6 +53,23 @@ class EmulatorRuntimeHost(
         paused = false
     }
 
+    suspend fun <T> pauseForStateOperation(operation: () -> T): T {
+        val wasPaused = mutex.withLock {
+            val previous = paused
+            paused = true
+            runtime.pause()
+            previous
+        }
+        return try {
+            mutex.withLock { operation() }
+        } finally {
+            mutex.withLock {
+                paused = wasPaused
+                if (wasPaused) runtime.pause()
+            }
+        }
+    }
+
     override fun close() {
         stop()
         scope.cancel()

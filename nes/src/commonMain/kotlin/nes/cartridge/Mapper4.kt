@@ -131,6 +131,42 @@ class Mapper4(
         return mirroring
     }
 
+    override fun captureState(): MapperState = Mapper4State(
+        chr = if (isChrRam) chr.copyOf() else ByteArray(0),
+        prgRam = prgRam.copyOf(),
+        registers = registers.copyOf(),
+        selectedRegister = selectedRegister,
+        prgMode = prgMode,
+        chrMode = chrMode,
+        irqLatch = irqLatch,
+        irqCounter = irqCounter,
+        irqReload = irqReload,
+        irqEnabled = irqEnabled,
+        irqRequested = irqRequested,
+        mirroring = mirroring,
+        prgRamEnabled = prgRamEnabled,
+        prgRamWriteProtected = prgRamWriteProtected,
+    )
+
+    override fun restoreState(state: MapperState) {
+        state as Mapper4State
+        if (isChrRam) state.chr.copyInto(chr)
+        state.prgRam.copyInto(prgRam)
+        state.registers.copyInto(registers)
+        selectedRegister = state.selectedRegister
+        prgMode = state.prgMode
+        chrMode = state.chrMode
+        irqLatch = state.irqLatch
+        irqCounter = state.irqCounter
+        irqReload = state.irqReload
+        irqEnabled = state.irqEnabled
+        irqRequested = state.irqRequested
+        mirroring = state.mirroring
+        prgRamEnabled = state.prgRamEnabled
+        prgRamWriteProtected = state.prgRamWriteProtected
+        rebuildBankOffsets()
+    }
+
     private fun mapChrAddress(address: Int): Int {
         val a = address and 0x1FFF
         return chrBankOffsets[a shr 10] + (a and 0x03FF)

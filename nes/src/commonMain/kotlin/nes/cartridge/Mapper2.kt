@@ -8,8 +8,9 @@ class Mapper2(
     private val chrRam: ByteArray,
     private val hasBusConflicts: Boolean = false,
 ) : Mapper {
+    private var state = Mapper2State(chrRam)
     private val bankCount = prgRom.size / PRG_BANK_SIZE
-    private var selectedBankBase = 0
+    private var selectedBankBase: Int get() = state.selectedBankBase; set(value) { state.selectedBankBase = value }
     private val fixedBankBase = (bankCount - 1) * PRG_BANK_SIZE
 
     override fun cpuRead(address: Int): Int {
@@ -29,15 +30,21 @@ class Mapper2(
     }
 
     override fun ppuRead(address: Int): Int {
-        return chrRam[address and 0x1FFF].toUnsignedInt()
+        return state.chrRam[address and 0x1FFF].toUnsignedInt()
     }
 
     override fun ppuWrite(address: Int, value: Int) {
-        chrRam[address and 0x1FFF] = value.toByte()
+        state.chrRam[address and 0x1FFF] = value.toByte()
     }
 
     override fun reset() {
         selectedBankBase = 0
+    }
+
+    override fun captureState(): MapperState = state.copy(chrRam = state.chrRam.copyOf())
+
+    override fun restoreState(state: MapperState) {
+        this.state = state as Mapper2State
     }
 
     companion object {

@@ -7,143 +7,93 @@ import nes.util.toUnsignedInt
 class Ppu(
     private val bus: PpuBus,
 ) {
-    private val frameColorIds = Array(2) { ByteArray(SCREEN_WIDTH * SCREEN_HEIGHT) }
+    private var state = PpuState()
+    private val frameColorIds: Array<ByteArray> get() = state.frameColorIds
     private val argbFramebuffers = arrayOfNulls<IntArray>(2)
-    private var renderFramebufferIndex = 0
-    private var completedFramebufferIndex = 0
+    private var renderFramebufferIndex: Int get() = state.renderFramebufferIndex; set(value) { state.renderFramebufferIndex = value }
+    private var completedFramebufferIndex: Int get() = state.completedFramebufferIndex; set(value) { state.completedFramebufferIndex = value }
 
     val framebuffer: IntArray
         get() = argbFramebuffer(renderFramebufferIndex)
     val completedFrameColorIds: ByteArray
         get() = frameColorIds[completedFramebufferIndex]
-    val oam = ByteArray(256)
+    val oam: ByteArray get() = state.oam
 
-    var ctrl = 0
-        private set
-    var mask = 0
-        private set
-    var status = 0
-        private set
-    var oamAddress = 0
-        private set
-    var v = 0
-        private set
-    var t = 0
-        private set
-    var fineX = 0
-        private set
-    var writeLatch = false
-        private set
-    var scanline = -1
-        private set
-    var cycle = LAST_DOT
-        private set
-    var frameComplete = false
-        private set
-    var nmiRequested = false
-        private set
-    var nmiLine = false
-        private set
+    var ctrl: Int get() = state.ctrl; private set(value) { state.ctrl = value }
+    var mask: Int get() = state.mask; private set(value) { state.mask = value }
+    var status: Int get() = state.status; private set(value) { state.status = value }
+    var oamAddress: Int get() = state.oamAddress; private set(value) { state.oamAddress = value }
+    var v: Int get() = state.v; private set(value) { state.v = value }
+    var t: Int get() = state.t; private set(value) { state.t = value }
+    var fineX: Int get() = state.fineX; private set(value) { state.fineX = value }
+    var writeLatch: Boolean get() = state.writeLatch; private set(value) { state.writeLatch = value }
+    var scanline: Int get() = state.scanline; private set(value) { state.scanline = value }
+    var cycle: Int get() = state.cycle; private set(value) { state.cycle = value }
+    var frameComplete: Boolean get() = state.frameComplete; private set(value) { state.frameComplete = value }
+    var nmiRequested: Boolean get() = state.nmiRequested; private set(value) { state.nmiRequested = value }
+    var nmiLine: Boolean get() = state.nmiLine; private set(value) { state.nmiLine = value }
 
     var timing: Timing = Timing.DEFAULT
 
-    private val secondaryOam = ByteArray(32) { 0xFF.toByte() }
-    private val activeSpriteX = IntArray(8)
-    private val activeSpriteAttributes = IntArray(8)
-    private val activeSpriteLow = IntArray(8)
-    private val activeSpriteHigh = IntArray(8)
-    private val fetchedSpriteX = IntArray(8)
-    private val fetchedSpriteAttributes = IntArray(8)
-    private val fetchedSpriteLow = IntArray(8)
-    private val fetchedSpriteHigh = IntArray(8)
+    private val secondaryOam: ByteArray get() = state.secondaryOam
+    private val activeSpriteX: IntArray get() = state.activeSpriteX
+    private val activeSpriteAttributes: IntArray get() = state.activeSpriteAttributes
+    private val activeSpriteLow: IntArray get() = state.activeSpriteLow
+    private val activeSpriteHigh: IntArray get() = state.activeSpriteHigh
+    private val fetchedSpriteX: IntArray get() = state.fetchedSpriteX
+    private val fetchedSpriteAttributes: IntArray get() = state.fetchedSpriteAttributes
+    private val fetchedSpriteLow: IntArray get() = state.fetchedSpriteLow
+    private val fetchedSpriteHigh: IntArray get() = state.fetchedSpriteHigh
 
-    private var activeSpriteCount = 0
-    private var activeSpriteZero = false
-    private var fetchedSpriteCount = 0
-    private var fetchedSpriteZero = false
-    private var evaluatedSpriteZero = false
-    private var secondaryOamAddress = 0
-    private var oamCopyBuffer = 0xFF
-    private var evalSprite = 0
-    private var evalByte = 0
-    private var evalInRange = false
-    private var evalDone = false
-
-    private var bgPatternLow = 0
-    private var bgPatternHigh = 0
-    private var bgAttributeLow = 0
-    private var bgAttributeHigh = 0
-    private var nextTile = 0
-    private var nextAttribute = 0
-    private var nextPatternLow = 0
-    private var nextPatternHigh = 0
-
-    private var openBus = 0
-    private var ppuBusAddress = 0
-    private var renderingMask = 0
-    private var readBuffer = 0
-    private var preventVblank = false
-    private var frameNumber = 1
-    private var pendingVAddress = 0
-    private var pendingVAddressDelay = 0
-    private var pendingDataReadDelay = 0
-    private var pendingDataWriteValue = 0
-    private var pendingDataWriteDelay = 0
-    private var pendingVramIncrement = false
+    private var activeSpriteCount: Int get() = state.counters[0]; set(value) { state.counters[0] = value }
+    private var fetchedSpriteCount: Int get() = state.counters[1]; set(value) { state.counters[1] = value }
+    private var secondaryOamAddress: Int get() = state.counters[2]; set(value) { state.counters[2] = value }
+    private var oamCopyBuffer: Int get() = state.counters[3]; set(value) { state.counters[3] = value }
+    private var evalSprite: Int get() = state.counters[4]; set(value) { state.counters[4] = value }
+    private var evalByte: Int get() = state.counters[5]; set(value) { state.counters[5] = value }
+    private var bgPatternLow: Int get() = state.counters[6]; set(value) { state.counters[6] = value }
+    private var bgPatternHigh: Int get() = state.counters[7]; set(value) { state.counters[7] = value }
+    private var bgAttributeLow: Int get() = state.counters[8]; set(value) { state.counters[8] = value }
+    private var bgAttributeHigh: Int get() = state.counters[9]; set(value) { state.counters[9] = value }
+    private var nextTile: Int get() = state.counters[10]; set(value) { state.counters[10] = value }
+    private var nextAttribute: Int get() = state.counters[11]; set(value) { state.counters[11] = value }
+    private var nextPatternLow: Int get() = state.counters[12]; set(value) { state.counters[12] = value }
+    private var nextPatternHigh: Int get() = state.counters[13]; set(value) { state.counters[13] = value }
+    private var openBus: Int get() = state.counters[14]; set(value) { state.counters[14] = value }
+    private var ppuBusAddress: Int get() = state.counters[15]; set(value) { state.counters[15] = value }
+    private var renderingMask: Int get() = state.counters[16]; set(value) { state.counters[16] = value }
+    private var readBuffer: Int get() = state.counters[17]; set(value) { state.counters[17] = value }
+    private var frameNumber: Int get() = state.counters[18]; set(value) { state.counters[18] = value }
+    private var pendingVAddress: Int get() = state.counters[19]; set(value) { state.counters[19] = value }
+    private var pendingVAddressDelay: Int get() = state.counters[20]; set(value) { state.counters[20] = value }
+    private var pendingDataReadDelay: Int get() = state.counters[21]; set(value) { state.counters[21] = value }
+    private var pendingDataWriteValue: Int get() = state.counters[22]; set(value) { state.counters[22] = value }
+    private var pendingDataWriteDelay: Int get() = state.counters[23]; set(value) { state.counters[23] = value }
+    private var paletteColorIdCacheMask: Int get() = state.counters[24]; set(value) { state.counters[24] = value }
+    private var activeSpriteZero: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
+    private var fetchedSpriteZero: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
+    private var evaluatedSpriteZero: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
+    private var evalInRange: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
+    private var evalDone: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
+    private var preventVblank: Boolean get() = state.flags[5]; set(value) { state.flags[5] = value }
+    private var pendingVramIncrement: Boolean get() = state.flags[6]; set(value) { state.flags[6] = value }
     private val paletteColorIdCache = IntArray(32)
-    private var paletteColorIdCacheMask = -1
+    init {
+        paletteColorIdCacheMask = -1
+        frameNumber = 1
+    }
 
     fun reset() = reset(softReset = false)
 
     fun reset(softReset: Boolean) {
         val retainedStatus = status
         val retainedAddress = v
-        ctrl = 0
-        mask = 0
+        state = PpuState()
         status = if (softReset) retainedStatus else 0
-        oamAddress = 0
         v = if (softReset) retainedAddress else 0
-        t = 0
-        fineX = 0
-        writeLatch = false
-        scanline = -1
-        cycle = LAST_DOT
-        frameComplete = false
-        nmiRequested = false
-        nmiLine = false
-        openBus = 0
-        ppuBusAddress = 0
-        renderingMask = 0
-        readBuffer = 0
-        preventVblank = false
         frameNumber = 1
-        pendingVAddressDelay = 0
-        pendingDataReadDelay = 0
-        pendingDataWriteDelay = 0
-        pendingVramIncrement = false
         paletteColorIdCacheMask = -1
-        activeSpriteCount = 0
-        fetchedSpriteCount = 0
-        activeSpriteZero = false
-        fetchedSpriteZero = false
-        evaluatedSpriteZero = false
-        secondaryOamAddress = 0
         oamCopyBuffer = 0xFF
-        evalSprite = 0
-        evalByte = 0
-        evalInRange = false
-        evalDone = false
-        bgPatternLow = 0
-        bgPatternHigh = 0
-        bgAttributeLow = 0
-        bgAttributeHigh = 0
-        nextTile = 0
-        nextAttribute = 0
-        nextPatternLow = 0
-        nextPatternHigh = 0
-        renderFramebufferIndex = 0
-        completedFramebufferIndex = 0
-        frameColorIds.forEach { it.fill(0) }
         argbFramebuffers.forEach { it?.fill(0) }
     }
 
@@ -155,6 +105,27 @@ class Ppu(
 
     fun clearFrameComplete() {
         frameComplete = false
+    }
+
+    fun captureState(): PpuState = state.copy(
+        frameColorIds = Array(frameColorIds.size) { frameColorIds[it].copyOf() },
+        oam = oam.copyOf(),
+        secondaryOam = secondaryOam.copyOf(),
+        activeSpriteX = activeSpriteX.copyOf(),
+        activeSpriteAttributes = activeSpriteAttributes.copyOf(),
+        activeSpriteLow = activeSpriteLow.copyOf(),
+        activeSpriteHigh = activeSpriteHigh.copyOf(),
+        fetchedSpriteX = fetchedSpriteX.copyOf(),
+        fetchedSpriteAttributes = fetchedSpriteAttributes.copyOf(),
+        fetchedSpriteLow = fetchedSpriteLow.copyOf(),
+        fetchedSpriteHigh = fetchedSpriteHigh.copyOf(),
+        counters = state.counters.copyOf(),
+        flags = state.flags.copyOf(),
+    )
+
+    fun restoreState(state: PpuState) {
+        this.state = state
+        argbFramebuffers.forEach { it?.fill(0) }
     }
 
     fun step() {
@@ -206,6 +177,10 @@ class Ppu(
     fun ppuRead(address: Int): Int = bus.read(address)
 
     fun ppuWrite(address: Int, value: Int) = bus.write(address, value)
+
+    fun ppuBusState(): PpuBusState = bus.captureState()
+
+    fun restorePpuBusState(state: PpuBusState) = bus.restoreState(state)
 
     private fun processScanlineStart() {
         if (scanline in 0 until SCREEN_HEIGHT) {
@@ -304,7 +279,7 @@ class Ppu(
         if (cycle == MAPPER_SCANLINE_DOT && renderingEnabled()) bus.clockScanline()
         if (scanline == -1 && cycle == 1) {
             status = status and STATUS_VBLANK.inv()
-            setNmiLine(false)
+            setNmiLineAsserted(false)
         }
     }
 
@@ -486,7 +461,7 @@ class Ppu(
         if (scanline == timing.nmiScanline && cycle == 0) preventVblank = true
         status = status and STATUS_VBLANK.inv()
         writeLatch = false
-        setNmiLine(false)
+        setNmiLineAsserted(false)
         openBus = result
         return result
     }
@@ -520,7 +495,7 @@ class Ppu(
         ctrl = data
         t = (t and 0xF3FF) or ((data and 3) shl 10)
         val nmiEnabled = (ctrl and 0x80) != 0
-        setNmiLine(nmiEnabled && (status and STATUS_VBLANK) != 0)
+        setNmiLineAsserted(nmiEnabled && (status and STATUS_VBLANK) != 0)
     }
 
     private fun writeOamData(data: Int) {
@@ -637,7 +612,7 @@ class Ppu(
     }
 
     private fun updateNmiLine() {
-        setNmiLine((ctrl and 0x80) != 0 && (status and STATUS_VBLANK) != 0)
+        setNmiLineAsserted((ctrl and 0x80) != 0 && (status and STATUS_VBLANK) != 0)
     }
 
     private fun readVram(address: Int): Int {
@@ -645,7 +620,7 @@ class Ppu(
         return bus.read(ppuBusAddress)
     }
 
-    private fun setNmiLine(asserted: Boolean) {
+    private fun setNmiLineAsserted(asserted: Boolean) {
         if (!nmiLine && asserted) nmiRequested = true
         nmiLine = asserted
     }

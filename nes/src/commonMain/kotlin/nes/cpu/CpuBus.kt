@@ -42,11 +42,12 @@ class CpuBus(
         fun onPhase(type: CycleType, beforeAccess: Boolean)
     }
 
-    val ram = ByteArray(2048)
+    private var state = CpuBusState()
+    val ram: ByteArray get() = state.ram
     private val cycleListeners = mutableListOf<CycleListener>()
     private var cyclePhaseListener: CyclePhaseListener? = null
-    private var openBus = 0
-    private var oamDmaPage = NO_DMA_PAGE
+    private var openBus: Int get() = state.openBus; set(value) { state.openBus = value }
+    private var oamDmaPage: Int get() = state.oamDmaPage; set(value) { state.oamDmaPage = value }
 
     /** Adds a listener invoked exactly once for every CPU-owned cycle. */
     fun setCycleListener(listener: CycleListener) {
@@ -92,6 +93,12 @@ class CpuBus(
     }
 
     fun consumeDmaCycles(): Int = cpuStall.drain()
+
+    fun captureState(): CpuBusState = state.copy(ram = ram.copyOf())
+
+    fun restoreState(state: CpuBusState) {
+        this.state = state
+    }
 
     fun reset() {
         cpuStall.reset()

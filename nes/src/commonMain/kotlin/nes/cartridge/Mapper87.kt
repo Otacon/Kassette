@@ -7,9 +7,10 @@ class Mapper87(
     private val prgRom: ByteArray,
     private val chrRom: ByteArray,
 ) : Mapper {
+    private var state = Mapper87State()
     private val chrBankCount = chrRom.size / CHR_BANK_SIZE
     private val prgMask = if (prgRom.size == 16 * 1024) 0x3FFF else 0x7FFF
-    private var selectedChrBankBase = 0
+    private var selectedChrBankBase: Int get() = state.selectedChrBankBase; set(value) { state.selectedChrBankBase = value }
 
     override fun cpuRead(address: Int): Int {
         val a = address.low16Bits()
@@ -30,6 +31,12 @@ class Mapper87(
 
     override fun reset() {
         selectedChrBankBase = 0
+    }
+
+    override fun captureState(): MapperState = state.copy()
+
+    override fun restoreState(state: MapperState) {
+        this.state = state as Mapper87State
     }
 
     private companion object {

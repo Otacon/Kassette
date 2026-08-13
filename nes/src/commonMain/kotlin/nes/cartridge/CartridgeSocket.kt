@@ -63,4 +63,13 @@ class CartridgeSocket {
     fun irqPending(): Boolean {
         return mapper?.irqPending() ?: false
     }
+
+    fun captureMapperState(): MapperState = requireNotNull(mapper).captureState()
+
+    fun restoreMapperState(state: MapperState) {
+        val inserted = cartridge ?: return
+        val activeMapper = mapper ?: return
+        activeMapper.restoreState(state)
+        mirroring = activeMapper.mirroring() ?: inserted.mirroring
+    }
 }

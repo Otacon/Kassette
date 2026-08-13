@@ -47,6 +47,15 @@ class Mapper79(
 
     override fun mirroring(): Mirroring? = mirroring
 
+    override fun captureState(): MapperState = Mapper79State(selectedPrgBankBase, selectedChrBankBase, mirroring)
+
+    override fun restoreState(state: MapperState) {
+        state as Mapper79State
+        selectedPrgBankBase = state.selectedPrgBankBase
+        selectedChrBankBase = state.selectedChrBankBase
+        mirroring = state.mirroring
+    }
+
     private companion object {
         const val PRG_BANK_SIZE = 32 * 1024
         const val CHR_BANK_SIZE = 8 * 1024

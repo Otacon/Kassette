@@ -29,8 +29,11 @@ fun ComposeMenuBar(
     onOpenRom: () -> Unit,
     onPauseToggle: () -> Unit,
     onReset: () -> Unit,
+    onSaveState: (Int) -> Unit,
+    onLoadState: (Int) -> Unit,
     gameActionsEnabled: Boolean,
     paused: Boolean,
+    loadStateSlots: Set<Int>,
     onMenuOpened: () -> Unit,
     onMenuDismissed: () -> Unit,
     videoFilter: VideoFilter,
@@ -137,6 +140,26 @@ fun ComposeMenuBar(
                         ) {
                             expandedMenu = null
                             onReset()
+                        }
+                        MenuSeparator()
+                        (1..5).forEach { slot ->
+                            MenuItem(
+                                label = "Save State $slot",
+                                enabled = gameActionsEnabled,
+                            ) {
+                                expandedMenu = null
+                                onSaveState(slot)
+                            }
+                        }
+                        MenuSeparator()
+                        (1..5).forEach { slot ->
+                            MenuItem(
+                                label = "Load State $slot",
+                                enabled = gameActionsEnabled && slot in loadStateSlots,
+                            ) {
+                                expandedMenu = null
+                                onLoadState(slot)
+                            }
                         }
                     }
 

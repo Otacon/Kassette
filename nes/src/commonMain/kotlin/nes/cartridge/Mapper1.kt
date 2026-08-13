@@ -79,6 +79,23 @@ class Mapper1(
         else -> Mirroring.HORIZONTAL
     }
 
+    override fun captureState(): MapperState = Mapper1State(
+        chr = if (isChrRam) chr.copyOf() else ByteArray(0),
+        prgRam = prgRam.copyOf(),
+        registers = intArrayOf(shiftRegister, control, chrBank0, chrBank1, prgBank),
+    )
+
+    override fun restoreState(state: MapperState) {
+        state as Mapper1State
+        if (isChrRam) state.chr.copyInto(chr)
+        state.prgRam.copyInto(prgRam)
+        shiftRegister = state.registers[0]
+        control = state.registers[1]
+        chrBank0 = state.registers[2]
+        chrBank1 = state.registers[3]
+        prgBank = state.registers[4]
+    }
+
     private fun mapPrgAddress(address: Int): Int {
         val offset = address and 0x3FFF
         val bank = when ((control shr 2) and 0x03) {
