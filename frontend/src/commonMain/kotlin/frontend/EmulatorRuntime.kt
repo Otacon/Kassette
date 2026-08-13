@@ -8,6 +8,12 @@ class EmulatorRuntime(
     private val input: EmulatorInput,
     private val video: VideoOutput,
 ) {
+    var soundEnabled: Boolean = true
+        set(value) {
+            field = value
+            if (!value) audio.pause()
+        }
+
     suspend fun step(): Boolean {
         input.poll()
         machine.controller.poll()
@@ -18,7 +24,7 @@ class EmulatorRuntime(
                 input.poll()
                 machine.controller.poll()
             }
-            audio.submit(machine.apu.samples, machine.apu.sampleCount)
+            if (soundEnabled) audio.submit(machine.apu.samples, machine.apu.sampleCount)
             video.submit(machine.ppu.completedFrameColorIds)
 
             frameRendered = true

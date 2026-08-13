@@ -31,8 +31,10 @@ fun ComposeMenuBar(
     onReset: () -> Unit,
     onSaveState: (Int) -> Unit,
     onLoadState: (Int) -> Unit,
+    onSoundToggle: () -> Unit,
     gameActionsEnabled: Boolean,
     paused: Boolean,
+    soundEnabled: Boolean,
     loadStateSlots: Set<Int>,
     onMenuOpened: () -> Unit,
     onMenuDismissed: () -> Unit,
@@ -140,6 +142,14 @@ fun ComposeMenuBar(
                         ) {
                             expandedMenu = null
                             onReset()
+                        }
+                        MenuItem(
+                            label = "Sound",
+                            checked = soundEnabled,
+                            role = Role.Checkbox,
+                        ) {
+                            expandedMenu = null
+                            onSoundToggle()
                         }
                         MenuSeparator()
                         (1..5).forEach { slot ->

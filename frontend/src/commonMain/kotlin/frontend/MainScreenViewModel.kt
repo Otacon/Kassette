@@ -50,7 +50,9 @@ class MainScreenViewModel(
             }
         }
         config.rom?.let { loadRom(it) }
-        _state.update { it.copy(videoFilter = preferences.videoFilter) }
+        val soundEnabled = preferences.soundEnabled
+        viewModelScope.launch { runtime.setSoundEnabled(soundEnabled) }
+        _state.update { it.copy(videoFilter = preferences.videoFilter, soundEnabled = soundEnabled) }
     }
 
     fun onRomSelected(romData: RomData?) {
@@ -65,9 +67,16 @@ class MainScreenViewModel(
     }
 
     fun setVideoFilter(videoFilter: VideoFilter) = _state.update {
-        val newVideoFilter = if(videoFilter == it.videoFilter) VideoFilter.NONE else videoFilter
+        val newVideoFilter = if (videoFilter == it.videoFilter) VideoFilter.NONE else videoFilter
         preferences.videoFilter = newVideoFilter
         it.copy(videoFilter = newVideoFilter)
+    }
+
+    fun onSoundToggle() = _state.update {
+        val soundEnabled = !it.soundEnabled
+        preferences.soundEnabled = soundEnabled
+        viewModelScope.launch { runtime.setSoundEnabled(soundEnabled) }
+        it.copy(soundEnabled = soundEnabled)
     }
 
     fun onSaveState(slot: Int) = viewModelScope.launch {
@@ -210,6 +219,7 @@ data class MainWindowState(
     val windowTitle: String = "",
     val showRomPicker: Boolean = false,
     val isPaused: Boolean = false,
+    val soundEnabled: Boolean = true,
     val videoFilter: VideoFilter = VideoFilter.NONE,
     val loadError: String? = null,
     val loadStateSlots: Set<Int> = emptySet(),

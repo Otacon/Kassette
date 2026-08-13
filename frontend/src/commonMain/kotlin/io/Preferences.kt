@@ -36,8 +36,15 @@ class Preferences {
             settings.putString(key = KEY_VIDEO_FILTER, value = value.name)
         }
 
+    var soundEnabled: Boolean
+        get() = settings.getBoolean(KEY_SOUND_ENABLED, true)
+        set(value) {
+            settings.putBoolean(key = KEY_SOUND_ENABLED, value = value)
+        }
+
     companion object {
         private const val KEY_VIDEO_FILTER = "video-filter"
+        private const val KEY_SOUND_ENABLED = "sound-enabled"
         private const val KEY_GAMEPAD_MAPPINGS = "gamepad-mappings"
 
         private val DEFAULT_CONTROLLER_MAPPINGS = ControllerMappings(

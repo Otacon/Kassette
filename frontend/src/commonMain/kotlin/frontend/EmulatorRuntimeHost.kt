@@ -53,6 +53,10 @@ class EmulatorRuntimeHost(
         paused = false
     }
 
+    suspend fun setSoundEnabled(enabled: Boolean) = mutex.withLock {
+        runtime.soundEnabled = enabled
+    }
+
     suspend fun <T> pauseForStateOperation(operation: () -> T): T {
         val wasPaused = mutex.withLock {
             val previous = paused
