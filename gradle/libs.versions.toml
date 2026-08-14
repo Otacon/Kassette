@@ -3,7 +3,6 @@ androidx-lifecycle = "2.11.0"
 buildKonfig = "0.22.0"
 clikt = "5.1.0"
 compose = "1.11.1"
-jinput = "2.0.10"
 kermit = "2.1.0"
 kotlinxBrowser = "0.5.0"
 kotlinxCoroutines = "1.11.0"
@@ -26,7 +25,7 @@ kotlinTest = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotli
 
 lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjglOpenal = { module = "org.lwjgl:lwjgl-openal", version.ref = "lwjgl" }
-jinput = { module = "net.java.jinput:jinput", version.ref = "jinput" }
+lwjglGlfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 
 kotlinxBrowser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 
