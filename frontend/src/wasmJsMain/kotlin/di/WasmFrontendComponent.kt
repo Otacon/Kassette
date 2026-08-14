@@ -5,12 +5,12 @@ import frontend.Config
 import frontend.DelegatingEmulatorInput
 import frontend.EmulatorRuntimeHost
 import frontend.MainScreenViewModel
-import frontend.PlatformControllerInput
-import frontend.PlatformRenderer
+import platform.ControllerInput
+import frontend.Renderer
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
-import frontend.PlatformKeyboardInput
+import platform.KeyboardInput
 import frontend.VirtualControllerInput
 import frontend.controllerSettings.ControllerSettingsViewModel
 import nes.NesMachine
@@ -36,11 +36,11 @@ interface WasmFrontendComponent {
 
     @AppScope
     @Provides
-    fun keyboardInput(component: FrontendComponent): PlatformKeyboardInput = component.keyboardInput
+    fun keyboardInput(component: FrontendComponent): KeyboardInput = component.keyboardInput
 
     @AppScope
     @Provides
-    fun controllerInput(component: FrontendComponent): PlatformControllerInput = component.controllerInput
+    fun controllerInput(component: FrontendComponent): ControllerInput = component.controllerInput
 
     @AppScope
     @Provides
@@ -56,7 +56,7 @@ interface WasmFrontendComponent {
 
     @AppScope
     @Provides
-    fun renderer(component: FrontendComponent): PlatformRenderer = component.renderer
+    fun renderer(component: FrontendComponent): Renderer = component.renderer
 
     @AppScope
     @Provides

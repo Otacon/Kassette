@@ -4,7 +4,7 @@ import io.VideoFilter
 import io.readTextResource
 import org.jetbrains.skia.*
 
-class PlatformRenderer : Renderer {
+class Renderer {
     private val frameImageInfo = ImageInfo(
         FRAME_WIDTH,
         FRAME_HEIGHT,
@@ -25,7 +25,7 @@ class PlatformRenderer : Renderer {
     private var outputHeight = 0
     private var presentedFrames = 0L
 
-    override fun init(videoFilter: VideoFilter) {
+    fun init(videoFilter: VideoFilter) {
         release()
         try {
             this.videoFilter = videoFilter
@@ -49,7 +49,7 @@ class PlatformRenderer : Renderer {
         }
     }
 
-    override fun present(framebuffer: ByteArray, windowWidth: Int, windowHeight: Int) {
+    fun present(framebuffer: ByteArray, windowWidth: Int, windowHeight: Int) {
         check(initialized) { "Skiko renderer is not initialized" }
         require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES frame" }
 
@@ -72,7 +72,7 @@ class PlatformRenderer : Renderer {
         check(bitmap.installPixels(frameImageInfo, source, FRAME_WIDTH)) { "Failed to upload NES frame bitmap" }
     }
 
-    override fun draw(canvas: Canvas) {
+    fun draw(canvas: Canvas) {
         val frame = frameBitmap ?: return
         if (outputWidth <= 0 || outputHeight <= 0) return
 
@@ -110,7 +110,7 @@ class PlatformRenderer : Renderer {
         }
     }
 
-    override fun close() {
+    fun close() {
         release()
     }
 

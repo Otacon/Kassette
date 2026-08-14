@@ -11,15 +11,18 @@ import frontend.controllerSettings.ControllerSettingsDialog
 import frontend.controllerSettings.ControllerSettingsViewModel
 import frontend.components.Dialog
 import io.VideoFilter
+import platform.ControllerInput
+import platform.KeyboardInput
+import platform.hasTouchScreen
 
 @Composable
 fun MainScreen(
     viewModel: MainScreenViewModel,
     controllerSettingsViewModel: ControllerSettingsViewModel,
     frameBuffer: SharedFrameBuffer,
-    renderer: PlatformRenderer,
-    keyboardInput: PlatformKeyboardInput,
-    controllerInput: PlatformControllerInput,
+    renderer: Renderer,
+    keyboardInput: KeyboardInput,
+    controllerInput: ControllerInput,
     virtualControllerInput: VirtualControllerInput,
     onOpenRomClick: () -> Unit,
     onPauseToggleClick: (Boolean) -> Unit,

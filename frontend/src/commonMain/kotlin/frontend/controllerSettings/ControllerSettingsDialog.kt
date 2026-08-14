@@ -19,12 +19,13 @@ import androidx.compose.ui.unit.dp
 import frontend.components.Dialog
 import frontend.components.HorizontalDivider
 import kotlinx.coroutines.delay
+import platform.ControllerInput
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ControllerSettingsDialog(
     viewModel: ControllerSettingsViewModel,
-    controllerInput: frontend.PlatformControllerInput,
+    controllerInput: ControllerInput,
     onDismiss: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()

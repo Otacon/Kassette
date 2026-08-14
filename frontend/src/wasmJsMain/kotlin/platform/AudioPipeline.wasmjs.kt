@@ -1,14 +1,15 @@
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
-package frontend
+package platform
 
+import frontend.isPageActive
 import nes.apu.NesApu
 
-actual class PlatformAudioPipeline actual constructor() : AudioPipeline {
+actual class AudioPipeline actual constructor() {
     private var context: JsAny? = null
     private var nextStartTime = 0.0
 
-    actual override fun submit(samples: ShortArray, count: Int) {
+    actual fun submit(samples: ShortArray, count: Int) {
         if (count <= 0) return
         if (!isPageActive()) return
         val audio = ensureContext()
@@ -26,11 +27,7 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline {
         nextStartTime += duration
     }
 
-    override fun pause() {
-        closeAudioContext()
-    }
-
-    override fun close() {
+    actual fun stop() {
         closeAudioContext()
     }
 

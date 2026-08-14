@@ -1,7 +1,8 @@
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
-package frontend
+package platform
 
+import frontend.EmulatorInput
 import frontend.controllerSettings.AXIS_NEGATIVE
 import frontend.controllerSettings.AXIS_POSITIVE
 import frontend.controllerSettings.ControllerInputMapper
@@ -13,7 +14,7 @@ import frontend.controllerSettings.gamepadAxis
 import frontend.controllerSettings.gamepadButton
 import nes.input.NesController
 
-actual class PlatformControllerInput actual constructor(
+actual class ControllerInput actual constructor(
     private val controller: NesController,
     private val inputMapper: ControllerInputMapper,
 ) : EmulatorInput {

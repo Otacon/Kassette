@@ -136,18 +136,16 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.clikt)
             implementation(libs.kotlinxCoroutinesSwing)
-            implementation(libs.jinput)
-            runtimeOnly(dependencies.variantOf(libs.jinput) { classifier("natives-all") })
 
             implementation(libs.lwjgl)
-            runtimeOnly(
-                dependencies.variantOf(libs.lwjgl) { classifier(lwjglNatives) }
-            )
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier(lwjglNatives) })
 
             implementation(libs.lwjglOpenal)
-            runtimeOnly(
-                dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) }
-            )
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) })
+
+            implementation(libs.lwjglGlfw)
+            runtimeOnly(dependencies.variantOf(libs.lwjglGlfw) { classifier(lwjglNatives) })
+
         }
     }
 }

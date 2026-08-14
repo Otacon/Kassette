@@ -15,18 +15,21 @@ import kassette.frontend.generated.resources.Res
 import kassette.frontend.generated.resources.icon
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import platform.AudioPipeline
+import platform.ControllerInput
+import platform.KeyboardInput
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import kotlin.system.exitProcess
 
 @Inject
 class EmulatorApplication(
-    private val keyboardInput: PlatformKeyboardInput,
-    private val controllerInput: PlatformControllerInput,
+    private val keyboardInput: KeyboardInput,
+    private val controllerInput: ControllerInput,
     private val virtualControllerInput: VirtualControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
-    private val audio: PlatformAudioPipeline,
-    private val renderer: PlatformRenderer,
+    private val audio: AudioPipeline,
+    private val renderer: Renderer,
     private val viewModel: MainScreenViewModel,
     private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
 ) {
@@ -82,7 +85,7 @@ class EmulatorApplication(
                     onDispose { window.removeWindowListener(listener) }
                 }
 
-                val romPicker = remember(window) { FileChooser(window) }
+                val romPicker = remember(window) { platform.FileChooser(window) }
                 MainScreen(
                     viewModel = viewModel,
                     controllerSettingsViewModel = controllerSettingsViewModel,

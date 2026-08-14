@@ -17,6 +17,8 @@ import frontend.*
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import nes.NesMachine
+import platform.ControllerInput
+import platform.KeyboardInput
 
 fun main() {
     Logger.setMinSeverity(Severity.entries[BuildKonfig.loggingLevel])
@@ -31,15 +33,15 @@ fun main() {
 @Inject
 class WebEmulatorApplication(
     private val machine: NesMachine,
-    private val keyboardInput: PlatformKeyboardInput,
-    private val controllerInput: PlatformControllerInput,
+    private val keyboardInput: KeyboardInput,
+    private val controllerInput: ControllerInput,
     private val virtualControllerInput: VirtualControllerInput,
     private val runtimeHost: EmulatorRuntimeHost,
     private val viewModel: MainScreenViewModel,
     private val controllerSettingsViewModel: frontend.controllerSettings.ControllerSettingsViewModel,
-    private val renderer: PlatformRenderer,
+    private val renderer: Renderer,
 ) {
-    private val romPicker = FileChooser()
+    private val romPicker = platform.FileChooser()
 
     @Composable
     fun Content() {

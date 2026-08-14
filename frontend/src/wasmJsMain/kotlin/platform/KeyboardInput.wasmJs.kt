@@ -1,15 +1,16 @@
-package frontend
+package platform
 
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import frontend.EmulatorInput
 import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.NO_NES_BUTTON
 import frontend.controllerSettings.inputButton
 import nes.input.NesController
 
-actual class PlatformKeyboardInput actual constructor(
+actual class KeyboardInput actual constructor(
     private val controller: NesController,
     private val inputMapper: ControllerInputMapper,
 ) : EmulatorInput {

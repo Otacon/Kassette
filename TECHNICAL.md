@@ -122,11 +122,11 @@ Frontend code is under `frontend/src`.
 * `frontend/EmulatorRuntimeHost` and `frontend/EmulatorRuntime`: coroutine-based emulator lifecycle, frame pacing, input
   polling, audio submission, and framebuffer submission.
 * `frontend/controllerSettings`: custom input binding state, mapping lookup, labels, and bindings dialog.
-* `PlatformKeyboardInput`: platform key events mapped through `ControllerInputMapper`.
-* `PlatformControllerInput`: JInput gamepad bindings on desktop and Gamepad API bindings on web, also mapped through
+* `KeyboardInput`: platform key events mapped through `ControllerInputMapper`.
+* `ControllerInput`: JInput gamepad bindings on desktop and Gamepad API bindings on web, also mapped through
   `ControllerInputMapper`.
-* `PlatformAudioPipeline`: queues generated mono PCM samples to OpenAL or WebAudio.
-* `PlatformRenderer`: presents the 256x240 framebuffer through Skiko/SkSL on desktop or WebGL on web.
+* `AudioPipeline`: queues generated mono PCM samples to OpenAL or WebAudio.
+* `Renderer`: presents the 256x240 framebuffer through Skiko/SkSL on desktop or WebGL on web.
 * `nes.cartridge` under `frontend/src/commonMain/kotlin`: iNES 1.0 / NES 2.0 parsing and nes20db metadata application.
 
 Desktop CLI code is under `frontend/src/jvmMain/kotlin/app`.
