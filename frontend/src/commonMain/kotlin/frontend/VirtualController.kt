@@ -71,10 +71,12 @@ private fun DirectionPad(input: VirtualControllerInput) {
             .pointerInput(input) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
                     input.updateDirection(down.position, size.width, size.height)
                     try {
                         do {
                             val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                            change?.consume()
                             if (change?.pressed == true) {
                                 input.updateDirection(change.position, size.width, size.height)
                             }
@@ -127,6 +129,7 @@ private fun ControllerButton(
             .pointerInput(input, button) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
                     input.press(button)
                     try {
                         waitForRelease(down.id)
@@ -151,6 +154,7 @@ private fun ControllerButton(
 private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.waitForRelease(pointerId: PointerId) {
     do {
         val change = awaitPointerEvent().changes.firstOrNull { it.id == pointerId }
+        change?.consume()
     } while (change?.pressed == true)
 }
 

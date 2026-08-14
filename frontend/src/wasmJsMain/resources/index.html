@@ -19,9 +19,10 @@
             overscroll-behavior: none;
             touch-action: none;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-user-drag: none;
+        -webkit-tap-highlight-color: transparent;
         }
 
         #rom {
@@ -33,6 +34,12 @@
 <div id="app"></div>
 <input id="rom" type="file" accept=".nes,.zip,application/octet-stream,application/zip">
 <script>
+    const app = document.getElementById("app");
+    for (const eventName of ["contextmenu", "selectstart", "dragstart"]) {
+        app.addEventListener(eventName, (event) => event.preventDefault(), { capture: true });
+    }
+    app.addEventListener("touchstart", (event) => event.preventDefault(), { capture: true, passive: false });
+
     const resourcePaths = [
         "nes20db.csv",
         "shaders/crt.sksl",
