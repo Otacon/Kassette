@@ -21,6 +21,8 @@
 Kassette is a small, focused NES emulator for desktop and the browser. It is built for people who want to load their own
 legally obtained `.nes` files and play them with a simple menu-driven interface.
 
+[Play on your browser now](https://otacon.github.io/Kassette/).
+
 No ROMs, BIOS files, Nintendo assets, screenshots, extracted game data, disassemblies, or ROM patches are included in
 this repository.
 
