@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
-package frontend
+package platform
 
 actual fun hasTouchScreen(): Boolean = browserHasTouchScreen()
 

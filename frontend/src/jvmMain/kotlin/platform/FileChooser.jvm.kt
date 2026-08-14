@@ -1,8 +1,9 @@
-package frontend
+package platform
 
 import nes.cartridge.RomData
 import java.awt.FileDialog
 import java.awt.Frame
+import java.io.FilenameFilter
 import java.nio.file.Path
 import kotlin.io.path.readBytes
 
@@ -12,7 +13,7 @@ actual class FileChooser(
     actual suspend fun pickRom(): RomData? {
         val dialog = FileDialog(parent, "Open NES ROM", FileDialog.LOAD)
         return try {
-            dialog.filenameFilter = java.io.FilenameFilter { _, name ->
+            dialog.filenameFilter = FilenameFilter { _, name ->
                 name.endsWith(".nes", ignoreCase = true) || name.endsWith(".zip", ignoreCase = true)
             }
             dialog.isVisible = true

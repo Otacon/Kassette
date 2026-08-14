@@ -1,4 +1,4 @@
-package frontend
+package platform
 
 import nes.cartridge.RomData
 

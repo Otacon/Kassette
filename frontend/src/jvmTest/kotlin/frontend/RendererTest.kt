@@ -8,7 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
-class PlatformRendererTest {
+class RendererTest {
     @Test
     fun pixelSharpRendererDrawsFramebuffer() {
         assertNotEquals(Color.BLACK, renderCenterPixel(crt = false))
@@ -28,7 +28,7 @@ class PlatformRendererTest {
     }
 
     private fun renderCenterPixel(crt: Boolean): Int {
-        val renderer = PlatformRenderer()
+        val renderer = Renderer()
         val surface = Surface.makeRasterN32Premul(512, 480)
         return try {
             renderer.init(if (crt) VideoFilter.CRT else VideoFilter.NONE)
@@ -53,7 +53,7 @@ class PlatformRendererTest {
     }
 
     private fun renderPixel(crt: Boolean, x: Int, y: Int): Int {
-        val renderer = PlatformRenderer()
+        val renderer = Renderer()
         val surface = Surface.makeRasterN32Premul(800, 480)
         return try {
             renderer.init(if (crt) VideoFilter.CRT else VideoFilter.NONE)

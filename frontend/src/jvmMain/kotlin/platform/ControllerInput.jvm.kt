@@ -1,5 +1,6 @@
-package frontend
+package platform
 
+import frontend.EmulatorInput
 import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.AXIS_NEGATIVE
 import frontend.controllerSettings.AXIS_POSITIVE
@@ -22,7 +23,7 @@ import net.java.games.input.ControllerEnvironment
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-actual class PlatformControllerInput actual constructor(
+actual class ControllerInput actual constructor(
     private val controller: NesController,
     private val inputMapper: ControllerInputMapper,
 ) : EmulatorInput {
@@ -49,7 +50,7 @@ actual class PlatformControllerInput actual constructor(
         directory.toFile().deleteOnExit()
         libraries.forEach { (resource, fileName) ->
             val target = directory.resolve(fileName)
-            PlatformControllerInput::class.java.getResourceAsStream("/$resource").use { input ->
+            ControllerInput::class.java.getResourceAsStream("/$resource").use { input ->
                 requireNotNull(input) { "Missing JInput native library: $resource" }
                 Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
             }

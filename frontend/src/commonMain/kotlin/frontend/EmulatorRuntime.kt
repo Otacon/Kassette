@@ -1,17 +1,18 @@
 package frontend
 
 import nes.NesMachine
+import platform.AudioPipeline
 
 class EmulatorRuntime(
     private val machine: NesMachine,
     private val audio: AudioPipeline,
     private val input: EmulatorInput,
-    private val video: VideoOutput,
+    private val frameBuffer: SharedFrameBuffer,
 ) {
     var soundEnabled: Boolean = true
         set(value) {
             field = value
-            if (!value) audio.pause()
+            if (!value) audio.stop()
         }
 
     suspend fun step(): Boolean {
@@ -25,7 +26,7 @@ class EmulatorRuntime(
                 machine.controller.poll()
             }
             if (soundEnabled) audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            video.submit(machine.ppu.completedFrameColorIds)
+            frameBuffer.submit(machine.ppu.completedFrameColorIds)
 
             frameRendered = true
         }
@@ -35,7 +36,7 @@ class EmulatorRuntime(
     fun pause() {
         input.pause()
         machine.controller.poll()
-        audio.pause()
+        audio.stop()
     }
 
     fun close() {

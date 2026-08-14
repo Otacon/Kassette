@@ -1,4 +1,4 @@
-package frontend
+package platform
 
 import dev.zacsweers.metro.Inject
 import nes.apu.NesApu
@@ -10,7 +10,7 @@ import org.lwjgl.openal.ALC10.*
 import java.nio.ShortBuffer
 
 @Inject
-actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoCloseable {
+actual class AudioPipeline actual constructor() : AutoCloseable {
     private val sampleRate = NesApu.DEFAULT_SAMPLE_RATE
     private val device: Long
     private val context: Long
@@ -37,7 +37,7 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoClo
         alSourcef(source, AL_GAIN, 0.65f)
     }
 
-    actual override fun submit(samples: ShortArray, count: Int) {
+    actual fun submit(samples: ShortArray, count: Int) {
         if (count <= 0) return
         alcMakeContextCurrent(context)
         unqueueProcessed()
@@ -51,6 +51,12 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoClo
         if (alGetSourcei(source, AL_SOURCE_STATE) != AL_PLAYING) alSourcePlay(source)
     }
 
+    actual fun stop() {
+        alcMakeContextCurrent(context)
+        alSourceStop(source)
+        unqueueAll()
+    }
+
     private fun unqueueProcessed() {
         var processed = alGetSourcei(source, AL_BUFFERS_PROCESSED)
         while (processed > 0) {
@@ -58,12 +64,6 @@ actual class PlatformAudioPipeline actual constructor() : AudioPipeline, AutoClo
                 alSourceUnqueueBuffers(source) else alSourceUnqueueBuffers(source)
             processed--
         }
-    }
-
-    override fun pause() {
-        alcMakeContextCurrent(context)
-        alSourceStop(source)
-        unqueueAll()
     }
 
     private fun unqueueAll() {

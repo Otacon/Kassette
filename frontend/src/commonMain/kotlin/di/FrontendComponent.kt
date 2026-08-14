@@ -22,6 +22,9 @@ import nes.cartridge.InesParserUtils
 import nes.cartridge.InesParserV1
 import nes.cartridge.InesParserV2
 import nes.di.NesComponent
+import platform.AudioPipeline
+import platform.ControllerInput
+import platform.KeyboardInput
 
 @AppScope
 @DependencyGraph
@@ -29,10 +32,10 @@ import nes.di.NesComponent
 interface FrontendComponent {
     val inesParser: InesParserComposite
     val nesMachine: NesMachine
-    val renderer: PlatformRenderer
-    val audio: PlatformAudioPipeline
-    val keyboardInput: PlatformKeyboardInput
-    val controllerInput: PlatformControllerInput
+    val renderer: Renderer
+    val audio: AudioPipeline
+    val keyboardInput: KeyboardInput
+    val controllerInput: ControllerInput
     val virtualControllerInput: VirtualControllerInput
     val runtimeInput: DelegatingEmulatorInput
     val runtimeHost: EmulatorRuntimeHost
@@ -79,25 +82,25 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun renderer(): PlatformRenderer = PlatformRenderer()
+    fun renderer(): Renderer = Renderer()
 
     @AppScope
     @Provides
-    fun audio(): PlatformAudioPipeline = PlatformAudioPipeline()
+    fun audio(): AudioPipeline = AudioPipeline()
 
     @AppScope
     @Provides
     fun keyboardInput(
         machine: NesMachine,
         inputMapper: ControllerInputMapper,
-    ): PlatformKeyboardInput = PlatformKeyboardInput(machine.controller, inputMapper)
+    ): KeyboardInput = KeyboardInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
     fun controllerInput(
         machine: NesMachine,
         inputMapper: ControllerInputMapper,
-    ): PlatformControllerInput = PlatformControllerInput(machine.controller, inputMapper)
+    ): ControllerInput = ControllerInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
@@ -107,8 +110,8 @@ interface FrontendComponent {
     @AppScope
     @Provides
     fun runtimeInput(
-        keyboardInput: PlatformKeyboardInput,
-        controllerInput: PlatformControllerInput,
+        keyboardInput: KeyboardInput,
+        controllerInput: ControllerInput,
         virtualControllerInput: VirtualControllerInput,
     ): DelegatingEmulatorInput = DelegatingEmulatorInput(
         CombinedEmulatorInput(keyboardInput, controllerInput, virtualControllerInput)
@@ -139,7 +142,7 @@ interface FrontendComponent {
     @Provides
     fun runtimeHost(
         machine: NesMachine,
-        audio: PlatformAudioPipeline,
+        audio: AudioPipeline,
         input: DelegatingEmulatorInput,
     ): EmulatorRuntimeHost = EmulatorRuntimeHost(
         machine = machine,

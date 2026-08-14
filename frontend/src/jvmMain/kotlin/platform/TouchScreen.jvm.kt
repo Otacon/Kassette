@@ -1,3 +1,3 @@
-package frontend
+package platform
 
 actual fun hasTouchScreen(): Boolean = false

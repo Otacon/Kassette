@@ -10,13 +10,14 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.skiaCanvas
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import io.VideoFilter
+import platform.KeyboardInput
 import kotlin.math.roundToInt
 
 @Composable
 fun ComposeSkiaScreen(
     frameBuffer: SharedFrameBuffer,
-    renderer: PlatformRenderer,
-    keyboardInput: PlatformKeyboardInput?,
+    renderer: Renderer,
+    keyboardInput: KeyboardInput?,
     videoFilter: VideoFilter,
     focusRequestKey: Any,
     modifier: Modifier = Modifier,

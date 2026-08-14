@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalWasmJsInterop::class)
 
-package frontend
+package platform
 
 import kotlinx.browser.document
 import kotlinx.coroutines.suspendCancellableCoroutine
