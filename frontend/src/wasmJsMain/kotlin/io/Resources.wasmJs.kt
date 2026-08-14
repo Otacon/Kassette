@@ -7,11 +7,9 @@ internal actual fun readTextResource(path: String): String = readTextResourceImp
 @JsFun(
     """
     (path) => {
-        const request = new XMLHttpRequest();
-        request.open('GET', path, false);
-        request.send();
-        if ((request.status >= 200 && request.status < 300) || request.status === 0) return request.responseText;
-        throw new Error('Unable to load resource ' + path + ': ' + request.status + ' ' + request.statusText);
+        const resource = globalThis.kassetteResources?.[path];
+        if (resource !== undefined) return resource;
+        throw new Error('Resource was not preloaded: ' + path);
     }
     """
 )

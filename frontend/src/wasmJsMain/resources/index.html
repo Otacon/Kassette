@@ -32,6 +32,88 @@
 <body>
 <div id="app"></div>
 <input id="rom" type="file" accept=".nes,.zip,application/octet-stream,application/zip">
-<script src="kassette.js"></script>
+<script>
+    const resourcePaths = [
+        "nes20db.csv",
+        "shaders/crt.sksl",
+        "shaders/palette.sksl",
+    ];
+    let applicationStarted = false;
+
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (applicationStarted) {
+                location.reload();
+            }
+        });
+    }
+
+    async function startApplication() {
+        const resources = await Promise.all(resourcePaths.map(async (path) => {
+            const response = await fetch(path);
+            if (!response.ok) {
+                throw new Error(`Unable to load resource ${path}: ${response.status} ${response.statusText}`);
+            }
+            return [path, await response.text()];
+        }));
+        globalThis.kassetteResources = Object.fromEntries(resources);
+        applicationStarted = true;
+        const script = document.createElement("script");
+        script.src = "kassette.js";
+        document.body.append(script);
+    }
+
+    function waitForControllerChange(currentController) {
+        return new Promise((resolve) => {
+            const onControllerChange = () => {
+                const controller = navigator.serviceWorker.controller;
+                if (controller && controller !== currentController) {
+                    navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+                    resolve(controller);
+                }
+            };
+            navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+            onControllerChange();
+        });
+    }
+
+    function checkForUpdate(worker) {
+        return new Promise((resolve) => {
+            const channel = new MessageChannel();
+            channel.port1.onmessage = (event) => resolve(event.data);
+            worker.postMessage("CHECK_FOR_UPDATE", [channel.port2]);
+        });
+    }
+
+    async function prepareApplication() {
+        if (!("serviceWorker" in navigator)) {
+            await startApplication();
+            return;
+        }
+
+        navigator.serviceWorker.addEventListener("message", (event) => {
+            if (event.data === "VERSION_UPDATED") {
+                location.reload();
+            }
+        });
+
+        const registration = await navigator.serviceWorker.register("./service-worker.js");
+        await navigator.serviceWorker.ready;
+        let worker = navigator.serviceWorker.controller;
+
+        if (registration.installing || registration.waiting || !worker) {
+            worker = await waitForControllerChange(worker);
+        }
+
+        const { updated } = await checkForUpdate(worker);
+        if (updated) {
+            location.reload();
+            return;
+        }
+        await startApplication();
+    }
+
+    prepareApplication().catch((error) => console.error(error));
+</script>
 </body>
 </html>

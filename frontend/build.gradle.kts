@@ -150,6 +150,14 @@ kotlin {
     }
 }
 
+tasks.named<Copy>("wasmJsProcessResources") {
+    val versionProperties = mapOf("appVersion" to appVersion)
+    inputs.property("appVersion", appVersion)
+    filesMatching("version.txt") {
+        expand(versionProperties)
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "app.MainKt"
