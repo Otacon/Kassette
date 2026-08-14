@@ -6,7 +6,6 @@ const APP_SHELL = [
     "./",
     "index.html",
     "kassette.js",
-    "version.txt",
     "manifest.webmanifest",
     "favicon.ico",
     "icons/icon-192.png",
@@ -34,8 +33,22 @@ async function setCacheState(state) {
     }));
 }
 
-async function versionCacheName(version) {
-    const bytes = new TextEncoder().encode(version);
+async function versionCacheName(assets) {
+    const chunks = await Promise.all(APP_SHELL.map(async (path) => {
+        const pathBytes = new TextEncoder().encode(path);
+        const contentBytes = new Uint8Array(await assets.get(path).response.clone().arrayBuffer());
+        const chunk = new Uint8Array(4 + pathBytes.length + contentBytes.length);
+        new DataView(chunk.buffer).setUint32(0, pathBytes.length);
+        chunk.set(pathBytes, 4);
+        chunk.set(contentBytes, 4 + pathBytes.length);
+        return chunk;
+    }));
+    const bytes = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.length, 0));
+    let offset = 0;
+    chunks.forEach((chunk) => {
+        bytes.set(chunk, offset);
+        offset += chunk.length;
+    });
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     const hash = [...new Uint8Array(digest)]
         .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -63,19 +76,18 @@ async function fetchFresh(path) {
     return { request, response };
 }
 
-async function downloadCurrentVersion() {
-    const versionAsset = await fetchFresh("version.txt");
-    const version = (await versionAsset.response.clone().text()).trim();
-    const cacheName = await versionCacheName(version);
-    const { active: currentName } = await cacheState();
+async function downloadCurrentVersion(activate = true) {
+    const shellAssets = await Promise.all(APP_SHELL.map(async (path) => [path, await fetchFresh(path)]));
+    const assets = new Map(shellAssets);
+    const cacheName = await versionCacheName(assets);
+    const state = await cacheState();
+    const currentName = state.active;
     if (cacheName === currentName) {
+        if (!activate && state.pending) {
+            await setCacheState({ active: state.active, previous: state.previous });
+        }
         return false;
     }
-
-    const assets = new Map([["version.txt", versionAsset]]);
-    const shellPaths = APP_SHELL.filter((path) => path !== "version.txt");
-    const shellAssets = await Promise.all(shellPaths.map(async (path) => [path, await fetchFresh(path)]));
-    shellAssets.forEach(([path, asset]) => assets.set(path, asset));
 
     const bundle = await assets.get("kassette.js").response.clone().text();
     const wasmPaths = [...new Set([...bundle.matchAll(/[a-f0-9]{20}\.wasm/g)].map((match) => match[0]))];
@@ -86,8 +98,10 @@ async function downloadCurrentVersion() {
     const wasmAssets = await Promise.all(wasmPaths.map(async (path) => [path, await fetchFresh(path)]));
     wasmAssets.forEach(([path, asset]) => assets.set(path, asset));
 
-    const confirmedVersion = (await (await fetchFresh("version.txt")).response.text()).trim();
-    if (confirmedVersion !== version) {
+    const confirmationAssets = new Map(await Promise.all(
+        APP_SHELL.map(async (path) => [path, await fetchFresh(path)])
+    ));
+    if (await versionCacheName(confirmationAssets) !== cacheName) {
         throw new Error("A newer release was published while downloading; retrying on the next check");
     }
 
@@ -100,8 +114,12 @@ async function downloadCurrentVersion() {
         throw error;
     }
 
-    await deleteObsoleteCaches([cacheName, currentName].filter(Boolean));
-    await setCacheState({ active: cacheName, previous: currentName });
+    if (activate) {
+        await deleteObsoleteCaches([cacheName, currentName].filter(Boolean));
+        await setCacheState({ active: cacheName, previous: currentName });
+    } else {
+        await setCacheState({ ...state, pending: cacheName });
+    }
     return true;
 }
 
@@ -117,13 +135,18 @@ function checkForUpdate() {
 
 self.addEventListener("install", (event) => {
     event.waitUntil((async () => {
-        await checkForUpdate();
+        await downloadCurrentVersion(false);
         await self.skipWaiting();
     })());
 });
 
 self.addEventListener("activate", (event) => {
     event.waitUntil((async () => {
+        const state = await cacheState();
+        if (state.pending) {
+            await deleteObsoleteCaches([state.pending, state.active].filter(Boolean));
+            await setCacheState({ active: state.pending, previous: state.active });
+        }
         await deleteObsoleteCaches();
         await self.clients.claim();
     })());

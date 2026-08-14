@@ -5,84 +5,126 @@ uniform float2 destinationSize;
 uniform float time;
 
 const float2 sourceSize = float2(256.0, 240.0);
+const float crtGamma = 2.5;
+const float displayGamma = 2.2;
 
-float randomValue(float2 point) {
-    return fract(sin(dot(point, float2(12.9898, 78.233))) * 43758.5453);
+float3 sampleLinear(float2 coordinate) {
+    float2 sourcePoint = clamp(coordinate, float2(0.0), float2(1.0)) * sourceSize;
+    return pow(max(frameTexture.eval(sourcePoint).rgb, float3(0.0)), float3(crtGamma));
 }
 
-float3 linearSample(float2 coordinate) {
-    float2 sourcePoint = coordinate * sourceSize;
-    return pow(frameTexture.eval(sourcePoint).rgb, float3(2.2));
-}
-
-float3 analogSignal(float2 coordinate) {
+float3 horizontalBeam(float2 coordinate) {
     float2 pixel = 1.0 / sourceSize;
-    float3 farLeft = linearSample(coordinate - float2(1.65 * pixel.x, 0.0));
-    float3 left = linearSample(coordinate - float2(0.70 * pixel.x, 0.0));
-    float3 center = linearSample(coordinate);
-    float3 right = linearSample(coordinate + float2(0.70 * pixel.x, 0.0));
-    float3 farRight = linearSample(coordinate + float2(1.65 * pixel.x, 0.0));
+    float3 farLeft = sampleLinear(coordinate - float2(1.50 * pixel.x, 0.0));
+    float3 left = sampleLinear(coordinate - float2(0.65 * pixel.x, 0.0));
+    float3 center = sampleLinear(coordinate);
+    float3 right = sampleLinear(coordinate + float2(0.65 * pixel.x, 0.0));
+    float3 farRight = sampleLinear(coordinate + float2(1.50 * pixel.x, 0.0));
 
-    float3 signal = float3(0.0);
-    signal.r = farLeft.r * 0.07 + left.r * 0.24 + center.r * 0.45 + right.r * 0.20 + farRight.r * 0.04;
-    signal.g = farLeft.g * 0.04 + left.g * 0.20 + center.g * 0.52 + right.g * 0.20 + farRight.g * 0.04;
-    signal.b = farLeft.b * 0.04 + left.b * 0.20 + center.b * 0.45 + right.b * 0.24 + farRight.b * 0.07;
-    return signal;
+    // Slightly different channel kernels reproduce analog bandwidth and convergence.
+    return float3(
+        farLeft.r * 0.08 + left.r * 0.25 + center.r * 0.44 + right.r * 0.19 + farRight.r * 0.04,
+        farLeft.g * 0.04 + left.g * 0.21 + center.g * 0.50 + right.g * 0.21 + farRight.g * 0.04,
+        farLeft.b * 0.04 + left.b * 0.19 + center.b * 0.44 + right.b * 0.25 + farRight.b * 0.08
+    );
 }
 
-float3 phosphorMask(float2 fragCoord) {
-    float row = mod(floor(fragCoord.y / 2.0), 2.0);
-    float column = mod(floor(fragCoord.x / 2.0) + row, 3.0);
-    float3 mask = float3(0.78);
+float3 beamWeight(float3 color, float distanceFromLine) {
+    float3 intensity = pow(clamp(color, float3(0.0), float3(1.0)), float3(0.333333));
+    float3 sigma = mix(float3(0.08), float3(0.34), intensity);
+    float3 shape = mix(float3(2.0), float3(4.0), pow(intensity, float3(0.25)));
+    return exp(-pow(float3(abs(distanceFromLine)) / sigma, shape));
+}
+
+float3 scanlineBeam(float2 coordinate) {
+    float sourceY = coordinate.y * sourceSize.y;
+    float lineY = floor(sourceY) + 0.5;
+    float distanceFromLine = sourceY - lineY;
+    float2 pixel = 1.0 / sourceSize;
+
+    float2 centerCoordinate = float2(coordinate.x, lineY * pixel.y);
+    float3 above = horizontalBeam(centerCoordinate - float2(0.0, pixel.y));
+    float3 center = horizontalBeam(centerCoordinate);
+    float3 below = horizontalBeam(centerCoordinate + float2(0.0, pixel.y));
+
+    float3 color = above * beamWeight(above, distanceFromLine + 1.0);
+    color += center * beamWeight(center, distanceFromLine);
+    color += below * beamWeight(below, distanceFromLine - 1.0);
+    return color * 0.92;
+}
+
+float3 bloomApproximation(float2 coordinate) {
+    float2 pixel = 1.0 / sourceSize;
+    float3 bloom = sampleLinear(coordinate) * 0.20;
+    bloom += sampleLinear(coordinate + float2(pixel.x, 0.0)) * 0.11;
+    bloom += sampleLinear(coordinate - float2(pixel.x, 0.0)) * 0.11;
+    bloom += sampleLinear(coordinate + float2(0.0, pixel.y)) * 0.11;
+    bloom += sampleLinear(coordinate - float2(0.0, pixel.y)) * 0.11;
+    bloom += sampleLinear(coordinate + pixel) * 0.06;
+    bloom += sampleLinear(coordinate - pixel) * 0.06;
+    bloom += sampleLinear(coordinate + float2(pixel.x, -pixel.y)) * 0.06;
+    bloom += sampleLinear(coordinate + float2(-pixel.x, pixel.y)) * 0.06;
+    bloom += sampleLinear(coordinate + float2(2.0 * pixel.x, 0.0)) * 0.03;
+    bloom += sampleLinear(coordinate - float2(2.0 * pixel.x, 0.0)) * 0.03;
+    bloom += sampleLinear(coordinate + float2(0.0, 2.0 * pixel.y)) * 0.03;
+    bloom += sampleLinear(coordinate - float2(0.0, 2.0 * pixel.y)) * 0.03;
+    return bloom;
+}
+
+float3 slotMask(float2 fragmentPoint) {
+    float column = mod(floor(fragmentPoint.x), 3.0);
+    float row = mod(floor(fragmentPoint.y / 3.0), 2.0);
+    float3 mask = float3(0.55);
     if (column < 1.0) {
-        mask.r = 1.14;
+        mask.r = 1.90;
     } else if (column < 2.0) {
-        mask.g = 1.14;
+        mask.g = 1.90;
     } else {
-        mask.b = 1.14;
+        mask.b = 1.90;
     }
-    return mask * mix(1.0, 0.94, row);
+
+    float slot = mix(0.88, 1.0, step(0.5, mod(fragmentPoint.y, 3.0)));
+    return mask * slot * mix(0.96, 1.0, row);
+}
+
+float2 curvedCoordinate(float2 coordinate) {
+    float2 centered = coordinate * 2.0 - 1.0;
+    float2 bend = float2(centered.y * centered.y, centered.x * centered.x);
+    return centered * (1.0 + bend * float2(0.035, 0.045)) * 0.5 + 0.5;
+}
+
+float borderWeight(float2 coordinate) {
+    float2 centered = abs(coordinate * 2.0 - 1.0);
+    float2 rounded = centered - float2(0.965, 0.955);
+    float distance = length(max(rounded, float2(0.0))) + min(max(rounded.x, rounded.y), 0.0);
+    return 1.0 - smoothstep(-0.012, 0.012, distance);
 }
 
 float4 main(float2 devicePoint) {
-    float2 textureCoordinate = (devicePoint - destinationOrigin) / destinationSize;
-    float2 fragCoord = float2(devicePoint.x, outputSize.y - devicePoint.y);
-    float2 sampleCoordinate = textureCoordinate;
-    float2 glassPoint = sampleCoordinate * 2.0 - 1.0;
+    float2 flatCoordinate = (devicePoint - destinationOrigin) / destinationSize;
+    float2 coordinate = curvedCoordinate(flatCoordinate);
+    float border = 0.025 + 0.975 * borderWeight(coordinate);
+    coordinate = clamp(coordinate, float2(0.0), float2(1.0));
 
-    float3 color = analogSignal(sampleCoordinate);
-    float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
+    float3 color = scanlineBeam(coordinate);
+    float3 bloom = bloomApproximation(coordinate);
+    float bloomLevel = dot(bloom, float3(0.2126, 0.7152, 0.0722));
+    float3 brightPass = max(bloom - float3(0.80 * bloomLevel), float3(0.0));
 
-    float linePosition = abs(fract(sampleCoordinate.y * sourceSize.y) - 0.5) * 2.0;
-    float beamWidth = mix(0.34, 0.72, smoothstep(0.04, 0.82, luminance));
-    float beam = exp(-(linePosition * linePosition) / (2.0 * beamWidth * beamWidth));
-    color *= 0.54 + 0.59 * beam;
+    // CRT Royale-style diffusion and energy-dependent phosphor bloom.
+    color = mix(color, bloom, 0.075);
+    color += brightPass * (0.10 + 0.16 * smoothstep(0.35, 0.95, bloomLevel));
 
-    float2 bloomPixel = 1.0 / sourceSize;
-    float3 bloom = linearSample(sampleCoordinate + float2(0.0, bloomPixel.y)) +
-        linearSample(sampleCoordinate - float2(0.0, bloomPixel.y)) +
-        linearSample(sampleCoordinate + float2(2.0 * bloomPixel.x, 0.0)) +
-        linearSample(sampleCoordinate - float2(2.0 * bloomPixel.x, 0.0));
-    bloom *= 0.25;
-    color += max(bloom - float3(0.24), float3(0.0)) * 0.075;
+    float2 fragmentPoint = (coordinate * destinationSize) + destinationOrigin;
+    float maskStrength = 0.78 * smoothstep(480.0, 900.0, destinationSize.x);
+    color *= mix(float3(1.0), slotMask(fragmentPoint), maskStrength);
 
-    float maskStrength = smoothstep(640.0, 1050.0, outputSize.x);
-    color *= mix(float3(1.0), phosphorMask(fragCoord), 0.72 * maskStrength);
+    float vignette = 16.0 * coordinate.x * coordinate.y * (1.0 - coordinate.x) * (1.0 - coordinate.y);
+    color *= mix(0.72, 1.0, pow(max(vignette, 0.0), 0.22));
+    color *= border;
 
-    float vignette = 16.0 * sampleCoordinate.x * sampleCoordinate.y *
-        (1.0 - sampleCoordinate.x) * (1.0 - sampleCoordinate.y);
-    vignette = pow(max(vignette, 0.0), 0.17);
-    color *= 0.68 + 0.32 * vignette;
-
-    float noise = randomValue(fragCoord + float2(time * 31.0, time * 17.0)) - 0.5;
-    color *= 0.995 + noise * 0.018;
-    color *= float3(1.035, 1.0, 0.945);
-    color = float3(1.0) - exp(-color * 1.30);
-    color = pow(max(color, float3(0.0)), float3(1.0 / 2.2));
-
-    float reflection = pow(max(0.0, 1.0 - length(glassPoint - float2(-0.72, 0.78)) / 1.30), 4.0);
-    color += float3(0.055, 0.070, 0.080) * reflection;
-    color += float3(0.004, 0.006, 0.009);
-
+    float noise = fract(sin(dot(devicePoint + float2(time * 17.0, time * 29.0), float2(12.9898, 78.233))) * 43758.5453) - 0.5;
+    color *= 1.0 + noise * 0.006;
+    color = pow(clamp(color, float3(0.0), float3(1.0)), float3(1.0 / displayGamma));
     return float4(color, 1.0);
 }

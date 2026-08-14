@@ -31,7 +31,7 @@ val propertyVersion = providers.gradleProperty("appVersion")
 val isRelease = propertyVersion.orNull != null
 
 val appVersion = propertyVersion
-    .orElse("0.1.7-indev")
+    .orElse("0.1.8-indev")
     .map { it.removePrefix("v") }
     .get()
 
@@ -140,21 +140,11 @@ kotlin {
             implementation(libs.lwjgl)
             implementation(libs.lwjglOpenal)
             implementation(libs.lwjglGlfw)
-        }
-        jvmTest.dependencies {
             runtimeOnly(compose.desktop.currentOs)
             runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier(lwjglNatives) })
             runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) })
             runtimeOnly(dependencies.variantOf(libs.lwjglGlfw) { classifier(lwjglNatives) })
         }
-    }
-}
-
-tasks.named<Copy>("wasmJsProcessResources") {
-    val versionProperties = mapOf("appVersion" to appVersion)
-    inputs.property("appVersion", appVersion)
-    filesMatching("version.txt") {
-        expand(versionProperties)
     }
 }
 
