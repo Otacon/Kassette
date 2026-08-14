@@ -3,7 +3,7 @@ name: Create release
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
   contents: write
@@ -12,25 +12,8 @@ permissions:
 
 jobs:
   desktop:
-    name: Desktop - ${{ matrix.name }}
-
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - name: windows-x64
-            os: windows-latest
-
-          - name: linux-x64
-            os: ubuntu-latest
-
-          - name: macos-arm64
-            os: macos-latest
-
-          - name: macos-x64
-            os: macos-15-intel
-
-    runs-on: ${{ matrix.os }}
+    name: Desktop - Conveyor
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -45,17 +28,30 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Build desktop artifact
-        shell: bash
-        run: ./gradlew :frontend:zipDesktopDistribution -PappVersion="${{ github.ref_name }}" -Pbuildkonfig.flavor=release
+      - name: Build desktop application
+        run: ./gradlew :frontend:jvmJar -PappVersion="${{ github.ref_name }}" -Pbuildkonfig.flavor=release
 
-      - name: Upload desktop artifact
+      - name: Package and publish desktop applications
+        uses: hydraulic-software/conveyor/actions/build@v22.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ORG_GRADLE_PROJECT_appVersion: ${{ github.ref_name }}
+        with:
+          command: make copied-site
+          conveyor_version: 22.1
+          extra_flags: -f ci.conveyor.conf
+          signing_key: ${{ secrets.SIGNING_KEY }}
+          agree_to_license: 1
+
+      - name: Upload Conveyor Pages files
         uses: actions/upload-artifact@v7
         with:
-          name: kassette-${{ matrix.name }}
-          path: frontend/build/distributions/*.zip
+          name: conveyor-pages
+          path: |
+            output/download.html
+            output/icon.png
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
   wasm:
     name: Web - WebAssembly
@@ -90,13 +86,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload WebAssembly Pages files
+        uses: actions/upload-artifact@v7
         with:
+          name: wasm-pages
           path: frontend/build/dist/wasmJs/productionExecutable/
+          if-no-files-found: error
+          retention-days: 1
 
   deploy-pages:
     name: Deploy GitHub Pages
@@ -116,6 +112,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download WebAssembly Pages files
+        uses: actions/download-artifact@v7
+        with:
+          name: wasm-pages
+          path: pages
+
+      - name: Download Conveyor Pages files
+        uses: actions/download-artifact@v7
+        with:
+          name: conveyor-pages
+          path: pages
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload combined Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
@@ -134,24 +150,17 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v7
         with:
+          name: kassette-wasm
           path: artifacts
 
-      - name: Create release
+      - name: Upload WebAssembly release artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.ref_name }}"
           repo="${{ github.repository }}"
 
-          # The GitHub UI can create the release before this workflow uploads artifacts.
-          if ! gh release view "$tag" --repo "$repo" > /dev/null 2>&1; then
-            gh release create "$tag" \
-              --repo "$repo" \
-              --title "Kassette $tag" \
-              --generate-notes
-          fi
-
           gh release upload "$tag" \
-            artifacts/**/*.zip \
+            artifacts/*.zip \
             --repo "$repo" \
             --clobber

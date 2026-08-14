@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.buildKonfig)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.conveyor)
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.metro)
@@ -133,19 +134,18 @@ kotlin {
             implementation(libs.kotlinxBrowser)
         }
         jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
             implementation(libs.clikt)
             implementation(libs.kotlinxCoroutinesSwing)
 
             implementation(libs.lwjgl)
-            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier(lwjglNatives) })
-
             implementation(libs.lwjglOpenal)
-            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) })
-
             implementation(libs.lwjglGlfw)
+        }
+        jvmTest.dependencies {
+            runtimeOnly(compose.desktop.currentOs)
+            runtimeOnly(dependencies.variantOf(libs.lwjgl) { classifier(lwjglNatives) })
+            runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) })
             runtimeOnly(dependencies.variantOf(libs.lwjglGlfw) { classifier(lwjglNatives) })
-
         }
     }
 }
@@ -184,9 +184,23 @@ compose.desktop {
 
         }
 
-        if (osName.contains("mac")) {
-            jvmArgs += "-Xdock:name=Kassette"
-        }
+    }
+}
+
+dependencies {
+    val composeVersion = libs.versions.compose.get()
+    val lwjglVersion = libs.versions.lwjgl.get()
+
+    add("windowsAmd64", "org.jetbrains.compose.desktop:desktop-jvm-windows-x64:$composeVersion")
+    add("linuxAmd64", "org.jetbrains.compose.desktop:desktop-jvm-linux-x64:$composeVersion")
+    add("macAmd64", "org.jetbrains.compose.desktop:desktop-jvm-macos-x64:$composeVersion")
+    add("macAarch64", "org.jetbrains.compose.desktop:desktop-jvm-macos-arm64:$composeVersion")
+
+    listOf("lwjgl", "lwjgl-openal", "lwjgl-glfw").forEach { module ->
+        add("windowsAmd64", "org.lwjgl:$module:$lwjglVersion:natives-windows")
+        add("linuxAmd64", "org.lwjgl:$module:$lwjglVersion:natives-linux")
+        add("macAmd64", "org.lwjgl:$module:$lwjglVersion:natives-macos")
+        add("macAarch64", "org.lwjgl:$module:$lwjglVersion:natives-macos-arm64")
     }
 }
 

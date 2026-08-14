@@ -9,6 +9,7 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         mavenCentral()
+        maven("https://maven.hq.hydraulic.software")
     }
 }
 

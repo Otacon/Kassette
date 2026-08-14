@@ -10,6 +10,12 @@
   <img src="https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
   <img src="https://img.shields.io/badge/Kotlin-WasmJs-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform Web">
   <img src="https://img.shields.io/badge/Kotlin-JVM-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform JVM">
+  <a href="https://www.hydraulic.dev/">
+    <img src="https://img.shields.io/badge/Packaged%20with-Conveyor-3B82F6" alt="Packaged with Conveyor">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License">
+  </a>
 </p>
 
 Kassette is a small, focused NES emulator for desktop and the browser. It is built for people who want to load their own
@@ -57,3 +63,7 @@ limitations, and architecture notes, see [Technical Details](TECHNICAL.md).
 
 Users must provide their own legally obtained ROM files. Do not commit ROMs or copyrighted game assets to this
 repository. `.nes` files are ignored by `.gitignore` to help prevent accidental commits.
+
+## License
+
+Kassette is available under the [MIT License](LICENSE).

@@ -32,6 +32,7 @@ bin/
 /nbproject/private/
 /nbbuild/
 /dist/
+/output/
 /nbdist/
 /.nb-gradle/
 
