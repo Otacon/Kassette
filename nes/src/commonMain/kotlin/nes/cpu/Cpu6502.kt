@@ -115,22 +115,262 @@ private fun opcode(operation: Int, mode: Int): Int {
 }
 
 private val OPCODES = intArrayOf(
-    opcode(BRK, IMP), opcode(ORA, IX), opcode(KIL, IMP), opcode(SLO, IX), opcode(NOP, ZP), opcode(ORA, ZP), opcode(ASL, ZP), opcode(SLO, ZP), opcode(PHP, IMP), opcode(ORA, IMM), opcode(ASL, ACC), opcode(ANC, IMM), opcode(NOP, ABS), opcode(ORA, ABS), opcode(ASL, ABS), opcode(SLO, ABS),
-    opcode(BPL, REL), opcode(ORA, IY), opcode(KIL, IMP), opcode(SLO, IY), opcode(NOP, ZPX), opcode(ORA, ZPX), opcode(ASL, ZPX), opcode(SLO, ZPX), opcode(CLC, IMP), opcode(ORA, AY), opcode(NOP, IMP), opcode(SLO, AY), opcode(NOP, AX), opcode(ORA, AX), opcode(ASL, AX), opcode(SLO, AX),
-    opcode(JSR, ABS), opcode(AND, IX), opcode(KIL, IMP), opcode(RLA, IX), opcode(BIT, ZP), opcode(AND, ZP), opcode(ROL, ZP), opcode(RLA, ZP), opcode(PLP, IMP), opcode(AND, IMM), opcode(ROL, ACC), opcode(ANC, IMM), opcode(BIT, ABS), opcode(AND, ABS), opcode(ROL, ABS), opcode(RLA, ABS),
-    opcode(BMI, REL), opcode(AND, IY), opcode(KIL, IMP), opcode(RLA, IY), opcode(NOP, ZPX), opcode(AND, ZPX), opcode(ROL, ZPX), opcode(RLA, ZPX), opcode(SEC, IMP), opcode(AND, AY), opcode(NOP, IMP), opcode(RLA, AY), opcode(NOP, AX), opcode(AND, AX), opcode(ROL, AX), opcode(RLA, AX),
-    opcode(RTI, IMP), opcode(EOR, IX), opcode(KIL, IMP), opcode(SRE, IX), opcode(NOP, ZP), opcode(EOR, ZP), opcode(LSR, ZP), opcode(SRE, ZP), opcode(PHA, IMP), opcode(EOR, IMM), opcode(LSR, ACC), opcode(ALR, IMM), opcode(JMP, ABS), opcode(EOR, ABS), opcode(LSR, ABS), opcode(SRE, ABS),
-    opcode(BVC, REL), opcode(EOR, IY), opcode(KIL, IMP), opcode(SRE, IY), opcode(NOP, ZPX), opcode(EOR, ZPX), opcode(LSR, ZPX), opcode(SRE, ZPX), opcode(CLI, IMP), opcode(EOR, AY), opcode(NOP, IMP), opcode(SRE, AY), opcode(NOP, AX), opcode(EOR, AX), opcode(LSR, AX), opcode(SRE, AX),
-    opcode(RTS, IMP), opcode(ADC, IX), opcode(KIL, IMP), opcode(RRA, IX), opcode(NOP, ZP), opcode(ADC, ZP), opcode(ROR, ZP), opcode(RRA, ZP), opcode(PLA, IMP), opcode(ADC, IMM), opcode(ROR, ACC), opcode(ARR, IMM), opcode(JMP, IND), opcode(ADC, ABS), opcode(ROR, ABS), opcode(RRA, ABS),
-    opcode(BVS, REL), opcode(ADC, IY), opcode(KIL, IMP), opcode(RRA, IY), opcode(NOP, ZPX), opcode(ADC, ZPX), opcode(ROR, ZPX), opcode(RRA, ZPX), opcode(SEI, IMP), opcode(ADC, AY), opcode(NOP, IMP), opcode(RRA, AY), opcode(NOP, AX), opcode(ADC, AX), opcode(ROR, AX), opcode(RRA, AX),
-    opcode(NOP, IMM), opcode(STA, IX), opcode(NOP, IMM), opcode(SAX, IX), opcode(STY, ZP), opcode(STA, ZP), opcode(STX, ZP), opcode(SAX, ZP), opcode(DEY, IMP), opcode(NOP, IMM), opcode(TXA, IMP), opcode(XAA, IMM), opcode(STY, ABS), opcode(STA, ABS), opcode(STX, ABS), opcode(SAX, ABS),
-    opcode(BCC, REL), opcode(STA, IY), opcode(KIL, IMP), opcode(AHX, IY), opcode(STY, ZPX), opcode(STA, ZPX), opcode(STX, ZPY), opcode(SAX, ZPY), opcode(TYA, IMP), opcode(STA, AY), opcode(TXS, IMP), opcode(TAS, AY), opcode(SHY, AX), opcode(STA, AX), opcode(SHX, AY), opcode(AHX, AY),
-    opcode(LDY, IMM), opcode(LDA, IX), opcode(LDX, IMM), opcode(LAX, IX), opcode(LDY, ZP), opcode(LDA, ZP), opcode(LDX, ZP), opcode(LAX, ZP), opcode(TAY, IMP), opcode(LDA, IMM), opcode(TAX, IMP), opcode(LAX, IMM), opcode(LDY, ABS), opcode(LDA, ABS), opcode(LDX, ABS), opcode(LAX, ABS),
-    opcode(BCS, REL), opcode(LDA, IY), opcode(KIL, IMP), opcode(LAX, IY), opcode(LDY, ZPX), opcode(LDA, ZPX), opcode(LDX, ZPY), opcode(LAX, ZPY), opcode(CLV, IMP), opcode(LDA, AY), opcode(TSX, IMP), opcode(LAS, AY), opcode(LDY, AX), opcode(LDA, AX), opcode(LDX, AY), opcode(LAX, AY),
-    opcode(CPY, IMM), opcode(CMP, IX), opcode(NOP, IMM), opcode(DCP, IX), opcode(CPY, ZP), opcode(CMP, ZP), opcode(DEC, ZP), opcode(DCP, ZP), opcode(INY, IMP), opcode(CMP, IMM), opcode(DEX, IMP), opcode(AXS, IMM), opcode(CPY, ABS), opcode(CMP, ABS), opcode(DEC, ABS), opcode(DCP, ABS),
-    opcode(BNE, REL), opcode(CMP, IY), opcode(KIL, IMP), opcode(DCP, IY), opcode(NOP, ZPX), opcode(CMP, ZPX), opcode(DEC, ZPX), opcode(DCP, ZPX), opcode(CLD, IMP), opcode(CMP, AY), opcode(NOP, IMP), opcode(DCP, AY), opcode(NOP, AX), opcode(CMP, AX), opcode(DEC, AX), opcode(DCP, AX),
-    opcode(CPX, IMM), opcode(SBC, IX), opcode(NOP, IMM), opcode(ISB, IX), opcode(CPX, ZP), opcode(SBC, ZP), opcode(INC, ZP), opcode(ISB, ZP), opcode(INX, IMP), opcode(SBC, IMM), opcode(NOP, IMP), opcode(SBC, IMM), opcode(CPX, ABS), opcode(SBC, ABS), opcode(INC, ABS), opcode(ISB, ABS),
-    opcode(BEQ, REL), opcode(SBC, IY), opcode(KIL, IMP), opcode(ISB, IY), opcode(NOP, ZPX), opcode(SBC, ZPX), opcode(INC, ZPX), opcode(ISB, ZPX), opcode(SED, IMP), opcode(SBC, AY), opcode(NOP, IMP), opcode(ISB, AY), opcode(NOP, AX), opcode(SBC, AX), opcode(INC, AX), opcode(ISB, AX),
+    opcode(BRK, IMP),
+    opcode(ORA, IX),
+    opcode(KIL, IMP),
+    opcode(SLO, IX),
+    opcode(NOP, ZP),
+    opcode(ORA, ZP),
+    opcode(ASL, ZP),
+    opcode(SLO, ZP),
+    opcode(PHP, IMP),
+    opcode(ORA, IMM),
+    opcode(ASL, ACC),
+    opcode(ANC, IMM),
+    opcode(NOP, ABS),
+    opcode(ORA, ABS),
+    opcode(ASL, ABS),
+    opcode(SLO, ABS),
+    opcode(BPL, REL),
+    opcode(ORA, IY),
+    opcode(KIL, IMP),
+    opcode(SLO, IY),
+    opcode(NOP, ZPX),
+    opcode(ORA, ZPX),
+    opcode(ASL, ZPX),
+    opcode(SLO, ZPX),
+    opcode(CLC, IMP),
+    opcode(ORA, AY),
+    opcode(NOP, IMP),
+    opcode(SLO, AY),
+    opcode(NOP, AX),
+    opcode(ORA, AX),
+    opcode(ASL, AX),
+    opcode(SLO, AX),
+    opcode(JSR, ABS),
+    opcode(AND, IX),
+    opcode(KIL, IMP),
+    opcode(RLA, IX),
+    opcode(BIT, ZP),
+    opcode(AND, ZP),
+    opcode(ROL, ZP),
+    opcode(RLA, ZP),
+    opcode(PLP, IMP),
+    opcode(AND, IMM),
+    opcode(ROL, ACC),
+    opcode(ANC, IMM),
+    opcode(BIT, ABS),
+    opcode(AND, ABS),
+    opcode(ROL, ABS),
+    opcode(RLA, ABS),
+    opcode(BMI, REL),
+    opcode(AND, IY),
+    opcode(KIL, IMP),
+    opcode(RLA, IY),
+    opcode(NOP, ZPX),
+    opcode(AND, ZPX),
+    opcode(ROL, ZPX),
+    opcode(RLA, ZPX),
+    opcode(SEC, IMP),
+    opcode(AND, AY),
+    opcode(NOP, IMP),
+    opcode(RLA, AY),
+    opcode(NOP, AX),
+    opcode(AND, AX),
+    opcode(ROL, AX),
+    opcode(RLA, AX),
+    opcode(RTI, IMP),
+    opcode(EOR, IX),
+    opcode(KIL, IMP),
+    opcode(SRE, IX),
+    opcode(NOP, ZP),
+    opcode(EOR, ZP),
+    opcode(LSR, ZP),
+    opcode(SRE, ZP),
+    opcode(PHA, IMP),
+    opcode(EOR, IMM),
+    opcode(LSR, ACC),
+    opcode(ALR, IMM),
+    opcode(JMP, ABS),
+    opcode(EOR, ABS),
+    opcode(LSR, ABS),
+    opcode(SRE, ABS),
+    opcode(BVC, REL),
+    opcode(EOR, IY),
+    opcode(KIL, IMP),
+    opcode(SRE, IY),
+    opcode(NOP, ZPX),
+    opcode(EOR, ZPX),
+    opcode(LSR, ZPX),
+    opcode(SRE, ZPX),
+    opcode(CLI, IMP),
+    opcode(EOR, AY),
+    opcode(NOP, IMP),
+    opcode(SRE, AY),
+    opcode(NOP, AX),
+    opcode(EOR, AX),
+    opcode(LSR, AX),
+    opcode(SRE, AX),
+    opcode(RTS, IMP),
+    opcode(ADC, IX),
+    opcode(KIL, IMP),
+    opcode(RRA, IX),
+    opcode(NOP, ZP),
+    opcode(ADC, ZP),
+    opcode(ROR, ZP),
+    opcode(RRA, ZP),
+    opcode(PLA, IMP),
+    opcode(ADC, IMM),
+    opcode(ROR, ACC),
+    opcode(ARR, IMM),
+    opcode(JMP, IND),
+    opcode(ADC, ABS),
+    opcode(ROR, ABS),
+    opcode(RRA, ABS),
+    opcode(BVS, REL),
+    opcode(ADC, IY),
+    opcode(KIL, IMP),
+    opcode(RRA, IY),
+    opcode(NOP, ZPX),
+    opcode(ADC, ZPX),
+    opcode(ROR, ZPX),
+    opcode(RRA, ZPX),
+    opcode(SEI, IMP),
+    opcode(ADC, AY),
+    opcode(NOP, IMP),
+    opcode(RRA, AY),
+    opcode(NOP, AX),
+    opcode(ADC, AX),
+    opcode(ROR, AX),
+    opcode(RRA, AX),
+    opcode(NOP, IMM),
+    opcode(STA, IX),
+    opcode(NOP, IMM),
+    opcode(SAX, IX),
+    opcode(STY, ZP),
+    opcode(STA, ZP),
+    opcode(STX, ZP),
+    opcode(SAX, ZP),
+    opcode(DEY, IMP),
+    opcode(NOP, IMM),
+    opcode(TXA, IMP),
+    opcode(XAA, IMM),
+    opcode(STY, ABS),
+    opcode(STA, ABS),
+    opcode(STX, ABS),
+    opcode(SAX, ABS),
+    opcode(BCC, REL),
+    opcode(STA, IY),
+    opcode(KIL, IMP),
+    opcode(AHX, IY),
+    opcode(STY, ZPX),
+    opcode(STA, ZPX),
+    opcode(STX, ZPY),
+    opcode(SAX, ZPY),
+    opcode(TYA, IMP),
+    opcode(STA, AY),
+    opcode(TXS, IMP),
+    opcode(TAS, AY),
+    opcode(SHY, AX),
+    opcode(STA, AX),
+    opcode(SHX, AY),
+    opcode(AHX, AY),
+    opcode(LDY, IMM),
+    opcode(LDA, IX),
+    opcode(LDX, IMM),
+    opcode(LAX, IX),
+    opcode(LDY, ZP),
+    opcode(LDA, ZP),
+    opcode(LDX, ZP),
+    opcode(LAX, ZP),
+    opcode(TAY, IMP),
+    opcode(LDA, IMM),
+    opcode(TAX, IMP),
+    opcode(LAX, IMM),
+    opcode(LDY, ABS),
+    opcode(LDA, ABS),
+    opcode(LDX, ABS),
+    opcode(LAX, ABS),
+    opcode(BCS, REL),
+    opcode(LDA, IY),
+    opcode(KIL, IMP),
+    opcode(LAX, IY),
+    opcode(LDY, ZPX),
+    opcode(LDA, ZPX),
+    opcode(LDX, ZPY),
+    opcode(LAX, ZPY),
+    opcode(CLV, IMP),
+    opcode(LDA, AY),
+    opcode(TSX, IMP),
+    opcode(LAS, AY),
+    opcode(LDY, AX),
+    opcode(LDA, AX),
+    opcode(LDX, AY),
+    opcode(LAX, AY),
+    opcode(CPY, IMM),
+    opcode(CMP, IX),
+    opcode(NOP, IMM),
+    opcode(DCP, IX),
+    opcode(CPY, ZP),
+    opcode(CMP, ZP),
+    opcode(DEC, ZP),
+    opcode(DCP, ZP),
+    opcode(INY, IMP),
+    opcode(CMP, IMM),
+    opcode(DEX, IMP),
+    opcode(AXS, IMM),
+    opcode(CPY, ABS),
+    opcode(CMP, ABS),
+    opcode(DEC, ABS),
+    opcode(DCP, ABS),
+    opcode(BNE, REL),
+    opcode(CMP, IY),
+    opcode(KIL, IMP),
+    opcode(DCP, IY),
+    opcode(NOP, ZPX),
+    opcode(CMP, ZPX),
+    opcode(DEC, ZPX),
+    opcode(DCP, ZPX),
+    opcode(CLD, IMP),
+    opcode(CMP, AY),
+    opcode(NOP, IMP),
+    opcode(DCP, AY),
+    opcode(NOP, AX),
+    opcode(CMP, AX),
+    opcode(DEC, AX),
+    opcode(DCP, AX),
+    opcode(CPX, IMM),
+    opcode(SBC, IX),
+    opcode(NOP, IMM),
+    opcode(ISB, IX),
+    opcode(CPX, ZP),
+    opcode(SBC, ZP),
+    opcode(INC, ZP),
+    opcode(ISB, ZP),
+    opcode(INX, IMP),
+    opcode(SBC, IMM),
+    opcode(NOP, IMP),
+    opcode(SBC, IMM),
+    opcode(CPX, ABS),
+    opcode(SBC, ABS),
+    opcode(INC, ABS),
+    opcode(ISB, ABS),
+    opcode(BEQ, REL),
+    opcode(SBC, IY),
+    opcode(KIL, IMP),
+    opcode(ISB, IY),
+    opcode(NOP, ZPX),
+    opcode(SBC, ZPX),
+    opcode(INC, ZPX),
+    opcode(ISB, ZPX),
+    opcode(SED, IMP),
+    opcode(SBC, AY),
+    opcode(NOP, IMP),
+    opcode(ISB, AY),
+    opcode(NOP, AX),
+    opcode(SBC, AX),
+    opcode(INC, AX),
+    opcode(ISB, AX),
 )
 
 class Cpu6502(
@@ -300,19 +540,8 @@ class Cpu6502(
         const val OP_INC_ABSX = 0xFE
     }
 
-    private var state = CpuState()
-    var pc: Int get() = state.pc; private set(value) { state.pc = value }
-    var a: Int get() = state.a; private set(value) { state.a = value }
-    var x: Int get() = state.x; private set(value) { state.x = value }
-    var y: Int get() = state.y; private set(value) { state.y = value }
-    var sp: Int get() = state.sp; private set(value) { state.sp = value }
-    var status: Int get() = state.status; private set(value) { state.status = value }
-    var totalCycles: Long get() = state.totalCycles; private set(value) { state.totalCycles = value }
-    private var nmiPending: Boolean get() = state.nmiPending; set(value) { state.nmiPending = value }
-    private var irqLineAsserted: Boolean get() = state.irqLine; set(value) { state.irqLine = value }
-    private var irqPending: Boolean get() = state.irqPending; set(value) { state.irqPending = value }
-    private var irqSample: Boolean get() = state.irqSample; set(value) { state.irqSample = value }
-    private var halted: Boolean get() = state.halted; set(value) { state.halted = value }
+    var state = CpuState()
+        private set
 
     fun captureState(): CpuState = state.copy()
 
@@ -324,70 +553,71 @@ class Cpu6502(
 
     fun reset(softReset: Boolean) {
         bus.reset()
-        totalCycles = -1
+        state.totalCycles = -1
         if (softReset) {
-            sp = (sp - 3).low8Bits()
+            state.sp = (state.sp - 3).low8Bits()
             set(I, true)
         } else {
-            a = 0
-            x = 0
-            y = 0
-            sp = 0xFD
-            status = I or U
+            state.a = 0
+            state.x = 0
+            state.y = 0
+            state.sp = 0xFD
+            state.status = I or U
         }
-        pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
+        state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
         for (i in 0..<8) {
             bus.idle(CpuBus.CycleType.RESET)
-            totalCycles++
+            state.totalCycles++
         }
-        nmiPending = false
-        irqLineAsserted = false
-        irqPending = false
-        irqSample = false
-        halted = false
+        state.nmiPending = false
+        state.irqLine = false
+        state.irqPending = false
+        state.irqSample = false
+        state.halted = false
     }
 
     fun requestNmi() {
-        nmiPending = true
+        state.nmiPending = true
     }
 
     fun setIrqLine(asserted: Boolean) {
-        irqLineAsserted = asserted
-        irqPending = asserted && !flag(I)
+        state.irqLine = asserted
+        state.irqPending = asserted && !flag(I)
     }
 
     fun sampleIrqLine(asserted: Boolean) {
-        irqLineAsserted = asserted
-        irqPending = irqSample
-        irqSample = asserted && !flag(I)
+        state.irqLine = asserted
+        state.irqPending = state.irqSample
+        state.irqSample = asserted && !flag(I)
     }
 
     fun step(): Int {
-        val start = totalCycles
+        val start = state.totalCycles
         val stalls = bus.consumeDmaCycles()
         if (stalls > 0) {
             var stall = 0
             while (stall < stalls) {
                 bus.idle(CpuBus.CycleType.STALL)
-                totalCycles++
+                state.totalCycles++
                 stall++
             }
             return stalls
         }
 
         when {
-            halted -> execute(OPCODES[fetchOpcode()])
-            nmiPending -> {
-                nmiPending = false
+            state.halted -> execute(OPCODES[fetchOpcode()])
+            state.nmiPending -> {
+                state.nmiPending = false
                 serviceInterrupt(0xFFFA)
             }
-            irqPending -> serviceInterrupt(0xFFFE)
+
+            state.irqPending -> serviceInterrupt(0xFFFE)
             else -> {
                 val opcode = fetchOpcode()
                 execute(OPCODES[opcode])
             }
         }
-        return (totalCycles - start).toInt()
+        return (state.totalCycles - start).toInt()
     }
 
     private fun execute(encodedOpcode: Int) {
@@ -399,40 +629,45 @@ class Cpu6502(
             instruction == JMP -> jump(mode)
             instruction == RTS -> rts()
             instruction == RTI -> rti()
-            instruction == PHP -> pushInstruction(status or B or U)
-            instruction == PHA -> pushInstruction(a)
+            instruction == PHP -> pushInstruction(state.status or B or U)
+            instruction == PHA -> pushInstruction(state.a)
             instruction == PLP -> {
                 impliedRead()
-                dummyRead(0x100 or sp)
-                status = (pull() and (B or U).inv()) or U
+                dummyRead(0x100 or state.sp)
+                state.status = (pull() and (B or U).inv()) or U
             }
+
             instruction == PLA -> {
                 impliedRead()
-                dummyRead(0x100 or sp)
-                a = pull()
-                zn(a)
+                dummyRead(0x100 or state.sp)
+                state.a = pull()
+                zn(state.a)
             }
+
             (encodedOpcode and BRANCH_FLAG) != 0 -> branch(instruction, fetch())
             (encodedOpcode and UNSTABLE_WRITE_FLAG) != 0 -> unstableStore(instruction, mode)
             (encodedOpcode and WRITE_FLAG) != 0 -> {
                 val target = address(mode, write = true)
                 write(target, storeValue(instruction))
             }
+
             instruction == ASL || instruction == LSR || instruction == ROL || instruction == ROR -> {
                 if (mode == ACC) {
                     impliedRead()
-                    a = transform(instruction, a)
+                    state.a = transform(instruction, state.a)
                 } else {
                     modify(address(mode, write = true), instruction)
                 }
             }
+
             (encodedOpcode and RMW_FLAG) != 0 -> modify(address(mode, write = true), instruction)
             instruction == KIL -> {
-                pc = (pc - 1).low16Bits()
-                halted = true
-                irqPending = false
-                nmiPending = false
+                state.pc = (state.pc - 1).low16Bits()
+                state.halted = true
+                state.irqPending = false
+                state.nmiPending = false
             }
+
             else -> executeReadOrImplied(instruction, mode)
         }
     }
@@ -448,16 +683,43 @@ class Cpu6502(
                 CLV -> set(V, false)
                 CLD -> set(D, false)
                 SED -> set(D, true)
-                TAX -> { x = a; zn(x) }
-                TAY -> { y = a; zn(y) }
-                TXA -> { a = x; zn(a) }
-                TYA -> { a = y; zn(a) }
-                TSX -> { x = sp; zn(x) }
-                TXS -> sp = x
-                DEX -> { x = (x - 1).low8Bits(); zn(x) }
-                DEY -> { y = (y - 1).low8Bits(); zn(y) }
-                INX -> { x = (x + 1).low8Bits(); zn(x) }
-                INY -> { y = (y + 1).low8Bits(); zn(y) }
+                TAX -> {
+                    state.x = state.a; zn(state.x)
+                }
+
+                TAY -> {
+                    state.y = state.a; zn(state.y)
+                }
+
+                TXA -> {
+                    state.a = state.x; zn(state.a)
+                }
+
+                TYA -> {
+                    state.a = state.y; zn(state.a)
+                }
+
+                TSX -> {
+                    state.x = state.sp; zn(state.x)
+                }
+
+                TXS -> state.sp = state.x
+                DEX -> {
+                    state.x = (state.x - 1).low8Bits(); zn(state.x)
+                }
+
+                DEY -> {
+                    state.y = (state.y - 1).low8Bits(); zn(state.y)
+                }
+
+                INX -> {
+                    state.x = (state.x + 1).low8Bits(); zn(state.x)
+                }
+
+                INY -> {
+                    state.y = (state.y + 1).low8Bits(); zn(state.y)
+                }
+
                 NOP -> Unit
                 else -> error("Unsupported implied instruction $instruction")
             }
@@ -466,24 +728,72 @@ class Cpu6502(
 
         val value = readOperand(mode)
         when (instruction) {
-            ORA -> { a = a or value; zn(a) }
-            AND -> { a = a and value; zn(a) }
-            EOR -> { a = a xor value; zn(a) }
+            ORA -> {
+                state.a = state.a or value
+                zn(state.a)
+            }
+
+            AND -> {
+                state.a = state.a and value
+                zn(state.a)
+            }
+
+            EOR -> {
+                state.a = state.a xor value
+                zn(state.a)
+            }
+
             ADC -> adc(value)
             SBC -> sbc(value)
-            CMP -> compare(a, value)
-            CPX -> compare(x, value)
-            CPY -> compare(y, value)
+            CMP -> compare(state.a, value)
+            CPX -> compare(state.x, value)
+            CPY -> compare(state.y, value)
             BIT -> bit(value)
-            LDA -> { a = value; zn(a) }
-            LDX -> { x = value; zn(x) }
-            LDY -> { y = value; zn(y) }
-            LAX -> { a = value; x = value; zn(value) }
-            LAS -> { val result = value and sp; a = result; x = result; sp = result; zn(result) }
-            ANC -> { a = a and value; zn(a); set(C, flag(N)) }
-            ALR -> { a = lsrValue(a and value) }
+            LDA -> {
+                state.a = value
+                zn(state.a)
+            }
+
+            LDX -> {
+                state.x = value
+                zn(state.x)
+            }
+
+            LDY -> {
+                state.y = value
+                zn(state.y)
+            }
+
+            LAX -> {
+                state.a = value
+                state.x = value
+                zn(value)
+            }
+
+            LAS -> {
+                val result = value and state.sp
+                state.a = result
+                state.x = result
+                state.sp = result
+                zn(result)
+            }
+
+            ANC -> {
+                state.a = state.a and value
+                zn(state.a)
+                set(C, flag(N))
+            }
+
+            ALR -> {
+                state.a = lsrValue(state.a and value)
+            }
+
             ARR -> arr(value)
-            XAA -> { a = (a or 0xEE) and x and value; zn(a) }
+            XAA -> {
+                state.a = (state.a or 0xEE) and state.x and value
+                zn(state.a)
+            }
+
             AXS -> axs(value)
             NOP -> Unit
             else -> error("Unsupported read instruction $instruction")
@@ -500,25 +810,28 @@ class Cpu6502(
         ZPX, ZPY -> {
             val base = fetch()
             dummyRead(base)
-            (base + if (mode == ZPX) x else y).low8Bits()
+            (base + if (mode == ZPX) state.x else state.y).low8Bits()
         }
+
         ABS -> absolute()
-        AX, AY -> indexedAbsolute(if (mode == AX) x else y, write)
+        AX, AY -> indexedAbsolute(if (mode == AX) state.x else state.y, write)
         IX -> {
             val operand = fetch()
             dummyRead(operand)
-            val pointer = (operand + x).low8Bits()
+            val pointer = (operand + state.x).low8Bits()
             read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
         }
+
         IY -> {
             val pointer = fetch()
             val base = read(pointer) or (read((pointer + 1).low8Bits()) shl 8)
-            val result = (base + y).low16Bits()
+            val result = (base + state.y).low16Bits()
             if (write || base.pageBase() != result.pageBase()) {
                 dummyRead(base.pageBase() or result.low8Bits())
             }
             result
         }
+
         else -> error("Address mode $mode has no memory address")
     }
 
@@ -537,37 +850,43 @@ class Cpu6502(
         val result = when (instruction) {
             SLO -> {
                 val transformed = transform(ASL, old)
-                a = a or transformed
-                zn(a)
+                state.a = state.a or transformed
+                zn(state.a)
                 transformed
             }
+
             RLA -> {
                 val transformed = transform(ROL, old)
-                a = a and transformed
-                zn(a)
+                state.a = state.a and transformed
+                zn(state.a)
                 transformed
             }
+
             SRE -> {
                 val transformed = transform(LSR, old)
-                a = a xor transformed
-                zn(a)
+                state.a = state.a xor transformed
+                zn(state.a)
                 transformed
             }
+
             RRA -> {
                 val transformed = transform(ROR, old)
                 adc(transformed)
                 transformed
             }
+
             DCP -> {
                 val transformed = (old - 1).low8Bits()
-                compare(a, transformed)
+                compare(state.a, transformed)
                 transformed
             }
+
             ISB -> {
                 val transformed = (old + 1).low8Bits()
                 sbc(transformed)
                 transformed
             }
+
             else -> transform(instruction, old)
         }
         write(address, result)
@@ -583,19 +902,21 @@ class Cpu6502(
             zn(result)
             result
         }
+
         DEC -> {
             val result = (value - 1).low8Bits()
             zn(result)
             result
         }
+
         else -> error("Unsupported RMW instruction $instruction")
     }
 
     private fun storeValue(instruction: Int): Int = when (instruction) {
-        STA -> a
-        STX -> x
-        STY -> y
-        SAX -> a and x
+        STA -> state.a
+        STX -> state.x
+        STY -> state.y
+        SAX -> state.a and state.x
         else -> error("Unsupported store instruction $instruction")
     }
 
@@ -606,14 +927,17 @@ class Cpu6502(
         } else {
             absolute()
         }
-        val index = if (mode == AX) x else y
+        val index = if (mode == AX) state.x else state.y
         val target = (base + index).low16Bits()
         dummyRead(base.pageBase() or target.low8Bits())
         val valueRegister = when (instruction) {
-            SHY -> y
-            SHX -> x
-            AHX -> a and x
-            TAS -> (a and x).also { sp = it }
+            SHY -> state.y
+            SHX -> state.x
+            AHX -> state.a and state.x
+            TAS -> {
+                state.a and state.x.also { state.sp = it }
+            }
+
             else -> 0
         }
         val value = valueRegister and (((base shr 8) + 1).low8Bits())
@@ -627,52 +951,52 @@ class Cpu6502(
 
     private fun write(address: Int, value: Int) {
         bus.cpuWrite(address, value)
-        totalCycles++
+        state.totalCycles++
     }
 
     private fun dummyWrite(address: Int, value: Int) {
         bus.cpuWrite(address, value, dummy = true)
-        totalCycles++
+        state.totalCycles++
     }
 
     private fun read(address: Int, opcodeFetch: Boolean = false): Int {
-        val result = bus.cpuRead(address, totalCycles, opcodeFetch = opcodeFetch)
-        totalCycles += result ushr READ_CYCLES_SHIFT
+        val result = bus.cpuRead(address, state.totalCycles, opcodeFetch = opcodeFetch)
+        state.totalCycles += result ushr READ_CYCLES_SHIFT
         return result and 0xFF
     }
 
     private fun dummyRead(address: Int, opcodeFetch: Boolean = false): Int {
-        val result = bus.cpuRead(address, totalCycles, dummy = true, opcodeFetch = opcodeFetch)
-        totalCycles += result ushr READ_CYCLES_SHIFT
+        val result = bus.cpuRead(address, state.totalCycles, dummy = true, opcodeFetch = opcodeFetch)
+        state.totalCycles += result ushr READ_CYCLES_SHIFT
         return result and 0xFF
     }
 
     private fun fetch(): Int {
-        val value = read(pc)
-        pc = (pc + 1).low16Bits()
+        val value = read(state.pc)
+        state.pc = (state.pc + 1).low16Bits()
         return value
     }
 
     private fun fetchOpcode(): Int {
-        val value = read(pc, opcodeFetch = true)
-        pc = (pc + 1).low16Bits()
+        val value = read(state.pc, opcodeFetch = true)
+        state.pc = (state.pc + 1).low16Bits()
         return value
     }
 
     private fun impliedRead() {
-        dummyRead(pc)
+        dummyRead(state.pc)
     }
 
     private fun absolute(): Int = fetch() or (fetch() shl 8)
 
     private fun push(value: Int) {
-        write(0x100 or sp, value)
-        sp = (sp - 1).low8Bits()
+        write(0x100 or state.sp, value)
+        state.sp = (state.sp - 1).low8Bits()
     }
 
     private fun pull(): Int {
-        sp = (sp + 1).low8Bits()
-        return read(0x100 or sp)
+        state.sp = (state.sp + 1).low8Bits()
+        return read(0x100 or state.sp)
     }
 
     private fun pushInstruction(value: Int) {
@@ -681,70 +1005,70 @@ class Cpu6502(
     }
 
     private fun serviceInterrupt(vector: Int) {
-        dummyRead(pc, opcodeFetch = true)
-        dummyRead(pc)
-        push(pc shr 8)
-        push(pc)
-        val selectedVector = if (nmiPending) {
-            nmiPending = false
+        dummyRead(state.pc, opcodeFetch = true)
+        dummyRead(state.pc)
+        push(state.pc shr 8)
+        push(state.pc)
+        val selectedVector = if (state.nmiPending) {
+            state.nmiPending = false
             0xFFFA
         } else {
             vector
         }
-        push((status or U) and B.inv())
+        push((state.status or U) and B.inv())
         set(I, true)
-        pc = read(selectedVector) or (read(selectedVector + 1) shl 8)
-        irqPending = false
+        state.pc = read(selectedVector) or (read(selectedVector + 1) shl 8)
+        state.irqPending = false
     }
 
     private fun brk() {
         fetch() // BRK's padding byte is a real read.
-        push(pc shr 8)
-        push(pc)
-        val vector = if (nmiPending) {
-            nmiPending = false
+        push(state.pc shr 8)
+        push(state.pc)
+        val vector = if (state.nmiPending) {
+            state.nmiPending = false
             0xFFFA
         } else {
             0xFFFE
         }
-        push(status or B or U)
+        push(state.status or B or U)
         set(I, true)
-        pc = read(vector) or (read(vector + 1) shl 8)
+        state.pc = read(vector) or (read(vector + 1) shl 8)
     }
 
     private fun jsr() {
         val low = fetch()
-        dummyRead(0x100 or sp)
-        push(pc shr 8)
-        push(pc)
-        pc = low or (fetch() shl 8)
+        dummyRead(0x100 or state.sp)
+        push(state.pc shr 8)
+        push(state.pc)
+        state.pc = low or (fetch() shl 8)
     }
 
     private fun jump(mode: Int) {
         if (mode == ABS) {
-            pc = absolute()
+            state.pc = absolute()
         } else {
             val pointer = absolute()
             val highAddress = pointer.pageBase() or ((pointer + 1).low8Bits())
-            pc = read(pointer) or (read(highAddress) shl 8)
+            state.pc = read(pointer) or (read(highAddress) shl 8)
         }
     }
 
     private fun rts() {
         impliedRead()
-        dummyRead(0x100 or sp)
+        dummyRead(0x100 or state.sp)
         val low = pull()
         val high = pull()
         val returnAddress = low or (high shl 8)
         dummyRead(returnAddress)
-        pc = (returnAddress + 1).low16Bits()
+        state.pc = (returnAddress + 1).low16Bits()
     }
 
     private fun rti() {
         impliedRead()
-        dummyRead(0x100 or sp)
-        status = (pull() and (B or U).inv()) or U
-        pc = pull() or (pull() shl 8)
+        dummyRead(0x100 or state.sp)
+        state.status = (pull() and (B or U).inv()) or U
+        state.pc = pull() or (pull() shl 8)
     }
 
     private fun branch(instruction: Int, offset: Int) {
@@ -760,35 +1084,35 @@ class Cpu6502(
             else -> false
         }
         if (!take) return
-        val oldPc = pc
+        val oldPc = state.pc
         dummyRead(oldPc)
         val signed = if (offset < 0x80) offset else offset - 0x100
         val target = (oldPc + signed).low16Bits()
         if (oldPc.pageBase() != target.pageBase()) {
             dummyRead(oldPc.pageBase() or target.low8Bits())
         }
-        pc = target
+        state.pc = target
     }
 
-    private fun flag(flag: Int): Boolean = (status and flag) != 0
+    private fun flag(flag: Int): Boolean = (state.status and flag) != 0
 
     private fun set(flag: Int, enabled: Boolean) {
-        status = if (enabled) status or flag else status and flag.inv()
-        status = (status or U) and B.inv()
+        state.status = if (enabled) state.status or flag else state.status and flag.inv()
+        state.status = (state.status or U) and B.inv()
     }
 
     private fun zn(value: Int) {
         val result = value.low8Bits()
-        status = (status and (Z or N).inv()) or (result and N) or if (result == 0) Z else 0
+        state.status = (state.status and (Z or N).inv()) or (result and N) or if (result == 0) Z else 0
     }
 
     private fun adc(value: Int) {
-        val sum = a + value + if (flag(C)) 1 else 0
+        val sum = state.a + value + if (flag(C)) 1 else 0
         val result = sum.low8Bits()
         set(C, sum > 0xFF)
-        set(V, ((a xor result) and (value xor result) and 0x80) != 0)
-        a = result
-        zn(a)
+        set(V, ((state.a xor result) and (value xor result) and 0x80) != 0)
+        state.a = result
+        zn(state.a)
     }
 
     private fun sbc(value: Int) = adc(value xor 0xFF)
@@ -800,7 +1124,7 @@ class Cpu6502(
     }
 
     private fun bit(value: Int) {
-        set(Z, (a and value) == 0)
+        set(Z, (state.a and value) == 0)
         set(V, (value and V) != 0)
         set(N, (value and N) != 0)
     }
@@ -836,17 +1160,17 @@ class Cpu6502(
     }
 
     private fun arr(value: Int) {
-        a = (a and value) ushr 1 or if (flag(C)) 0x80 else 0
-        zn(a)
-        set(C, (a and 0x40) != 0)
-        set(V, ((a shr 6) xor (a shr 5)) and 1 != 0)
+        state.a = (state.a and value) ushr 1 or if (flag(C)) 0x80 else 0
+        zn(state.a)
+        set(C, (state.a and 0x40) != 0)
+        set(V, ((state.a shr 6) xor (state.a shr 5)) and 1 != 0)
     }
 
     private fun axs(value: Int) {
-        val source = a and x
-        x = (source - value).low8Bits()
+        val source = state.a and state.x
+        state.x = (source - value).low8Bits()
         set(C, source >= value)
-        zn(x)
+        zn(state.x)
     }
 
 

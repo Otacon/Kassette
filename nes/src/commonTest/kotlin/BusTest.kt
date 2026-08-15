@@ -194,10 +194,10 @@ class BusTest {
         val stallCycles = cpu.step()
 
         assertEquals(4, stallCycles)
-        assertEquals(0, cpu.pc)
+        assertEquals(0, cpu.state.pc)
 
         cpu.step()
 
-        assertEquals(1, cpu.pc)
+        assertEquals(1, cpu.state.pc)
     }
 }

@@ -29,7 +29,7 @@ class NesMachineTest {
         assertSame(ConsoleRegion.PAL.timing, machine.timing)
         assertSame(ConsoleRegion.PAL.timing, machine.ppu.timing)
         assertSame(ConsoleRegion.PAL.timing, machine.apu.timing)
-        assertEquals(7, machine.cpu.totalCycles)
+        assertEquals(7, machine.cpu.state.totalCycles)
         assertTrue(machine.ppu.scanline >= 0)
     }
 
@@ -38,13 +38,13 @@ class NesMachineTest {
         val machine = fixture().machine
         machine.powerOn()
         var inputPolls = 0
-        val startCycles = machine.cpu.totalCycles
+        val startCycles = machine.cpu.state.totalCycles
 
         machine.runUntilFrame { inputPolls++ }
 
         assertTrue(machine.ppu.frameComplete)
         assertEquals(240, machine.ppu.scanline)
-        assertTrue(machine.cpu.totalCycles > startCycles)
+        assertTrue(machine.cpu.state.totalCycles > startCycles)
         assertTrue(inputPolls in 1..3)
     }
 
@@ -54,15 +54,15 @@ class NesMachineTest {
         val machine = fixture.machine
         machine.powerOn()
         machine.cpu.step()
-        val stackBeforeReset = machine.cpu.sp
+        val stackBeforeReset = machine.cpu.state.sp
         fixture.cpuBus.write(0x42, 0xA5)
 
         machine.reset()
 
-        assertEquals(0x5A, machine.cpu.a)
-        assertEquals((stackBeforeReset - 3) and 0xFF, machine.cpu.sp)
+        assertEquals(0x5A, machine.cpu.state.a)
+        assertEquals((stackBeforeReset - 3) and 0xFF, machine.cpu.state.sp)
         assertEquals(0xA5, fixture.cpuBus.read(0x42))
-        assertEquals(7, machine.cpu.totalCycles)
+        assertEquals(7, machine.cpu.state.totalCycles)
     }
 
     @Test
