@@ -59,7 +59,7 @@ class BusTest {
 
         bus.write(0x2008, 0x80)
 
-        assertEquals(0x80, ppu.ctrl)
+        assertEquals(0x80, ppu.state.ctrl)
     }
 
     @Test
@@ -150,7 +150,7 @@ class BusTest {
         bus.write(0x4014, 2)
         val cycles = cpu.step()
 
-        assertEquals(0x77, ppu.oam[0].toUnsignedInt())
+        assertEquals(0x77, ppu.state.oam[0].toUnsignedInt())
         assertEquals(515, cycles)
     }
 
@@ -275,8 +275,8 @@ class BusTest {
 
         assertTrue(cycles > 515)
         assertTrue(dmcReadIndex in 0..<lastOamWriteIndex)
-        assertEquals(0x77, ppu.oam[0].toUnsignedInt())
-        assertEquals(0x88, ppu.oam[255].toUnsignedInt())
+        assertEquals(0x77, ppu.state.oam[0].toUnsignedInt())
+        assertEquals(0x88, ppu.state.oam[255].toUnsignedInt())
     }
 
     @Test

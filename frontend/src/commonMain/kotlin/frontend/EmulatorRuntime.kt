@@ -28,7 +28,8 @@ class EmulatorRuntime(
         if (machine.isPoweredOn.value) {
             machine.runUntilFrameYielding(inputPollCallback)
             if (soundEnabled) audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            frameBuffer.submit(machine.ppu.completedFrameColorIds)
+            val ppuState = machine.ppu.state
+            frameBuffer.submit(ppuState.frameColorIds[ppuState.completedFramebufferIndex])
 
             frameRendered = true
         }

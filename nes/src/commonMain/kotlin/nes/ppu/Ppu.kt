@@ -7,29 +7,11 @@ import nes.util.toUnsignedInt
 class Ppu(
     private val bus: PpuBus,
 ) {
-    private var state = PpuState()
+    var state = PpuState()
+        private set
     private val argbFramebuffers = arrayOfNulls<IntArray>(2)
 
-    val framebuffer: IntArray
-        get() = argbFramebuffer(state.renderFramebufferIndex)
-    val completedFrameColorIds: ByteArray
-        get() = state.frameColorIds[state.completedFramebufferIndex]
-    val oam: ByteArray get() = state.oam
-
-    val ctrl: Int get() = state.ctrl
-    val mask: Int get() = state.mask
-    val status: Int get() = state.status
-    val oamAddress: Int get() = state.oamAddress
-    val v: Int get() = state.v
-    val t: Int get() = state.t
-    val fineX: Int get() = state.fineX
-    val writeLatch: Boolean get() = state.writeLatch
-    val scanline: Int get() = state.scanline
-    val cycle: Int get() = state.cycle
-    val frameComplete: Boolean get() = state.frameComplete
-    val nmiRequested: Boolean get() = state.nmiRequested
-    val nmiLine: Boolean get() = state.nmiLine
-
+    fun framebuffer(): IntArray = argbFramebuffer(state.renderFramebufferIndex)
     var timing: Timing = Timing.DEFAULT
     internal var cpuCycle: Long = -1
 

@@ -29,7 +29,7 @@ class NesMachineTest {
         assertSame(ConsoleRegion.PAL.timing, machine.ppu.timing)
         assertSame(ConsoleRegion.PAL.timing, machine.apu.timing)
         assertEquals(7, machine.cpu.state.totalCycles)
-        assertTrue(machine.ppu.scanline >= 0)
+        assertTrue(machine.ppu.state.scanline >= 0)
     }
 
     @Test
@@ -41,8 +41,8 @@ class NesMachineTest {
 
         machine.runUntilFrame { inputPolls++ }
 
-        assertTrue(machine.ppu.frameComplete)
-        assertEquals(240, machine.ppu.scanline)
+        assertTrue(machine.ppu.state.frameComplete)
+        assertEquals(240, machine.ppu.state.scanline)
         assertTrue(machine.cpu.state.totalCycles > startCycles)
         assertTrue(inputPolls in 1..3)
     }

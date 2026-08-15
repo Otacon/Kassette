@@ -98,7 +98,7 @@ class NesMachine(
         inputPollCallback = onInputPoll
         cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
         try {
-            while (!ppu.frameComplete) cpu.step()
+            while (!ppu.state.frameComplete) cpu.step()
         } finally {
             inputPollCallback = null
         }
@@ -111,7 +111,7 @@ class NesMachine(
         cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
         var cyclesUntilYield = CPU_CYCLES_PER_YIELD
         try {
-            while (!ppu.frameComplete) {
+            while (!ppu.state.frameComplete) {
                 cpu.step()
                 cyclesUntilYield--
                 if (cyclesUntilYield <= 0) {
@@ -165,7 +165,7 @@ class NesMachine(
     }
 
     private fun sampleInterruptLines() {
-        val nmiLine = ppu.nmiLine
+        val nmiLine = ppu.state.nmiLine
         if (!previousNmiLine && nmiLine) cpu.requestNmi()
         previousNmiLine = nmiLine
         cpu.sampleIrqLine(cartridgeSocket.irqPending() || apu.irqPending())

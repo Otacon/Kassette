@@ -52,10 +52,10 @@ class PpuTest {
         ppu.cpuWrite(6, 0x21)
         ppu.cpuWrite(6, 0x05)
 
-        assertEquals(0, ppu.v)
+        assertEquals(0, ppu.state.v)
         repeat(3) { ppu.step() }
 
-        assertEquals(0x2105, ppu.v)
+        assertEquals(0x2105, ppu.state.v)
     }
 
     @Test
@@ -67,8 +67,8 @@ class PpuTest {
 
         repeat(3) { ppu.step() }
 
-        assertEquals(0x2105, ppu.v)
-        assertEquals(ppu.v, ppu.t)
+        assertEquals(0x2105, ppu.state.v)
+        assertEquals(ppu.state.v, ppu.state.t)
     }
 
     @Test
@@ -77,11 +77,11 @@ class PpuTest {
 
         ppu.cpuWrite(5, 0x13)
 
-        assertTrue(ppu.writeLatch)
+        assertTrue(ppu.state.writeLatch)
 
         ppu.cpuWrite(5, 0x24)
 
-        assertFalse(ppu.writeLatch)
+        assertFalse(ppu.state.writeLatch)
     }
 
     @Test
@@ -109,7 +109,7 @@ class PpuTest {
         ppu.cpuRead(7)
         repeat(6) { ppu.step() }
 
-        assertEquals(0x2001, ppu.v)
+        assertEquals(0x2001, ppu.state.v)
         assertEquals(0x55, ppu.cpuRead(7))
     }
 
@@ -137,12 +137,12 @@ class PpuTest {
 
         repeat(241 * 341 + 2) { ppu.step() }
 
-        assertTrue((ppu.status and 0x80) != 0)
+        assertTrue((ppu.state.status and 0x80) != 0)
 
         ppu.cpuRead(2)
 
-        assertFalse((ppu.status and 0x80) != 0)
-        assertFalse(ppu.writeLatch)
+        assertFalse((ppu.state.status and 0x80) != 0)
+        assertFalse(ppu.state.writeLatch)
     }
 
     @Test
@@ -186,9 +186,9 @@ class PpuTest {
     @Test
     fun `sprite rendering draws non-zero pixels`() {
         val ppu = ppu()
-        ppu.oam[0] = 0
-        ppu.oam[1] = 1
-        ppu.oam[3] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 1
+        ppu.state.oam[3] = 0
         ppu.ppuWrite(16, 0x80)
         ppu.ppuWrite(0x3F11, 0x22)
         ppu.cpuWrite(1, 0x14)
@@ -201,9 +201,9 @@ class PpuTest {
     @Test
     fun `eight by sixteen sprite rendering draws non-zero pixels`() {
         val ppu = ppu()
-        ppu.oam[0] = 0
-        ppu.oam[1] = 2
-        ppu.oam[3] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 2
+        ppu.state.oam[3] = 0
         ppu.ppuWrite(3 * 16, 0x80)
         ppu.ppuWrite(0x3F11, 0x22)
         ppu.cpuWrite(0, 0x20)
@@ -220,14 +220,14 @@ class PpuTest {
         ppu.ppuWrite(0x2000, 1)
         ppu.ppuWrite(16, 0x80)
         ppu.ppuWrite(17, 0x80)
-        ppu.oam[0] = 0
-        ppu.oam[1] = 1
-        ppu.oam[3] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 1
+        ppu.state.oam[3] = 0
         ppu.cpuWrite(1, 0x1E)
 
         repeat(344) { ppu.step() }
 
-        assertTrue((ppu.status and 0x40) != 0)
+        assertTrue((ppu.state.status and 0x40) != 0)
     }
 
     @Test
@@ -236,40 +236,40 @@ class PpuTest {
         ppu.ppuWrite(0x2000, 1)
         ppu.ppuWrite(16, 0x08)
         ppu.ppuWrite(17, 0x08)
-        ppu.oam[0] = 0
-        ppu.oam[1] = 1
-        ppu.oam[3] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 1
+        ppu.state.oam[3] = 0
         ppu.cpuWrite(1, 0x1E)
 
         repeat(341 + 2) { ppu.step() }
 
-        assertFalse((ppu.status and 0x40) != 0)
+        assertFalse((ppu.state.status and 0x40) != 0)
 
         repeat(4) { ppu.step() }
 
-        assertTrue((ppu.status and 0x40) != 0)
+        assertTrue((ppu.state.status and 0x40) != 0)
     }
 
     @Test
     fun `ninth visible sprite sets overflow flag`() {
         val ppu = ppu()
-        repeat(9) { sprite -> ppu.oam[sprite * 4] = 0 }
+        repeat(9) { sprite -> ppu.state.oam[sprite * 4] = 0 }
         ppu.cpuWrite(1, 0x10)
 
         repeat(341 + 2) { ppu.step() }
 
-        assertTrue((ppu.status and 0x20) != 0)
+        assertTrue((ppu.state.status and 0x20) != 0)
     }
 
     @Test
     fun `background-only rendering still evaluates sprite overflow`() {
         val ppu = ppu()
-        repeat(9) { sprite -> ppu.oam[sprite * 4] = 0 }
+        repeat(9) { sprite -> ppu.state.oam[sprite * 4] = 0 }
         ppu.cpuWrite(1, 0x08)
 
         repeat(341 + 2) { ppu.step() }
 
-        assertTrue((ppu.status and 0x20) != 0)
+        assertTrue((ppu.state.status and 0x20) != 0)
     }
 
     @Test
@@ -278,21 +278,21 @@ class PpuTest {
         ppu.cpuWrite(1, 0x18)
 
         var initialCrossingDots = 0
-        while (!ppu.frameComplete) {
+        while (!ppu.state.frameComplete) {
             ppu.step()
             initialCrossingDots++
         }
         ppu.clearFrameComplete()
 
         var evenFrameDots = 0
-        while (!ppu.frameComplete) {
+        while (!ppu.state.frameComplete) {
             ppu.step()
             evenFrameDots++
         }
         ppu.clearFrameComplete()
 
         var oddFrameDots = 0
-        while (!ppu.frameComplete) {
+        while (!ppu.state.frameComplete) {
             ppu.step()
             oddFrameDots++
         }
@@ -322,11 +322,11 @@ class PpuTest {
         ppu.cpuWrite(0, 0x08)
         ppu.cpuWrite(1, 0x18)
 
-        while (!ppu.frameComplete) ppu.step()
+        while (!ppu.state.frameComplete) ppu.step()
         assertEquals(240, mapper.scanlineClocks)
 
         ppu.clearFrameComplete()
-        while (!ppu.frameComplete) ppu.step()
+        while (!ppu.state.frameComplete) ppu.step()
 
         assertEquals(481, mapper.scanlineClocks)
     }
@@ -335,23 +335,23 @@ class PpuTest {
     fun `reset timeline crosses from pre-render end to visible start`() {
         val ppu = ppu()
 
-        assertEquals(-1, ppu.scanline)
-        assertEquals(340, ppu.cycle)
+        assertEquals(-1, ppu.state.scanline)
+        assertEquals(340, ppu.state.cycle)
 
         ppu.step()
 
-        assertEquals(0, ppu.scanline)
-        assertEquals(0, ppu.cycle)
+        assertEquals(0, ppu.state.scanline)
+        assertEquals(0, ppu.state.cycle)
     }
 
     @Test
     fun `frame completes at post-render scanline dot zero`() {
         val ppu = ppu()
 
-        while (!ppu.frameComplete) ppu.step()
+        while (!ppu.state.frameComplete) ppu.step()
 
-        assertEquals(240, ppu.scanline)
-        assertEquals(0, ppu.cycle)
+        assertEquals(240, ppu.state.scanline)
+        assertEquals(0, ppu.state.cycle)
     }
 
     @Test
@@ -360,12 +360,12 @@ class PpuTest {
         ppu.timing = ConsoleRegion.DENDY.timing
         ppu.cpuWrite(0, 0x80)
 
-        while (ppu.scanline != 291 || ppu.cycle != 0) ppu.step()
-        assertEquals(0, ppu.status and 0x80)
+        while (ppu.state.scanline != 291 || ppu.state.cycle != 0) ppu.step()
+        assertEquals(0, ppu.state.status and 0x80)
 
         ppu.step()
 
-        assertEquals(0x80, ppu.status and 0x80)
+        assertEquals(0x80, ppu.state.status and 0x80)
         assertTrue(ppu.pollNmi())
     }
 
@@ -383,12 +383,12 @@ class PpuTest {
     fun `status read on vblank dot zero suppresses vblank and NMI`() {
         val ppu = ppu()
         ppu.cpuWrite(0, 0x80)
-        while (ppu.scanline != 241 || ppu.cycle != 0) ppu.step()
+        while (ppu.state.scanline != 241 || ppu.state.cycle != 0) ppu.step()
 
         ppu.cpuRead(2)
         ppu.step()
 
-        assertEquals(0, ppu.status and 0x80)
+        assertEquals(0, ppu.state.status and 0x80)
         assertFalse(ppu.pollNmi())
     }
 
@@ -396,7 +396,7 @@ class PpuTest {
     fun `status read cancels NMI before direct polling`() {
         val ppu = ppu()
         ppu.cpuWrite(0, 0x80)
-        while (ppu.scanline != 241 || ppu.cycle != 1) ppu.step()
+        while (ppu.state.scanline != 241 || ppu.state.cycle != 1) ppu.step()
 
         ppu.cpuRead(2)
 
@@ -433,7 +433,7 @@ class PpuTest {
 
         ppu.step()
 
-        assertEquals(Palette.COLORS[0x22], ppu.framebuffer[2])
+        assertEquals(Palette.COLORS[0x22], ppu.framebuffer()[2])
     }
 
     @Test
@@ -449,8 +449,8 @@ class PpuTest {
         ppu.step()
         ppu.step()
 
-        assertEquals(Palette.COLORS[0x22], ppu.framebuffer[2], "First dot remains forced blank")
-        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[3], "Current rendering state changes one dot earlier")
+        assertEquals(Palette.COLORS[0x22], ppu.framebuffer()[2], "First dot remains forced blank")
+        assertEquals(Palette.COLORS[0x21], ppu.framebuffer()[3], "Current rendering state changes one dot earlier")
     }
 
     @Test
@@ -461,12 +461,12 @@ class PpuTest {
         ppu.cpuWrite(6, 0x01)
         repeat(3) { ppu.step() }
         repeat(2) { ppu.step() }
-        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[2])
+        assertEquals(Palette.COLORS[0x21], ppu.framebuffer()[2])
 
         ppu.ppuWrite(0x3F01, 0x22)
         ppu.step()
 
-        assertEquals(Palette.COLORS[0x22], ppu.framebuffer[4])
+        assertEquals(Palette.COLORS[0x22], ppu.framebuffer()[4])
     }
 
     @Test
@@ -477,37 +477,37 @@ class PpuTest {
         ppu.cpuWrite(6, 0x3F)
         ppu.cpuWrite(6, 0x01)
         repeat(6) { ppu.step() }
-        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[2])
+        assertEquals(Palette.COLORS[0x21], ppu.framebuffer()[2])
 
         ppu.ppuWrite(0x3F01, 0x22)
         ppu.step()
         ppu.restorePpuBusState(originalBusState)
         ppu.step()
 
-        assertEquals(Palette.COLORS[0x21], ppu.framebuffer[6])
+        assertEquals(Palette.COLORS[0x21], ppu.framebuffer()[6])
     }
 
     @Test
     fun `soft reset preserves primary OAM`() {
         val ppu = ppu()
-        ppu.oam[0x42] = 0x55
+        ppu.state.oam[0x42] = 0x55
 
         ppu.reset(softReset = true)
 
-        assertEquals(0x55, ppu.oam[0x42].toUnsignedInt())
-        assertEquals(0, ppu.oamAddress)
+        assertEquals(0x55, ppu.state.oam[0x42].toUnsignedInt())
+        assertEquals(0, ppu.state.oamAddress)
     }
 
     @Test
     fun `hard reset preserves primary and secondary OAM memory`() {
         val ppu = ppu()
-        ppu.oam[0x42] = 0x55
+        ppu.state.oam[0x42] = 0x55
         repeat(2) { ppu.step() }
         val secondaryBeforeReset = ppu.captureState().secondaryOam.copyOf()
 
         ppu.reset(softReset = false)
 
-        assertEquals(0x55, ppu.oam[0x42].toUnsignedInt())
+        assertEquals(0x55, ppu.state.oam[0x42].toUnsignedInt())
         assertContentEquals(secondaryBeforeReset, ppu.captureState().secondaryOam)
     }
 
@@ -519,7 +519,7 @@ class PpuTest {
 
         repeat(3) { ppu.step() }
 
-        assertEquals(Palette.color(0x21 or 0x40), ppu.framebuffer[0])
+        assertEquals(Palette.color(0x21 or 0x40), ppu.framebuffer()[0])
     }
 
     @Test
@@ -527,7 +527,7 @@ class PpuTest {
         val ppu = ppu()
         ppu.cpuWrite(1, 0x1F)
         repeat(4) {
-            while (!ppu.frameComplete) ppu.step()
+            while (!ppu.state.frameComplete) ppu.step()
             ppu.clearFrameComplete()
         }
 
@@ -542,8 +542,8 @@ class PpuTest {
             candidate.cpuWrite(3, 0x20)
             candidate.cpuWrite(1, 0x18)
         }
-        while (ppu.scanline != 0 || ppu.cycle != 100) ppu.step()
-        while (control.scanline != 0 || control.cycle != 100) control.step()
+        while (ppu.state.scanline != 0 || ppu.state.cycle != 100) ppu.step()
+        while (control.state.scanline != 0 || control.state.cycle != 100) control.step()
 
         ppu.cpuWrite(1, 0)
         repeat(2) {
@@ -551,7 +551,7 @@ class PpuTest {
             control.step()
         }
 
-        assertEquals((control.oamAddress + 1) and 0xFF, ppu.oamAddress)
+        assertEquals((control.state.oamAddress + 1) and 0xFF, ppu.state.oamAddress)
     }
 
     @Test
@@ -560,15 +560,15 @@ class PpuTest {
         ppu.ppuWrite(0x2000, 1)
         ppu.ppuWrite(16, 0x80)
         ppu.ppuWrite(17, 0x80)
-        ppu.oam[4] = 0
-        ppu.oam[5] = 1
-        ppu.oam[7] = 0
+        ppu.state.oam[4] = 0
+        ppu.state.oam[5] = 1
+        ppu.state.oam[7] = 0
         ppu.cpuWrite(3, 4)
         ppu.cpuWrite(1, 0x1E)
 
         repeat(344) { ppu.step() }
 
-        assertTrue((ppu.status and 0x40) != 0)
+        assertTrue((ppu.state.status and 0x40) != 0)
     }
 
     @Test
@@ -596,10 +596,10 @@ class PpuTest {
 
         ppu.writeOamDma(page)
 
-        assertEquals(0, ppu.oam[0xFE].toUnsignedInt())
-        assertEquals(1, ppu.oam[0xFF].toUnsignedInt())
-        assertEquals(2, ppu.oam[0].toUnsignedInt())
-        assertEquals(0xFE, ppu.oamAddress)
+        assertEquals(0, ppu.state.oam[0xFE].toUnsignedInt())
+        assertEquals(1, ppu.state.oam[0xFF].toUnsignedInt())
+        assertEquals(2, ppu.state.oam[0].toUnsignedInt())
+        assertEquals(0xFE, ppu.state.oamAddress)
     }
 
     @Test
@@ -612,10 +612,10 @@ class PpuTest {
         }
         ppu.ppuWrite(0x3F01, 0x21)
         ppu.ppuWrite(0x3F11, 0x22)
-        ppu.oam[0] = 0
-        ppu.oam[1] = 2
-        ppu.oam[2] = 0x20
-        ppu.oam[3] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 2
+        ppu.state.oam[2] = 0x20
+        ppu.state.oam[3] = 0
         ppu.cpuWrite(1, 0x1E)
 
         repeat(344) { ppu.step() }
@@ -631,10 +631,10 @@ class PpuTest {
             ppu.ppuWrite(32 + it, 0x80)
         }
         ppu.ppuWrite(0x3F11, 0x22)
-        ppu.oam[0] = 0
-        ppu.oam[1] = 2
-        ppu.oam[2] = 0x20
-        ppu.oam[3] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 2
+        ppu.state.oam[2] = 0x20
+        ppu.state.oam[3] = 0
         ppu.cpuWrite(1, 0x1E)
 
         repeat(344) { ppu.step() }
@@ -654,14 +654,14 @@ class PpuTest {
         ppu.ppuWrite(0x3F01, 0x21)
         ppu.ppuWrite(0x3F11, 0x22)
         ppu.ppuWrite(0x3F15, 0x23)
-        ppu.oam[0] = 0
-        ppu.oam[1] = 2
-        ppu.oam[2] = 0x20
-        ppu.oam[3] = 0
-        ppu.oam[4] = 0
-        ppu.oam[5] = 3
-        ppu.oam[6] = 0x01
-        ppu.oam[7] = 0
+        ppu.state.oam[0] = 0
+        ppu.state.oam[1] = 2
+        ppu.state.oam[2] = 0x20
+        ppu.state.oam[3] = 0
+        ppu.state.oam[4] = 0
+        ppu.state.oam[5] = 3
+        ppu.state.oam[6] = 0x01
+        ppu.state.oam[7] = 0
         ppu.cpuWrite(1, 0x1E)
 
         repeat(344) { ppu.step() }
@@ -692,6 +692,6 @@ class PpuTest {
     }
 
     private fun renderedPixel(ppu: Ppu, index: Int): Int {
-        return ppu.framebuffer[index]
+        return ppu.framebuffer()[index]
     }
 }
