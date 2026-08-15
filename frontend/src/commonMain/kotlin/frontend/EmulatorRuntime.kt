@@ -9,6 +9,11 @@ class EmulatorRuntime(
     private val input: EmulatorInput,
     private val frameBuffer: SharedFrameBuffer,
 ) {
+    private val inputPollCallback = {
+        input.poll()
+        machine.controller.poll()
+    }
+
     var soundEnabled: Boolean = true
         set(value) {
             field = value
@@ -21,10 +26,7 @@ class EmulatorRuntime(
 
         var frameRendered = false
         if (machine.isPoweredOn.value) {
-            machine.runUntilFrameYielding {
-                input.poll()
-                machine.controller.poll()
-            }
+            machine.runUntilFrameYielding(inputPollCallback)
             if (soundEnabled) audio.submit(machine.apu.samples, machine.apu.sampleCount)
             frameBuffer.submit(machine.ppu.completedFrameColorIds)
 

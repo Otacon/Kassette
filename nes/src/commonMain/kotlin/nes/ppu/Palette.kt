@@ -20,4 +20,24 @@ object Palette {
         0xFFCCD278.toInt(), 0xFFB4DE78.toInt(), 0xFFA8E290.toInt(), 0xFF98E2B4.toInt(),
         0xFFA0D6E4.toInt(), 0xFFA0A2A0.toInt(), 0xFF000000.toInt(), 0xFF000000.toInt(),
     )
+
+    fun color(colorId: Int): Int {
+        val color = COLORS[colorId and 0x3F]
+        var red = (color shr 16) and 0xFF
+        var green = (color shr 8) and 0xFF
+        var blue = color and 0xFF
+        if ((colorId and 0x40) != 0) {
+            green = green * 3 / 4
+            blue = blue * 3 / 4
+        }
+        if ((colorId and 0x80) != 0) {
+            red = red * 3 / 4
+            blue = blue * 3 / 4
+        }
+        if ((colorId and 0x100) != 0) {
+            red = red * 3 / 4
+            green = green * 3 / 4
+        }
+        return 0xFF000000.toInt() or (red shl 16) or (green shl 8) or blue
+    }
 }

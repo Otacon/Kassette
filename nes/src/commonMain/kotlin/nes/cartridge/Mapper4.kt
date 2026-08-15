@@ -28,6 +28,7 @@ class Mapper4(
     private var mirroring: Mirroring? = null
     private var prgRamEnabled = prgRam.isNotEmpty()
     private var prgRamWriteProtected = false
+    private var a12LowCycle = NO_A12_LOW_CYCLE
 
     init {
         rebuildBankOffsets()
@@ -95,6 +96,17 @@ class Mapper4(
         }
     }
 
+    override fun ppuAddressChanged(address: Int, cpuCycle: Long) {
+        if ((address and 0x1000) == 0) {
+            if (a12LowCycle == NO_A12_LOW_CYCLE) a12LowCycle = cpuCycle
+        } else {
+            if (a12LowCycle != NO_A12_LOW_CYCLE && cpuCycle - a12LowCycle >= A12_LOW_FILTER_CYCLES) {
+                clockIrqCounter()
+            }
+            a12LowCycle = NO_A12_LOW_CYCLE
+        }
+    }
+
     override fun reset() {
         registers.fill(0)
         selectedRegister = 0
@@ -108,10 +120,15 @@ class Mapper4(
         mirroring = null
         prgRamEnabled = prgRam.isNotEmpty()
         prgRamWriteProtected = false
+        a12LowCycle = NO_A12_LOW_CYCLE
         rebuildBankOffsets()
     }
 
     override fun clockScanline() {
+        clockIrqCounter()
+    }
+
+    private fun clockIrqCounter() {
         if (irqCounter == 0 || irqReload) {
             irqCounter = irqLatch
             irqReload = false
@@ -146,6 +163,7 @@ class Mapper4(
         mirroring = mirroring,
         prgRamEnabled = prgRamEnabled,
         prgRamWriteProtected = prgRamWriteProtected,
+        a12LowCycle = a12LowCycle,
     )
 
     override fun restoreState(state: MapperState) {
@@ -164,6 +182,7 @@ class Mapper4(
         mirroring = state.mirroring
         prgRamEnabled = state.prgRamEnabled
         prgRamWriteProtected = state.prgRamWriteProtected
+        a12LowCycle = state.a12LowCycle
         rebuildBankOffsets()
     }
 
@@ -218,5 +237,7 @@ class Mapper4(
     companion object {
         private const val PRG_BANK_SIZE = 8 * 1024
         private const val CHR_BANK_SIZE = 1024
+        private const val NO_A12_LOW_CYCLE = -1L
+        private const val A12_LOW_FILTER_CYCLES = 3
     }
 }

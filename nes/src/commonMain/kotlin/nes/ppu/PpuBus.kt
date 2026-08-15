@@ -29,6 +29,10 @@ class PpuBus(
         }
     }
 
+    fun addressChanged(address: Int, cpuCycle: Long) {
+        cartridgeSocket.ppuAddressChanged(address and 0x3FFF, cpuCycle)
+    }
+
     fun clockScanline() {
         cartridgeSocket.clockScanline()
     }

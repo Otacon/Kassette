@@ -514,7 +514,8 @@ class NesApu(
 
         private fun finishSampleFetch() {
             if (!sampleFetchPending) return
-            val value = dmcDma.takeResult() ?: return
+            val value = dmcDma.takeResult()
+            if (value < 0) return
             sampleFetchPending = false
             sampleBuffer = value.low8Bits()
             sampleBufferFull = true

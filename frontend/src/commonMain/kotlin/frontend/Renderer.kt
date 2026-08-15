@@ -8,7 +8,7 @@ class Renderer {
     private val frameImageInfo = ImageInfo(
         FRAME_WIDTH,
         FRAME_HEIGHT,
-        ColorType.ALPHA_8,
+        ColorType.RGBA_8888,
         ColorAlphaType.OPAQUE,
         ColorSpace.sRGB,
     )
@@ -51,7 +51,7 @@ class Renderer {
 
     fun present(framebuffer: ByteArray, windowWidth: Int, windowHeight: Int) {
         check(initialized) { "Skiko renderer is not initialized" }
-        require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES frame" }
+        require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT * BYTES_PER_PIXEL) { "Incomplete NES frame" }
 
         uploadFrame(framebuffer, ensureFrameBitmap())
         outputWidth = windowWidth
@@ -69,7 +69,9 @@ class Renderer {
     }
 
     private fun uploadFrame(source: ByteArray, bitmap: Bitmap) {
-        check(bitmap.installPixels(frameImageInfo, source, FRAME_WIDTH)) { "Failed to upload NES frame bitmap" }
+        check(bitmap.installPixels(frameImageInfo, source, FRAME_WIDTH * BYTES_PER_PIXEL)) {
+            "Failed to upload NES frame bitmap"
+        }
     }
 
     fun draw(canvas: Canvas) {
@@ -187,6 +189,7 @@ class Renderer {
     private companion object {
         const val FRAME_WIDTH = 256
         const val FRAME_HEIGHT = 240
+        const val BYTES_PER_PIXEL = 4
         const val PALETTE_SHADER_RESOURCE = "shaders/palette.sksl"
         const val CRT_SHADER_RESOURCE = "shaders/crt.sksl"
         val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())

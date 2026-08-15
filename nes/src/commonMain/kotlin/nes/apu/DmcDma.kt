@@ -49,10 +49,12 @@ class DmcDma {
         phase = IDLE
     }
 
-    /** Takes a completed sample, or returns `null` while DMA is still pending. */
-    fun takeResult(): Int? {
-        if (result == NO_RESULT) return null
-        return result.also { result = NO_RESULT }
+    /** Takes a completed sample, or returns `-1` while DMA is still pending. */
+    fun takeResult(): Int {
+        if (result == NO_RESULT) return NO_RESULT
+        val value = result
+        result = NO_RESULT
+        return value
     }
 
     /** Cancels pending and completed DMA state during machine reset. */

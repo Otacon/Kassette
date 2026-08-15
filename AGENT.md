@@ -46,6 +46,7 @@ Public docs are split by audience:
 * `TECHNICAL.md`: supported ROM format, emulator scope, limitations, and architecture.
 * `AGENT.md`: this implementation handoff for coding agents.
 * `NES_CPU.md`: cycle-level NES CPU, interrupt, unofficial-opcode, and DMA behavior contract.
+* `NES_PPU.md`: dot-level NES PPU register, rendering, sprite, palette, and address-bus behavior contract.
 
 Keep the README concise and user-focused. Put internal architecture or command detail in `TECHNICAL.md` or
 `DEVELOPMENT.md` instead.
@@ -99,8 +100,8 @@ ROM/cartridge:
 * UxROM/UNROM with switchable 16 KiB lower PRG bank and fixed last 16 KiB upper PRG bank.
 * CNROM with fixed PRG ROM and switchable 8 KiB CHR ROM banks.
 * Mappers 2, 3, and 7 support Mesen-style NES 2.0 submapper 2 bus-conflict behavior.
-* MMC3 with precomputed 8 KiB PRG/1 KiB CHR page offsets, PRG RAM, runtime mirroring control, and approximate scanline
-  IRQs.
+* MMC3 with precomputed 8 KiB PRG/1 KiB CHR page offsets, PRG RAM, runtime mirroring control, and filtered PPU A12 IRQ
+  clocks.
 * AxROM with switchable 32 KiB PRG banks up to 512 KiB PRG ROM, CHR RAM, and mapper-controlled one-screen mirroring.
 * Mapper 11 / Color Dreams with bus-conflicted 32 KiB PRG and 8 KiB CHR ROM banking.
 * Mapper 34 follows Mesen's mapper-factory split: CHR RAM is BNROM, CHR ROM is NINA-001, and NES 2.0 submappers 1/2
@@ -130,6 +131,7 @@ PPU:
 
 * 256x240 software framebuffer.
 * PPU register interface `$2000-$2007` with mirroring.
+* Follow `NES_PPU.md` when changing PPU registers, rendering timing, sprite evaluation, or mapper-visible PPU addresses.
 * Dedicated PPU bus for CHR ROM/RAM, nametable RAM, palette RAM, and PPU-side mirroring.
 * CHR ROM/RAM access goes through `CartridgeSocket`, not directly through mapper classes.
 * Buffered PPUDATA reads and palette read behavior.
@@ -210,10 +212,12 @@ Diagnostics:
 * Larger chips such as MMC5, MMC2/MMC4, Bandai FCG, Jaleco SS88006, Namco 163, VRC2/VRC4, VRC6, and Sunsoft FME-7 still
   need dedicated IRQ/audio/timing infrastructure before they can be ported accurately.
 * Mapper 1 does not support SUROM/SOROM/SXROM-style extended banking variants.
-* Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing.
+* Mapper 4 observes PPU A12 transitions, but clone-specific filters and revision-specific IRQ edge behavior remain
+  approximate.
 * NTSC/PAL/Dendy timing is supported from nes20db, ROM header metadata, and filename fallback; timing remains
   approximate.
-* PPU is approximate, not cycle-perfect.
+* PPU register and fetch timing is dot-driven, but full sprite shifter timing, OAM corruption/decay, PPU open-bus decay,
+  and per-pixel color emphasis are not yet modeled completely.
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
 * APU register effects and frame-counter events are instruction-batched; `$4017`'s parity-dependent 3/4-cycle reset
@@ -222,8 +226,8 @@ Diagnostics:
   remain.
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, networking, ROM downloading, or ROM
   patching.
-* PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are
-  approximate.
+* Mid-scanline palette, scroll, CHR bank, mask, and OAM changes are dot-driven, with uncommon register collision glitches
+  still approximate.
 
 ## Development Guidance
 

@@ -22,4 +22,5 @@ data class NesMachineState(
     var ppuMasterClockRemainder: Int = 0,
     var previousNmiLine: Boolean = false,
     var cyclesUntilInputPoll: Int = 0,
+    var region: ConsoleRegion? = null,
 )

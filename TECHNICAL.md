@@ -79,16 +79,17 @@ This is an MVP, not a cycle-perfect emulator.
 * Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7, Mapper 11, Mapper 34, Mapper 66, Mapper 71, Mapper 79,
   Mapper 87, and Mapper 113 only.
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported.
-* Mapper 4 scanline IRQ timing is approximate, not cycle-perfect MMC3 A12 timing.
+* Mapper 4 uses filtered PPU A12 transitions; clone-specific filters and revision-specific IRQ behavior remain
+  approximate.
 * Region timing is approximate and selected from nes20db metadata when available, then ROM header metadata or filename
   markers; multi-region software defaults to NTSC timing.
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, network features, downloading, or
   patching.
-* PPU rendering is approximate in several edge cases.
+* PPU rendering remains approximate for full sprite shifter timing, OAM corruption/decay, open-bus decay, and per-pixel
+  color emphasis.
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
-* PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are
-  approximate.
+* Mid-scanline PPU changes are dot-driven, but uncommon register collision glitches remain approximate.
 * The steady-state CPU path avoids collections in dispatch, but address helper objects remain and should be removed
   before claiming strict allocation-free operation.
 

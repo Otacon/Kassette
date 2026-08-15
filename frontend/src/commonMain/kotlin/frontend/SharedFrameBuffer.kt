@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 class SharedFrameBuffer {
-    val initialFrame = ByteArray(256 * 240)
+    val initialFrame = ByteArray(256 * 240 * 4)
     private val _frames = MutableSharedFlow<ByteArray>(
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,

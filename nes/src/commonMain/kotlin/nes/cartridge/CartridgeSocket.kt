@@ -56,6 +56,10 @@ class CartridgeSocket {
         mapper?.ppuWrite(address, value)
     }
 
+    fun ppuAddressChanged(address: Int, cpuCycle: Long) {
+        mapper?.ppuAddressChanged(address, cpuCycle)
+    }
+
     fun clockScanline() {
         mapper?.clockScanline()
     }

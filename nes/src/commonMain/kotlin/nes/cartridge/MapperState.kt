@@ -21,6 +21,7 @@ data class Mapper4State(
     var mirroring: Mirroring? = null,
     var prgRamEnabled: Boolean = false,
     var prgRamWriteProtected: Boolean = false,
+    var a12LowCycle: Long = -1,
 ) : MapperState
 data class Mapper7State(var chrRam: ByteArray = ByteArray(8 * 1024), var selectedBankBase: Int = 0, var mirroring: Mirroring = Mirroring.SINGLE_SCREEN_LOWER) : MapperState
 data class Mapper11State(var selectedPrgBankBase: Int = 0, var selectedChrBankBase: Int = 0) : MapperState

@@ -139,6 +139,30 @@ class Mapper4Test {
     }
 
     @Test
+    fun `IRQ counter clocks only after filtered PPU A12 rise`() {
+        val mapper = Mapper4(
+            prgRom = prgBanks(4),
+            chr = chrBanks(8),
+            isChrRam = false,
+            prgRamSize = 8 * 1024,
+        )
+        mapper.cpuWrite(0xC000, 1)
+        mapper.cpuWrite(0xC001, 0)
+        mapper.cpuWrite(0xE001, 0)
+
+        mapper.ppuAddressChanged(0x0000, 0)
+        mapper.ppuAddressChanged(0x1000, 2)
+        mapper.ppuAddressChanged(0x0000, 3)
+        mapper.ppuAddressChanged(0x1000, 6)
+        assertFalse(mapper.irqPending(), "The first qualified edge reloads the counter")
+
+        mapper.ppuAddressChanged(0x0000, 7)
+        mapper.ppuAddressChanged(0x1000, 10)
+
+        assertTrue(mapper.irqPending())
+    }
+
+    @Test
     fun `IRQ disable clears pending interrupt`() {
         val mapper = Mapper4(prgRom = prgBanks(4), chr = ByteArray(8192), isChrRam = false, prgRamSize = 8 * 1024)
         mapper.cpuWrite(0xC000, 1)

@@ -77,5 +77,12 @@ class RendererTest {
         }
     }
 
-    private fun testFrame(): ByteArray = ByteArray(256 * 240) { 0x21 }
+    private fun testFrame(): ByteArray = ByteArray(256 * 240 * 4).also { frame ->
+        var offset = 0
+        while (offset < frame.size) {
+            frame[offset] = 0x21
+            frame[offset + 3] = 0xFF.toByte()
+            offset += 4
+        }
+    }
 }

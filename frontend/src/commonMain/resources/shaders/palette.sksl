@@ -61,6 +61,12 @@ float3 nesPalette(int colorIndex) {
 }
 
 float4 main(float2 sourcePoint) {
-    int colorIndex = int(indexTexture.eval(sourcePoint).a * 255.0 + 0.5);
-    return float4(nesPalette(colorIndex), 1.0);
+    float4 encoded = indexTexture.eval(sourcePoint);
+    int colorId = int(encoded.r * 255.0 + 0.5) + int(encoded.g * 255.0 + 0.5) * 256;
+    int emphasis = colorId / 64;
+    float3 color = nesPalette(colorId - emphasis * 64);
+    if (emphasis - (emphasis / 2) * 2 != 0) color.gb *= 0.75;
+    if ((emphasis / 2) - (emphasis / 4) * 2 != 0) color.rb *= 0.75;
+    if (emphasis >= 4) color.rg *= 0.75;
+    return float4(color, 1.0);
 }

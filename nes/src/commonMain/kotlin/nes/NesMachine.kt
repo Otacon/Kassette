@@ -57,6 +57,7 @@ class NesMachine(
             ppuMasterClockRemainder = ppuMasterClockRemainder,
             previousNmiLine = previousNmiLine,
             cyclesUntilInputPoll = cyclesUntilInputPoll,
+            region = cartridgeSocket.region,
         ),
         cpu = cpu.captureState(),
         cpuBus = cpuBus.captureState(),
@@ -67,6 +68,9 @@ class NesMachine(
     )
 
     fun restoreState(state: NesHardwareState) {
+        require(state.machine.region == null || state.machine.region == cartridgeSocket.region) {
+            "Savestate region ${state.machine.region} does not match cartridge region ${cartridgeSocket.region}"
+        }
         ppuMasterClockRemainder = state.machine.ppuMasterClockRemainder
         previousNmiLine = state.machine.previousNmiLine
         cyclesUntilInputPoll = state.machine.cyclesUntilInputPoll
@@ -76,10 +80,11 @@ class NesMachine(
         ppu.restorePpuBusState(state.ppuBus)
         apu.restoreState(state.apu)
         cpu.restoreState(state.cpu)
+        ppu.cpuCycle = cpu.state.totalCycles + 1
     }
 
     private fun resetComponents(softReset: Boolean) {
-        cartridgeSocket.reset()
+        if (!softReset) cartridgeSocket.reset()
         applyCartridgeTiming()
         ppu.reset(softReset)
         apu.reset()
@@ -150,6 +155,7 @@ class NesMachine(
     private fun clockPpu(masterClocks: Int, ppuMasterClockDivider: Int) {
         val totalClocks = ppuMasterClockRemainder + masterClocks
         val ppuClocks = totalClocks / ppuMasterClockDivider
+        ppu.cpuCycle = cpu.state.totalCycles + 1
         var clock = 0
         while (clock < ppuClocks) {
             ppu.step()
