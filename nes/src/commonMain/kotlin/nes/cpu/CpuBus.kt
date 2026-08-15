@@ -154,9 +154,9 @@ class CpuBus(
         val value = when (val a = address.low16Bits()) {
             in 0x0000..0x1FFF -> ram[a and 0x07FF].toUnsignedInt()
             in 0x2000..0x3FFF -> ppu.cpuRead(0x2000 + (a and 7))
-            in 0x4000..0x4013 -> apu.cpuRead(a)
+            in 0x4000..0x4013 -> openBus
             0x4014 -> openBus
-            0x4015 -> apu.cpuRead(a)
+            0x4015 -> apu.cpuRead(a, openBus)
             0x4016 -> controller.read()
             0x4017 -> openBus
             in 0x4020..0xFFFF -> cartridgeSocket.cpuRead(a, openBus)
@@ -204,7 +204,7 @@ class CpuBus(
             val internalAddress = 0x4000 or (a and 0x1F)
             val value = when (internalAddress) {
                 0x4015 -> {
-                    val internalValue = apu.cpuRead(internalAddress)
+                    val internalValue = apu.cpuRead(internalAddress, openBus)
                     if (a != internalAddress) readDmaMapped(a)
                     internalValue
                 }

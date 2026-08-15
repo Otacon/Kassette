@@ -64,6 +64,14 @@ class DmcDma {
         phase = IDLE
     }
 
+    fun captureState(): DmcDmaState = DmcDmaState(address, result, phase)
+
+    fun restoreState(state: DmcDmaState) {
+        address = state.address
+        result = state.result
+        phase = state.phase
+    }
+
     private companion object {
         const val NO_ADDRESS = -1
         const val NO_RESULT = -1

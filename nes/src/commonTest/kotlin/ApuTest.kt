@@ -54,6 +54,7 @@ class ApuTest {
         apu.cpuWrite(0x4007, 0x08)
         apu.cpuWrite(0x400B, 0x08)
         apu.cpuWrite(0x400F, 0x08)
+        apu.step()
         assertEquals(0x0F, apu.cpuRead(0x4015) and 0x0F)
         apu.cpuWrite(0x4015, 0x00)
         assertEquals(0, apu.cpuRead(0x4015) and 0x0F)
@@ -68,6 +69,11 @@ class ApuTest {
         assertTrue(apu.irqPending())
         assertEquals(0x40, apu.cpuRead(0x4015) and 0x40)
         assertFalse(apu.irqPending())
+        assertEquals(0x40, apu.cpuRead(0x4015) and 0x40)
+        apu.step()
+        assertTrue(apu.irqPending())
+        assertEquals(0x40, apu.cpuRead(0x4015) and 0x40)
+        apu.step(2)
         assertEquals(0, apu.cpuRead(0x4015) and 0x40)
     }
 
@@ -82,9 +88,10 @@ class ApuTest {
         apu.step(29_829)
         assertFalse(apu.irqPending())
 
-        apu.cpuWrite(0x4017, 0x80)
-        apu.step(37_282)
-        assertFalse(apu.irqPending())
+        val fiveStepApu = apu()
+        fiveStepApu.cpuWrite(0x4017, 0x80)
+        fiveStepApu.step(4 + 37_282)
+        assertFalse(fiveStepApu.irqPending())
     }
 
     @Test
@@ -136,6 +143,7 @@ class ApuTest {
         apu.cpuWrite(0x4013, 0x01)
 
         apu.cpuWrite(0x4015, 0x10)
+        apu.step(3)
         dmcDma.complete(0xFF)
         apu.step(2000)
 
@@ -150,6 +158,7 @@ class ApuTest {
         apu.cpuWrite(0x4013, 0x00)
 
         apu.cpuWrite(0x4015, 0x10)
+        apu.step(3)
         dmcDma.complete(0xFF)
         apu.step()
 
@@ -164,6 +173,7 @@ class ApuTest {
         apu.cpuWrite(0x4013, 0x00)
 
         apu.cpuWrite(0x4015, 0x10)
+        apu.step(3)
         dmcDma.complete(0)
         apu.step()
 
@@ -179,6 +189,7 @@ class ApuTest {
         apu.cpuWrite(0x4011, 0x00)
         apu.cpuWrite(0x4013, 0x00)
         apu.cpuWrite(0x4015, 0x10)
+        apu.step(3)
         dmcDma.complete(0xFF)
         apu.step()
 
@@ -197,6 +208,7 @@ class ApuTest {
         apu.cpuWrite(0x4013, 0x00)
 
         apu.cpuWrite(0x4015, 0x10)
+        apu.step(3)
         dmcDma.complete(0xFF)
         apu.step(450)
 
@@ -214,8 +226,173 @@ class ApuTest {
 
         apu.cpuWrite(0x4015, 0x10)
 
+        assertFalse(dmcDma.pending())
+        apu.step(2)
+        assertFalse(dmcDma.pending())
+        apu.step()
         assertTrue(dmcDma.pending())
         assertEquals(0xC000, dmcDma.requestedAddress())
+    }
+
+    @Test
+    fun `noise LFSR starts at one and advances from its valid seed`() {
+        val apu = apu()
+
+        assertEquals(1, apu.captureState().noise.values[5])
+        apu.step(4)
+
+        assertEquals(0x4000, apu.captureState().noise.values[5])
+    }
+
+    @Test
+    fun `frame counter mode write applies after three or four cycles`() {
+        val apu = apu()
+        apu.cpuWrite(0x4017, 0x80)
+
+        apu.step(3)
+        assertEquals(0, apu.captureState().frameMode)
+        apu.step()
+
+        assertEquals(1, apu.captureState().frameMode)
+        assertEquals(0, apu.captureState().frameCycle)
+    }
+
+    @Test
+    fun `four-step IRQ begins on first terminal sequencer cycle`() {
+        val apu = apu()
+
+        apu.step(29_827)
+        assertFalse(apu.irqPending())
+        apu.step()
+
+        assertTrue(apu.irqPending())
+    }
+
+    @Test
+    fun `pulse sweep period zero updates on the next half-frame after reload`() {
+        val apu = apu()
+        apu.cpuWrite(0x4015, 0x01)
+        apu.cpuWrite(0x4001, 0x81)
+        apu.cpuWrite(0x4002, 0x00)
+        apu.cpuWrite(0x4003, 0x09)
+
+        apu.step(14_913)
+        assertEquals(0x100, apu.captureState().pulse1.values[1])
+        apu.step(14_916)
+
+        assertEquals(0x180, apu.captureState().pulse1.values[1])
+    }
+
+    @Test
+    fun `length reload coincident with half-frame clock is suppressed`() {
+        val apu = apu()
+        apu.cpuWrite(0x4015, 0x01)
+        apu.cpuWrite(0x4003, 0x00)
+        apu.step(14_912)
+        assertEquals(10, apu.captureState().pulse1.lengthCounter)
+
+        apu.cpuWrite(0x4003, 0x08)
+        apu.step()
+
+        assertEquals(9, apu.captureState().pulse1.lengthCounter)
+    }
+
+    @Test
+    fun `DMC DMA pipeline survives state restore`() {
+        val sourceDma = DmcDma()
+        val source = NesApu(sourceDma)
+        source.cpuWrite(0x4015, 0x10)
+        source.step(3)
+        val snapshot = source.captureState()
+        val restoredDma = DmcDma()
+        val restored = NesApu(restoredDma)
+
+        restored.restoreState(snapshot)
+
+        assertTrue(restoredDma.pending())
+        assertEquals(0xC000, restoredDma.requestedAddress())
+    }
+
+    @Test
+    fun `DMC disable takes effect after its parity delay`() {
+        val dma = DmcDma()
+        val apu = NesApu(dma)
+        apu.cpuWrite(0x4015, 0x10)
+        apu.step(3)
+
+        apu.cpuWrite(0x4015, 0)
+        assertEquals(0x10, apu.cpuRead(0x4015) and 0x10)
+        apu.step()
+        assertEquals(0x10, apu.cpuRead(0x4015) and 0x10)
+        apu.step()
+
+        assertEquals(0, apu.cpuRead(0x4015) and 0x10)
+        assertFalse(dma.pending())
+    }
+
+    @Test
+    fun `PAL reset initializes DMC rate index zero`() {
+        val apu = apu()
+        apu.timing = ConsoleRegion.PAL.timing
+
+        apu.reset()
+
+        assertEquals(398, apu.captureState().dmc.values[0])
+        assertEquals(397, apu.captureState().dmc.values[1])
+    }
+
+    @Test
+    fun `soft reset preserves frame mode and programmed DMC sample`() {
+        val apu = apu()
+        apu.cpuWrite(0x4012, 0x12)
+        apu.cpuWrite(0x4013, 0x34)
+        apu.cpuWrite(0x4017, 0x80)
+        apu.step(4)
+
+        apu.reset(softReset = true)
+        val state = apu.captureState()
+
+        assertEquals(1, state.frameMode)
+        assertEquals(0xC000 + (0x12 shl 6), state.dmc.values[3])
+        assertEquals((0x34 shl 4) + 1, state.dmc.values[4])
+    }
+
+    @Test
+    fun `restore does not retain mutable snapshot arrays`() {
+        val apu = apu()
+        apu.cpuWrite(0x4015, 0x09)
+        apu.cpuWrite(0x4003, 0)
+        apu.cpuWrite(0x400F, 0)
+        apu.step()
+        val snapshot = apu.captureState()
+        val expected = snapshot.copy(
+            pulse1 = snapshot.pulse1.copy(values = snapshot.pulse1.values.copyOf(), flags = snapshot.pulse1.flags.copyOf()),
+            pulse2 = snapshot.pulse2.copy(values = snapshot.pulse2.values.copyOf(), flags = snapshot.pulse2.flags.copyOf()),
+            triangle = snapshot.triangle.copy(values = snapshot.triangle.values.copyOf(), flags = snapshot.triangle.flags.copyOf()),
+            noise = snapshot.noise.copy(values = snapshot.noise.values.copyOf(), flags = snapshot.noise.flags.copyOf()),
+            dmc = snapshot.dmc.copy(values = snapshot.dmc.values.copyOf(), flags = snapshot.dmc.flags.copyOf()),
+            filters = snapshot.filters.copyOf(),
+        )
+
+        apu.restoreState(snapshot)
+        apu.step(10_000)
+
+        assertEquals(expected, snapshot)
+    }
+
+    @Test
+    fun `pending frame counter write survives restore`() {
+        val source = apu()
+        source.cpuWrite(0x4017, 0x80)
+        source.step(2)
+        val restored = apu()
+
+        restored.restoreState(source.captureState())
+        restored.step()
+        assertEquals(0, restored.captureState().frameMode)
+        restored.step()
+
+        assertEquals(1, restored.captureState().frameMode)
     }
 
     @Test

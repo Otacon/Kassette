@@ -31,7 +31,7 @@ class SavestateCodec(
     }
 
     private companion object {
-        const val CURRENT_SAVESTATE_FORMAT = 3
+        const val CURRENT_SAVESTATE_FORMAT = 4
     }
 }
 
@@ -163,21 +163,48 @@ class SavestateStateMapper {
     private fun ApuState.toDto() = ApuStateDto(
         pulse1.toDto(), pulse2.toDto(), triangle.toDto(), noise.toDto(), dmc.toDto(),
         frameCycle, frameEventIndex, frameMode, frameIrqInhibit, frameIrqPending, apuCycle, samplePhase, filters,
+        pendingFrameCounterValue, frameCounterWriteDelay, blockFrameCounterTicks, dmcDma.toDto(),
+        frameIrqFlag, frameIrqClearDelay,
     )
 
     private fun ApuStateDto.toState() = ApuState(
         pulse1.toState(), pulse2.toState(), triangle.toState(), noise.toState(), dmc.toState(),
         frameCycle, frameEventIndex, frameMode, frameIrqInhibit, frameIrqPending, apuCycle, samplePhase, filters,
+        pendingFrameCounterValue, frameCounterWriteDelay, blockFrameCounterTicks, dmcDma.toState(),
+        frameIrqFlag, frameIrqClearDelay,
     )
 
     private fun PulseState.toDto() = PulseStateDto(enabled, lengthCounter, values, flags)
-    private fun PulseStateDto.toState() = PulseState(enabled, lengthCounter, values, flags)
+    private fun PulseStateDto.toState(): PulseState {
+        val restoredFlags = flags.copyOf(maxOf(flags.size, 8))
+        if (flags.size < 8) {
+            restoredFlags[6] = restoredFlags[0]
+            restoredFlags[7] = restoredFlags[0]
+        }
+        return PulseState(enabled, lengthCounter, values.copyOf(maxOf(values.size, 12)), restoredFlags)
+    }
     private fun TriangleState.toDto() = TriangleStateDto(enabled, lengthCounter, values, flags)
-    private fun TriangleStateDto.toState() = TriangleState(enabled, lengthCounter, values, flags)
+    private fun TriangleStateDto.toState(): TriangleState {
+        val restoredFlags = flags.copyOf(maxOf(flags.size, 4))
+        if (flags.size < 3) restoredFlags[2] = restoredFlags[0]
+        if (flags.size < 4) restoredFlags[3] = restoredFlags[2]
+        return TriangleState(enabled, lengthCounter, values.copyOf(maxOf(values.size, 8)), restoredFlags)
+    }
     private fun NoiseState.toDto() = NoiseStateDto(enabled, lengthCounter, values, flags)
-    private fun NoiseStateDto.toState() = NoiseState(enabled, lengthCounter, values, flags)
+    private fun NoiseStateDto.toState(): NoiseState {
+        val restoredValues = values.copyOf(maxOf(values.size, 8))
+        if (restoredValues[5] == 0) restoredValues[5] = 1
+        val restoredFlags = flags.copyOf(maxOf(flags.size, 6))
+        if (flags.size < 6) {
+            restoredFlags[4] = restoredFlags[0]
+            restoredFlags[5] = restoredFlags[0]
+        }
+        return NoiseState(enabled, lengthCounter, restoredValues, restoredFlags)
+    }
     private fun DmcState.toDto() = DmcStateDto(values, flags)
-    private fun DmcStateDto.toState() = DmcState(values, flags.copyOf(maxOf(flags.size, 7)))
+    private fun DmcStateDto.toState() = DmcState(values.copyOf(maxOf(values.size, 12)), flags.copyOf(maxOf(flags.size, 7)))
+    private fun DmcDmaState.toDto() = DmcDmaStateDto(address, result, phase)
+    private fun DmcDmaStateDto.toState() = DmcDmaState(address, result, phase)
 
     private fun MapperState.toDto(): MapperStateDto = when (this) {
         is Mapper0State -> MapperStateDto.Mapper0(chr)
@@ -212,7 +239,7 @@ class SavestateStateMapper {
 
 @Serializable
 data class SavestateDto(
-    val formatVersion: Int = 3,
+    val formatVersion: Int = 4,
     val machine: NesMachineStateDto,
     val cpu: CpuStateDto,
     val cpuBus: CpuBusStateDto,
@@ -234,11 +261,20 @@ data class SavestateDto(
     val activeSpriteLow: IntArray, val activeSpriteHigh: IntArray, val fetchedSpriteX: IntArray, val fetchedSpriteAttributes: IntArray,
     val fetchedSpriteLow: IntArray, val fetchedSpriteHigh: IntArray, val counters: IntArray, val flags: BooleanArray,
 )
-@Serializable data class ApuStateDto(val pulse1: PulseStateDto, val pulse2: PulseStateDto, val triangle: TriangleStateDto, val noise: NoiseStateDto, val dmc: DmcStateDto, val frameCycle: Int, val frameEventIndex: Int, val frameMode: Int, val frameIrqInhibit: Boolean, val frameIrqPending: Boolean, val apuCycle: Boolean, val samplePhase: Int, val filters: DoubleArray)
+@Serializable data class ApuStateDto(
+    val pulse1: PulseStateDto, val pulse2: PulseStateDto, val triangle: TriangleStateDto,
+    val noise: NoiseStateDto, val dmc: DmcStateDto, val frameCycle: Int, val frameEventIndex: Int,
+    val frameMode: Int, val frameIrqInhibit: Boolean, val frameIrqPending: Boolean,
+    val apuCycle: Boolean, val samplePhase: Int, val filters: DoubleArray,
+    val pendingFrameCounterValue: Int = -1, val frameCounterWriteDelay: Int = 0,
+    val blockFrameCounterTicks: Int = 0, val dmcDma: DmcDmaStateDto = DmcDmaStateDto(),
+    val frameIrqFlag: Boolean = frameIrqPending, val frameIrqClearDelay: Int = 0,
+)
 @Serializable data class PulseStateDto(val enabled: Boolean, val lengthCounter: Int, val values: IntArray, val flags: BooleanArray)
 @Serializable data class TriangleStateDto(val enabled: Boolean, val lengthCounter: Int, val values: IntArray, val flags: BooleanArray)
 @Serializable data class NoiseStateDto(val enabled: Boolean, val lengthCounter: Int, val values: IntArray, val flags: BooleanArray)
 @Serializable data class DmcStateDto(val values: IntArray, val flags: BooleanArray)
+@Serializable data class DmcDmaStateDto(val address: Int = -1, val result: Int = -1, val phase: Int = 0)
 
 @Serializable
 sealed interface MapperStateDto {

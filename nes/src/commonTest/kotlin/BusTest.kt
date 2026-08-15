@@ -63,6 +63,22 @@ class BusTest {
     }
 
     @Test
+    fun `write-only APU registers preserve CPU open bus`() {
+        val (_, bus, _) = cpuWithProgram(byteArrayOf(0xEA.toByte()))
+        bus.write(0x4000, 0xA5)
+
+        assertEquals(0xA5, bus.read(0x4008))
+    }
+
+    @Test
+    fun `APU status preserves open bus bit five`() {
+        val (_, bus, _) = cpuWithProgram(byteArrayOf(0xEA.toByte()))
+        bus.write(0x4000, 0x20)
+
+        assertEquals(0x20, bus.read(0x4015) and 0x20)
+    }
+
+    @Test
     fun `cartridge socket reads mirrored PRG ROM`() {
         val prg = ByteArray(16 * 1024)
         prg[0] = 0x12
@@ -172,13 +188,13 @@ class BusTest {
     }
 
     @Test
-    fun `APU status routes through CPU bus`() {
+    fun `unclocked APU length reload remains pending`() {
         val (_, bus, _) = cpuWithProgram(byteArrayOf(0xEA.toByte()))
 
         bus.write(0x4015, 0x01)
         bus.write(0x4003, 0x08)
 
-        assertTrue((bus.read(0x4015) and 0x01) != 0)
+        assertEquals(0, bus.read(0x4015) and 0x01)
     }
 
     @Test

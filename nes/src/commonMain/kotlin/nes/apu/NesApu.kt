@@ -27,8 +27,14 @@ class NesApu(
             0, 1, 2, 3, 4, 5, 6, 7,
             8, 9, 10, 11, 12, 13, 14, 15
         )
-        private val FOUR_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME)
-        private val FIVE_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, 0)
+        private val FOUR_STEP_ACTIONS = intArrayOf(
+            QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, 0,
+            QUARTER_FRAME or HALF_FRAME, 0,
+        )
+        private val FIVE_STEP_ACTIONS = intArrayOf(
+            QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, 0,
+            QUARTER_FRAME or HALF_FRAME, 0,
+        )
         private val PULSE_MIX = DoubleArray(31) { sum ->
             if (sum == 0) 0.0 else 95.88 / ((8128.0 / sum) + 100.0)
         }
@@ -78,6 +84,11 @@ class NesApu(
     private var frameIrqPending: Boolean get() = state.frameIrqPending; set(value) { state.frameIrqPending = value }
     private var apuCycle: Boolean get() = state.apuCycle; set(value) { state.apuCycle = value }
     private var samplePhase: Int get() = state.samplePhase; set(value) { state.samplePhase = value }
+    private var pendingFrameCounterValue: Int get() = state.pendingFrameCounterValue; set(value) { state.pendingFrameCounterValue = value }
+    private var frameCounterWriteDelay: Int get() = state.frameCounterWriteDelay; set(value) { state.frameCounterWriteDelay = value }
+    private var blockFrameCounterTicks: Int get() = state.blockFrameCounterTicks; set(value) { state.blockFrameCounterTicks = value }
+    private var frameIrqFlag: Boolean get() = state.frameIrqFlag; set(value) { state.frameIrqFlag = value }
+    private var frameIrqClearDelay: Int get() = state.frameIrqClearDelay; set(value) { state.frameIrqClearDelay = value }
     private var highPass90Input: Double get() = state.filters[0]; set(value) { state.filters[0] = value }
     private var highPass90Output: Double get() = state.filters[1]; set(value) { state.filters[1] = value }
     private var highPass440Input: Double get() = state.filters[2]; set(value) { state.filters[2] = value }
@@ -90,8 +101,32 @@ class NesApu(
             dmc.periods = value.dmcPeriods
         }
 
-    fun reset() {
+    fun reset(softReset: Boolean = false) {
+        val retainedFrameMode = state.frameMode
+        val retainedSampleAddress = state.dmc.values[3]
+        val retainedSampleLength = state.dmc.values[4]
+        val retainedTriangleLength = state.triangle.lengthCounter
+        val retainedTriangleLengthHalt = state.triangle.flags[2]
+        val retainedTrianglePendingLengthHalt = state.triangle.flags[3]
+        val retainedTriangleLengthReload = state.triangle.values[6]
+        val retainedTrianglePreviousLength = state.triangle.values[7]
         state = ApuState()
+        if (softReset) {
+            state.frameMode = retainedFrameMode
+            state.dmc.values[3] = retainedSampleAddress
+            state.dmc.values[4] = retainedSampleLength
+            state.triangle.lengthCounter = retainedTriangleLength
+            state.triangle.flags[2] = retainedTriangleLengthHalt
+            state.triangle.flags[3] = retainedTrianglePendingLengthHalt
+            state.triangle.values[6] = retainedTriangleLengthReload
+            state.triangle.values[7] = retainedTrianglePreviousLength
+        }
+        state.noise.values[3] = timing.noisePeriods[0]
+        state.noise.values[4] = timing.noisePeriods[0] - 1
+        state.dmc.values[0] = timing.dmcPeriods[0]
+        state.dmc.values[1] = timing.dmcPeriods[0] - 1
+        state.pendingFrameCounterValue = if (state.frameMode == 1) 0x80 else 0
+        state.frameCounterWriteDelay = 3
         sampleCount = 0
         dmcDma.reset()
     }
@@ -107,23 +142,44 @@ class NesApu(
         noise = state.noise.copy(values = state.noise.values.copyOf(), flags = state.noise.flags.copyOf()),
         dmc = state.dmc.copy(values = state.dmc.values.copyOf(), flags = state.dmc.flags.copyOf()),
         filters = state.filters.copyOf(),
+        dmcDma = dmcDma.captureState(),
     )
 
     fun restoreState(state: ApuState) {
-        this.state = state
+        this.state = state.copy(
+            pulse1 = state.pulse1.copy(values = state.pulse1.values.copyOf(), flags = state.pulse1.flags.copyOf()),
+            pulse2 = state.pulse2.copy(values = state.pulse2.values.copyOf(), flags = state.pulse2.flags.copyOf()),
+            triangle = state.triangle.copy(values = state.triangle.values.copyOf(), flags = state.triangle.flags.copyOf()),
+            noise = state.noise.copy(values = state.noise.values.copyOf(), flags = state.noise.flags.copyOf()),
+            dmc = state.dmc.copy(values = state.dmc.values.copyOf(), flags = state.dmc.flags.copyOf()),
+            filters = state.filters.copyOf(),
+            dmcDma = state.dmcDma.copy(),
+        )
+        if (this.state.noise.values[3] <= 0) {
+            this.state.noise.values[3] = timing.noisePeriods[0]
+            this.state.noise.values[4] = timing.noisePeriods[0] - 1
+        }
+        if (this.state.noise.values[5] == 0) this.state.noise.values[5] = 1
+        if (this.state.dmc.values[0] <= 0) {
+            this.state.dmc.values[0] = timing.dmcPeriods[0]
+            this.state.dmc.values[1] = timing.dmcPeriods[0] - 1
+        }
+        dmcDma.restoreState(this.state.dmcDma)
+        normalizeFrameEventIndex()
         sampleCount = 0
     }
 
-    fun cpuRead(address: Int): Int {
-        if (address.low16Bits() != 0x4015) return 0
+    fun cpuRead(address: Int, openBus: Int = 0): Int {
+        if (address.low16Bits() != 0x4015) return openBus.low8Bits()
         val status = (if (pulse1.lengthCounter > 0) 0x01 else 0) or
                 (if (pulse2.lengthCounter > 0) 0x02 else 0) or
                 (if (triangle.lengthCounter > 0) 0x04 else 0) or
                 (if (noise.lengthCounter > 0) 0x08 else 0) or
-                (if (dmc.active()) 0x10 else 0) or
-                (if (frameIrqPending) 0x40 else 0) or
+                (if (dmc.active()) 0x10 else 0) or (openBus and 0x20) or
+                (if (frameIrqFlag) 0x40 else 0) or
                 (if (dmc.irqPending()) 0x80 else 0)
         frameIrqPending = false
+        if (frameIrqFlag && frameIrqClearDelay == 0) frameIrqClearDelay = if (apuCycle) 1 else 2
         return status
     }
 
@@ -141,7 +197,7 @@ class NesApu(
                 triangle.enabled = (v and 0x04) != 0
                 noise.enabled = (v and 0x08) != 0
                 dmc.clearIrq()
-                dmc.setEnabled((v and 0x10) != 0)
+                dmc.setEnabled((v and 0x10) != 0, apuCycle)
                 if (!pulse1.enabled) pulse1.lengthCounter = 0
                 if (!pulse2.enabled) pulse2.lengthCounter = 0
                 if (!triangle.enabled) triangle.lengthCounter = 0
@@ -149,15 +205,14 @@ class NesApu(
             }
 
             0x4017 -> {
-                frameMode = (v shr 7) and 1
                 frameIrqInhibit = (v and 0x40) != 0
-                if (frameIrqInhibit) frameIrqPending = false
-                frameCycle = 0
-                frameEventIndex = 0
-                if (frameMode == 1) {
-                    quarterFrame()
-                    halfFrame()
+                if (frameIrqInhibit) {
+                    frameIrqPending = false
+                    frameIrqFlag = false
+                    frameIrqClearDelay = 0
                 }
+                pendingFrameCounterValue = v
+                frameCounterWriteDelay = if (apuCycle) 3 else 4
             }
         }
     }
@@ -171,6 +226,11 @@ class NesApu(
     }
 
     fun step() {
+        stepFrameCounter()
+        pulse1.commitLengthState()
+        pulse2.commitLengthState()
+        triangle.commitLengthState()
+        noise.commitLengthState()
         triangle.stepTimer()
         dmc.stepTimer()
         noise.stepTimer()
@@ -179,7 +239,7 @@ class NesApu(
             pulse1.stepTimer()
             pulse2.stepTimer()
         }
-        stepFrameCounter()
+        dmc.processDelays()
         samplePhase += SAMPLE_RATE
         if (samplePhase >= timing.cpuHz) {
             samplePhase -= timing.cpuHz
@@ -188,15 +248,51 @@ class NesApu(
     }
 
     private fun stepFrameCounter() {
+        if (frameIrqClearDelay > 0 && --frameIrqClearDelay == 0) frameIrqFlag = false
         frameCycle++
         val events = if (frameMode == 0) timing.apuFourStepEvents else timing.apuFiveStepEvents
-        if (frameCycle != events[frameEventIndex]) return
-        val actions = if (frameMode == 0) FOUR_STEP_ACTIONS else FIVE_STEP_ACTIONS
-        val action = actions[frameEventIndex]
-        if ((action and QUARTER_FRAME) != 0) quarterFrame()
-        if ((action and HALF_FRAME) != 0) halfFrame()
-        if (frameMode == 0 && frameEventIndex == events.lastIndex && !frameIrqInhibit) frameIrqPending = true
-        frameEventIndex++
+        if (frameEventIndex < events.size && frameCycle == events[frameEventIndex]) {
+            val actions = if (frameMode == 0) FOUR_STEP_ACTIONS else FIVE_STEP_ACTIONS
+            val action = actions[frameEventIndex]
+            if (blockFrameCounterTicks == 0) {
+                if ((action and QUARTER_FRAME) != 0) quarterFrame()
+                if ((action and HALF_FRAME) != 0) halfFrame()
+                if (action != 0) blockFrameCounterTicks = 2
+            }
+            if (frameMode == 0 && frameEventIndex >= 3) {
+                frameIrqFlag = true
+                frameIrqClearDelay = 0
+                if (!frameIrqInhibit) {
+                    frameIrqPending = true
+                } else if (frameEventIndex == events.lastIndex) {
+                    frameIrqFlag = false
+                }
+            }
+            frameEventIndex++
+            if (frameEventIndex == events.size) {
+                frameCycle = 0
+                frameEventIndex = 0
+            }
+        }
+
+        if (frameCounterWriteDelay > 0 && --frameCounterWriteDelay == 0) {
+            frameMode = (pendingFrameCounterValue shr 7) and 1
+            pendingFrameCounterValue = -1
+            frameCycle = 0
+            frameEventIndex = 0
+            if (frameMode == 1 && blockFrameCounterTicks == 0) {
+                quarterFrame()
+                halfFrame()
+                blockFrameCounterTicks = 2
+            }
+        }
+        if (blockFrameCounterTicks > 0) blockFrameCounterTicks--
+    }
+
+    private fun normalizeFrameEventIndex() {
+        val events = if (frameMode == 0) timing.apuFourStepEvents else timing.apuFiveStepEvents
+        frameEventIndex = 0
+        while (frameEventIndex < events.size && events[frameEventIndex] <= frameCycle) frameEventIndex++
         if (frameEventIndex == events.size) {
             frameCycle = 0
             frameEventIndex = 0
@@ -253,18 +349,25 @@ class NesApu(
         private var sweepPeriod: Int get() = state.values[7]; set(value) { state.values[7] = value }
         private var sweepShift: Int get() = state.values[8]; set(value) { state.values[8] = value }
         private var sweepDivider: Int get() = state.values[9]; set(value) { state.values[9] = value }
+        private var pendingLengthReload: Int get() = state.values[10]; set(value) { state.values[10] = value }
+        private var previousLength: Int get() = state.values[11]; set(value) { state.values[11] = value }
         private var envelopeLoop: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
         private var constantVolume: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
         private var envelopeStart: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
         private var sweepEnabled: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
         private var sweepNegate: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
         private var sweepReload: Boolean get() = state.flags[5]; set(value) { state.flags[5] = value }
+        private var lengthHalt: Boolean get() = state.flags[6]; set(value) { state.flags[6] = value }
+        private var pendingLengthHalt: Boolean get() = state.flags[7]; set(value) { state.flags[7] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
                 0 -> {
-                    duty = (value shr 6) and 3; envelopeLoop = (value and 0x20) != 0; constantVolume =
-                        (value and 0x10) != 0; volume = value and 0x0F
+                    duty = (value shr 6) and 3
+                    envelopeLoop = (value and 0x20) != 0
+                    pendingLengthHalt = envelopeLoop
+                    constantVolume = (value and 0x10) != 0
+                    volume = value and 0x0F
                 }
 
                 1 -> {
@@ -274,8 +377,13 @@ class NesApu(
 
                 2 -> timer = (timer and 0x700) or value
                 3 -> {
-                    timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter =
-                        LENGTH_TABLE[(value shr 3) and 31]; sequence = 0; envelopeStart = true
+                    timer = (timer and 0x0FF) or ((value and 7) shl 8)
+                    if (enabled) {
+                        pendingLengthReload = LENGTH_TABLE[(value shr 3) and 31]
+                        previousLength = lengthCounter
+                    }
+                    sequence = 0
+                    envelopeStart = true
                 }
             }
         }
@@ -297,17 +405,26 @@ class NesApu(
         }
 
         fun clockLength() {
-            if (!envelopeLoop && lengthCounter > 0) lengthCounter--
+            if (!lengthHalt && lengthCounter > 0) lengthCounter--
+        }
+
+        fun commitLengthState() {
+            if (pendingLengthReload > 0) {
+                if (lengthCounter == previousLength) lengthCounter = pendingLengthReload
+                pendingLengthReload = 0
+            }
+            lengthHalt = pendingLengthHalt
         }
 
         fun clockSweep() {
-            if (sweepDivider == 0) {
+            if (sweepDivider > 0) sweepDivider--
+            if (sweepDivider == 0 && !sweepReload) {
                 if (sweepEnabled && sweepShift > 0 && timer >= 8) {
                     val target = sweepTarget()
                     if (target in 0..0x7FF) timer = target
                 }
                 sweepDivider = sweepPeriod
-            } else sweepDivider--
+            }
             if (sweepReload) {
                 sweepReload = false; sweepDivider = sweepPeriod
             }
@@ -334,19 +451,29 @@ class NesApu(
         private var timerCounter: Int get() = state.values[3]; set(value) { state.values[3] = value }
         private var sequence: Int get() = state.values[4]; set(value) { state.values[4] = value }
         private var outputLevel: Int get() = state.values[5]; set(value) { state.values[5] = value }
+        private var pendingLengthReload: Int get() = state.values[6]; set(value) { state.values[6] = value }
+        private var previousLength: Int get() = state.values[7]; set(value) { state.values[7] = value }
         private var control: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
         private var reloadFlag: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
+        private var lengthHalt: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
+        private var pendingLengthHalt: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
                 0 -> {
-                    control = (value and 0x80) != 0; reloadValue = value and 0x7F
+                    control = (value and 0x80) != 0
+                    pendingLengthHalt = control
+                    reloadValue = value and 0x7F
                 }
 
                 2 -> timer = (timer and 0x700) or value
                 3 -> {
-                    timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter =
-                        LENGTH_TABLE[(value shr 3) and 31]; reloadFlag = true
+                    timer = (timer and 0x0FF) or ((value and 7) shl 8)
+                    if (enabled) {
+                        pendingLengthReload = LENGTH_TABLE[(value shr 3) and 31]
+                        previousLength = lengthCounter
+                    }
+                    reloadFlag = true
                 }
             }
         }
@@ -354,7 +481,7 @@ class NesApu(
         fun stepTimer() {
             if (timerCounter <= 0) {
                 timerCounter = timer
-                if (lengthCounter > 0 && linearCounter > 0 && timer > 1) {
+                if (lengthCounter > 0 && linearCounter > 0) {
                     sequence = (sequence + 1) and 31
                     outputLevel = TRIANGLE_TABLE[sequence]
                 }
@@ -367,7 +494,15 @@ class NesApu(
         }
 
         fun clockLength() {
-            if (!control && lengthCounter > 0) lengthCounter--
+            if (!lengthHalt && lengthCounter > 0) lengthCounter--
+        }
+
+        fun commitLengthState() {
+            if (pendingLengthReload > 0) {
+                if (lengthCounter == previousLength) lengthCounter = pendingLengthReload
+                pendingLengthReload = 0
+            }
+            lengthHalt = pendingLengthHalt
         }
 
         fun output(): Int = outputLevel
@@ -384,16 +519,22 @@ class NesApu(
         private var timer: Int get() = state.values[3]; set(value) { state.values[3] = value }
         private var timerCounter: Int get() = state.values[4]; set(value) { state.values[4] = value }
         private var shift: Int get() = state.values[5]; set(value) { state.values[5] = value }
+        private var pendingLengthReload: Int get() = state.values[6]; set(value) { state.values[6] = value }
+        private var previousLength: Int get() = state.values[7]; set(value) { state.values[7] = value }
         private var envelopeLoop: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
         private var constantVolume: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
         private var envelopeStart: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
         private var mode: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
+        private var lengthHalt: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
+        private var pendingLengthHalt: Boolean get() = state.flags[5]; set(value) { state.flags[5] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
                 0 -> {
-                    envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume =
-                        value and 0x0F
+                    envelopeLoop = (value and 0x20) != 0
+                    pendingLengthHalt = envelopeLoop
+                    constantVolume = (value and 0x10) != 0
+                    volume = value and 0x0F
                 }
 
                 2 -> {
@@ -401,7 +542,11 @@ class NesApu(
                 }
 
                 3 -> {
-                    if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; envelopeStart = true
+                    if (enabled) {
+                        pendingLengthReload = LENGTH_TABLE[(value shr 3) and 31]
+                        previousLength = lengthCounter
+                    }
+                    envelopeStart = true
                 }
             }
         }
@@ -425,7 +570,15 @@ class NesApu(
         }
 
         fun clockLength() {
-            if (!envelopeLoop && lengthCounter > 0) lengthCounter--
+            if (!lengthHalt && lengthCounter > 0) lengthCounter--
+        }
+
+        fun commitLengthState() {
+            if (pendingLengthReload > 0) {
+                if (lengthCounter == previousLength) lengthCounter = pendingLengthReload
+                pendingLengthReload = 0
+            }
+            lengthHalt = pendingLengthHalt
         }
 
         fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) {
@@ -449,6 +602,8 @@ class NesApu(
         private var shiftRegister: Int get() = state.values[7]; set(value) { state.values[7] = value }
         private var bitsRemaining: Int get() = state.values[8]; set(value) { state.values[8] = value }
         private var sampleBuffer: Int get() = state.values[9]; set(value) { state.values[9] = value }
+        private var transferStartDelay: Int get() = state.values[10]; set(value) { state.values[10] = value }
+        private var disableDelay: Int get() = state.values[11]; set(value) { state.values[11] = value }
         private var channelEnabled: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
         private var irqEnabled: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
         private var irqRequested: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
@@ -472,15 +627,24 @@ class NesApu(
             }
         }
 
-        fun setEnabled(value: Boolean) {
+        fun setEnabled(value: Boolean, apuCycle: Boolean) {
             channelEnabled = value
-            if (!channelEnabled) {
-                bytesRemaining = 0
-                if (sampleFetchPending && dmcDma.cancelBeforeHalt()) sampleFetchPending = false
+            val delay = if (apuCycle) 2 else 3
+            if (!value) {
+                if (disableDelay == 0) disableDelay = delay
             } else if (bytesRemaining == 0) {
                 restartSample()
-                fetchSampleIfNeeded()
+                transferStartDelay = delay
             }
+        }
+
+        fun processDelays() {
+            if (disableDelay > 0 && --disableDelay == 0) {
+                bytesRemaining = 0
+                transferStartDelay = 0
+                if (sampleFetchPending && dmcDma.cancelBeforeHalt()) sampleFetchPending = false
+            }
+            if (transferStartDelay > 0 && --transferStartDelay == 0) fetchSampleIfNeeded()
         }
 
         fun active(): Boolean {

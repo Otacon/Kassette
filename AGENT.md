@@ -47,6 +47,7 @@ Public docs are split by audience:
 * `AGENT.md`: this implementation handoff for coding agents.
 * `NES_CPU.md`: cycle-level NES CPU, interrupt, unofficial-opcode, and DMA behavior contract.
 * `NES_PPU.md`: dot-level NES PPU register, rendering, sprite, palette, and address-bus behavior contract.
+* `NES_APU.md`: cycle-level NES APU channel, frame-counter, interrupt, mixer, and DMC DMA behavior contract.
 
 Keep the README concise and user-focused. Put internal architecture or command detail in `TECHNICAL.md` or
 `DEVELOPMENT.md` instead.

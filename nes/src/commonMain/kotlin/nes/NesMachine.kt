@@ -87,7 +87,7 @@ class NesMachine(
         if (!softReset) cartridgeSocket.reset()
         applyCartridgeTiming()
         ppu.reset(softReset)
-        apu.reset()
+        apu.reset(softReset)
         cpu.reset(softReset)
         controller.reset()
     }
