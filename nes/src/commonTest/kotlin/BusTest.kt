@@ -1,4 +1,5 @@
 import kotlin.test.*
+import nes.ConsoleRegion
 import nes.apu.DmcDma
 import nes.apu.NesApu
 import nes.cartridge.Cartridge
@@ -7,7 +8,6 @@ import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.cpu.CpuBus
 import nes.cpu.Cpu6502
-import nes.cpu.CpuStall
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
@@ -31,6 +31,7 @@ class BusTest {
         chr: ByteArray = ByteArray(8192),
         isChrRam: Boolean = true,
         trainerPresent: Boolean = false,
+        region: ConsoleRegion = ConsoleRegion.NTSC,
     ): Cartridge {
         return Cartridge(
             mirroring = mirroring,
@@ -38,7 +39,8 @@ class BusTest {
             chr = chr,
             isChrRam = isChrRam,
             trainerPresent = trainerPresent,
-            mapper = Mapper0(prgRom = prgRom, chr = chr, isChrRam = isChrRam)
+            mapper = Mapper0(prgRom = prgRom, chr = chr, isChrRam = isChrRam),
+            region = region,
         )
     }
 
@@ -138,8 +140,8 @@ class BusTest {
         val socket = CartridgeSocket()
         socket.insert(cartridge())
         val ppu = Ppu(PpuBus(socket))
-        val cpuStall = CpuStall()
-        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
         val cpu = Cpu6502(bus)
         cpu.reset()
 
@@ -157,8 +159,8 @@ class BusTest {
         val socket = CartridgeSocket()
         socket.insert(cartridge())
         val ppu = Ppu(PpuBus(socket))
-        val cpuStall = CpuStall()
-        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
         val cpu = Cpu6502(bus)
         cpu.reset()
         bus.write(0, Cpu6502.OP_PHP)
@@ -180,24 +182,131 @@ class BusTest {
     }
 
     @Test
-    fun `pending DMA stall delays the next CPU opcode`() {
+    fun `pending DMC DMA delays the next CPU opcode read`() {
         val socket = CartridgeSocket()
         socket.insert(cartridge())
         val ppu = Ppu(PpuBus(socket))
-        val cpuStall = CpuStall()
-        val bus = CpuBus(socket, ppu, NesController(), NesApu(DmcDma(socket, cpuStall)), cpuStall)
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
         val cpu = Cpu6502(bus)
         cpu.reset()
         bus.write(0, Cpu6502.OP_NOP)
-        cpuStall.request(4)
+        dmcDma.request(0x8000)
 
-        val stallCycles = cpu.step()
+        val cycles = cpu.step()
 
-        assertEquals(4, stallCycles)
-        assertEquals(0, cpu.state.pc)
+        assertEquals(6, cycles)
+        assertEquals(1, cpu.state.pc)
+    }
+
+    @Test
+    fun `DMC DMA uses three cycles on opposite alignment`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_PHP)
+        bus.write(1, Cpu6502.OP_NOP)
+        cpu.step()
+        dmcDma.request(0x8000)
+
+        assertEquals(5, cpu.step(), "Three DMA cycles plus the two-cycle NOP")
+    }
+
+    @Test
+    fun `DMC DMA waits until a CPU read after being requested during a write instruction`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_STA_ABS)
+        bus.write(1, 0x02)
+        bus.write(2, 0x00)
+        bus.write(3, Cpu6502.OP_NOP)
+        val cycles = mutableListOf<CpuBus.Cycle>()
+        bus.setCycleListener { cycle ->
+            cycles += cycle
+            if (cycle.type == CpuBus.CycleType.READ && cycle.address == 2) dmcDma.request(0x8000)
+        }
 
         cpu.step()
+        assertEquals(CpuBus.CycleType.WRITE, cycles.last().type)
+        assertTrue(dmcDma.pending(), "The write cycle cannot start DMA")
 
-        assertEquals(1, cpu.state.pc)
+        cpu.step()
+        assertTrue(cycles.indexOfFirst { it.type == CpuBus.CycleType.DMA_READ } >
+            cycles.indexOfFirst { it.type == CpuBus.CycleType.WRITE })
+    }
+
+    @Test
+    fun `DMC DMA steals an OAM get slot and extends the transfer`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_NOP)
+        bus.write(0x0200, 0x77)
+        bus.write(0x02FF, 0x88)
+        bus.write(0x4014, 2)
+        var requested = false
+        var dmcReadIndex = -1
+        var lastOamWriteIndex = -1
+        var cycleIndex = 0
+        bus.setCycleListener { cycle ->
+            if (!requested && cycle.type == CpuBus.CycleType.DMA_READ && cycle.address == 0x0200) {
+                dmcDma.request(0x8000)
+                requested = true
+            }
+            if (cycle.type == CpuBus.CycleType.DMA_READ && cycle.address == 0x8000) dmcReadIndex = cycleIndex
+            if (cycle.type == CpuBus.CycleType.DMA_WRITE) lastOamWriteIndex = cycleIndex
+            cycleIndex++
+        }
+
+        val cycles = cpu.step()
+
+        assertTrue(cycles > 515)
+        assertTrue(dmcReadIndex in 0..<lastOamWriteIndex)
+        assertEquals(0x77, ppu.oam[0].toUnsignedInt())
+        assertEquals(0x88, ppu.oam[255].toUnsignedInt())
+    }
+
+    @Test
+    fun `PAL DMC DMA waits for an opcode fetch`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge(region = ConsoleRegion.PAL))
+        val ppu = Ppu(PpuBus(socket))
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_LDA_ABS)
+        bus.write(1, 0x10)
+        bus.write(2, 0x00)
+        bus.write(3, Cpu6502.OP_NOP)
+        var requested = false
+        var dmaReads = 0
+        bus.setCycleListener { cycle ->
+            if (!requested && cycle.type == CpuBus.CycleType.READ && cycle.address == 0) {
+                dmcDma.request(0x8000)
+                requested = true
+            }
+            if (cycle.type == CpuBus.CycleType.DMA_READ) dmaReads++
+        }
+
+        cpu.step()
+        assertEquals(0, dmaReads)
+        assertTrue(dmcDma.pending())
+
+        cpu.step()
+        assertTrue(dmaReads >= 3)
     }
 }

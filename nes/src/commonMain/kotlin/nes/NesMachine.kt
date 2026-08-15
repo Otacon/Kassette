@@ -122,7 +122,7 @@ class NesMachine(
     private fun clockCpuPhase(type: CpuBus.CycleType, beforeAccess: Boolean) {
         val currentTiming = timing
         val preAccessClocks = when (type) {
-            CpuBus.CycleType.WRITE, CpuBus.CycleType.DUMMY_WRITE, CpuBus.CycleType.DMA_WRITE ->
+            CpuBus.CycleType.WRITE, CpuBus.CycleType.DUMMY_WRITE ->
                 currentTiming.writePreAccessClocks
             else -> currentTiming.readPreAccessClocks
         }

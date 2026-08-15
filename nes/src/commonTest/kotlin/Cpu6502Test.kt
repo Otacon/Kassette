@@ -138,18 +138,50 @@ class Cpu6502Test {
     }
 
     @Test
-    fun `nmi request jumps to nmi vector before next opcode`() {
+    fun `BRK padding byte is classified as a dummy read`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_BRK, Cpu6502.OP_NOP))
+        val cycles = mutableListOf<CpuBus.Cycle>()
+        bus.setCycleListener { cycles += it }
+
+        cpu.step()
+
+        assertEquals(CpuBus.CycleType.DUMMY_READ, cycles[1].type)
+        assertEquals(0x8001, cycles[1].address)
+    }
+
+    @Test
+    fun `recognized nmi jumps to nmi vector before next opcode`() {
         val nmiProgram = program(Cpu6502.OP_NOP)
         val (cpu, bus, _) = cpuWithProgram(nmiProgram)
         bus.write(0x9000, Cpu6502.OP_NOP)
         val cyclesBefore = cpu.state.totalCycles
 
         cpu.requestNmi()
+        cpu.sampleIrqLine(false)
+        cpu.sampleIrqLine(false)
         val cycles = cpu.step()
 
         assertEquals(0x9000, cpu.state.pc, "NMI vector is loaded")
         assertEquals(7, cycles)
         assertEquals(cyclesBefore + cycles, cpu.state.totalCycles)
+    }
+
+    @Test
+    fun `reset preserves an NMI edge detected during startup cycles`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_NOP))
+        var resetCycles = 0
+        bus.setCycleListener { cycle ->
+            if (cycle.type == CpuBus.CycleType.RESET) {
+                resetCycles++
+                if (resetCycles == 1) cpu.requestNmi()
+                cpu.sampleIrqLine(false)
+            }
+        }
+
+        cpu.reset()
+        cpu.step()
+
+        assertEquals(0x9000, cpu.state.pc)
     }
 
     @Test
@@ -163,6 +195,126 @@ class Cpu6502Test {
 
         assertEquals(0x8002, cpu.state.pc)
         assertEquals(2, cycles)
+    }
+
+    @Test
+    fun `IRQ line changes require cycle polling before interrupt entry`() {
+        val (cpu, _, _) = cpuWithProgram(program(Cpu6502.OP_CLI, Cpu6502.OP_NOP))
+        cpu.step()
+
+        cpu.setIrqLine(true)
+        cpu.step()
+        assertEquals(0x8002, cpu.state.pc)
+
+        cpu.sampleIrqLine(true)
+        cpu.sampleIrqLine(true)
+        cpu.step()
+        assertEquals(0x9100, cpu.state.pc)
+    }
+
+    @Test
+    fun `nmi detected on final instruction cycle waits through next instruction`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_NOP, Cpu6502.OP_NOP, Cpu6502.OP_NOP))
+        var cycle = 0
+        bus.setCycleListener {
+            cycle++
+            if (cycle == 2) cpu.requestNmi()
+            cpu.sampleIrqLine(false)
+        }
+
+        cpu.step()
+        assertEquals(0x8001, cpu.state.pc)
+
+        cpu.step()
+        assertEquals(0x8002, cpu.state.pc, "The instruction after the late NMI edge must execute")
+
+        cpu.step()
+        assertEquals(0x9000, cpu.state.pc)
+    }
+
+    @Test
+    fun `late nmi during BRK waits until first handler instruction completes`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_BRK, Cpu6502.OP_NOP))
+        bus.setCycleListener { busCycle ->
+            if (busCycle.address == 0xFFFE) cpu.requestNmi()
+            cpu.sampleIrqLine(false)
+        }
+
+        cpu.step()
+        assertEquals(0x9100, cpu.state.pc)
+
+        cpu.step()
+        assertEquals(0x8002, cpu.state.pc, "The first IRQ handler instruction must execute before NMI")
+
+        cpu.step()
+        assertEquals(0x9000, cpu.state.pc)
+    }
+
+    @Test
+    fun `taken branch delays IRQ sampled on its final cycle`() {
+        val (cpu, bus, _) = cpuWithProgram(program(Cpu6502.OP_BNE, 0x00, Cpu6502.OP_NOP))
+        var cycle = 0
+        bus.setCycleListener {
+            cycle++
+            cpu.sampleIrqLine(cycle >= 3)
+        }
+
+        cpu.step()
+        assertEquals(0x8002, cpu.state.pc)
+
+        cpu.step()
+        assertEquals(0x8003, cpu.state.pc, "The instruction following the branch must execute first")
+
+        cpu.step()
+        assertEquals(0x9100, cpu.state.pc)
+    }
+
+    @Test
+    fun `unofficial TAS stores A and X into stack pointer`() {
+        val tasProgram = program(
+            Cpu6502.OP_LDA_IMM,
+            0xF3,
+            Cpu6502.OP_LDX_IMM,
+            0x7F,
+            Cpu6502.OP_LDY_IMM,
+            0x01,
+            0x9B,
+            0xFF,
+            0x80,
+        )
+        val (cpu, bus, _) = cpuWithProgram(tasProgram)
+
+        repeat(4) { cpu.step() }
+
+        assertEquals(0x73, cpu.state.sp)
+        assertEquals(0x01, bus.read(0x0100), "Normal TAS writes SP masked by base high byte plus one")
+    }
+
+    @Test
+    fun `DMA during unstable store dummy read suppresses high byte value mask`() {
+        val tasProgram = program(
+            Cpu6502.OP_LDA_IMM,
+            0xF3,
+            Cpu6502.OP_LDX_IMM,
+            0x7F,
+            Cpu6502.OP_LDY_IMM,
+            0x01,
+            0x9B,
+            0xFF,
+            0x80,
+        )
+        val (cpu, bus, _) = cpuWithProgram(tasProgram)
+        var dmaRequested = false
+        bus.setCycleListener { cycle ->
+            if (!dmaRequested && cycle.type == CpuBus.CycleType.READ && cycle.address == 0x8008) {
+                bus.write(0x4014, 0x02)
+                dmaRequested = true
+            }
+        }
+
+        repeat(4) { cpu.step() }
+
+        assertEquals(0x73, bus.read(0x0100), "DMA-interrupted TAS writes the unmasked A-and-X value")
     }
 
     @Test

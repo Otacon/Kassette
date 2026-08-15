@@ -408,8 +408,8 @@ private val OPCODES = intArrayOf(
 /**
  * Emulates the NES's NMOS 6502-derived CPU.
  *
- * [step] is the public clock boundary. It first consumes DMA stalls, services
- * pending interrupts, or fetches and executes one opcode. Every memory access
+ * [step] is the public instruction boundary. It services pending interrupts or
+ * fetches and executes one opcode; the bus can extend any eligible read with DMA. Every memory access
  * goes through [CpuBus], and each access advances [CpuState.totalCycles], so
  * dummy reads/writes and page-crossing penalties are represented as well as
  * the final register and memory results.
@@ -617,6 +617,13 @@ class Cpu6502(
             state.sp = 0xFD
             state.status = I or U
         }
+        state.nmiPending = false
+        state.nmiSample = false
+        state.nmiDetected = false
+        state.irqLine = false
+        state.irqPending = false
+        state.irqSample = false
+        state.halted = false
         // The vector is stored little-endian at $FFFC/$FFFD.
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
         for (i in 0..<8) {
@@ -624,56 +631,45 @@ class Cpu6502(
             bus.idle(CpuBus.CycleType.RESET)
             state.totalCycles++
         }
-        state.nmiPending = false
-        state.irqLine = false
-        state.irqPending = false
-        state.irqSample = false
-        state.halted = false
     }
 
-    /** Latches a non-maskable interrupt; it is serviced at the next instruction boundary. */
+    /** Records an NMI edge; cycle-end sampling promotes it through the hardware recognition delay. */
     fun requestNmi() {
-        state.nmiPending = true
+        state.nmiDetected = true
     }
 
-    /** Drives the IRQ line and immediately records whether a maskable interrupt is pending. */
+    /** Drives the IRQ line; normal cycle sampling determines when it becomes pending. */
     fun setIrqLine(asserted: Boolean) {
         state.irqLine = asserted
-        state.irqPending = asserted && !flag(I)
     }
 
     /** Samples IRQ one instruction late, reproducing the 6502 interrupt-input timing. */
     fun sampleIrqLine(asserted: Boolean) {
+        // NMI's edge detector raises its internal latch one cycle after observing the edge.
+        state.nmiPending = state.nmiSample
+        if (state.nmiDetected) {
+            state.nmiSample = true
+            state.nmiDetected = false
+        }
         state.irqLine = asserted
         state.irqPending = state.irqSample
         state.irqSample = asserted && !flag(I)
     }
 
     /**
-     * Advances the CPU through one instruction or a pending DMA stall.
+     * Advances the CPU through one instruction, including DMA that extends its reads.
      * Returns the number of CPU cycles consumed, including interrupt and
      * dummy bus cycles but not any external PPU work.
      */
     fun step(): Int {
         val start = state.totalCycles
-        // OAM DMA pauses instruction execution and occupies the CPU bus first.
-        val stalls = bus.consumeDmaCycles()
-        if (stalls > 0) {
-            var stall = 0
-            while (stall < stalls) {
-                bus.idle(CpuBus.CycleType.STALL)
-                state.totalCycles++
-                stall++
-            }
-            return stalls
-        }
-
         // Interrupt priority is NMI, then IRQ. A halted CPU still repeats its opcode
         // fetch behavior, which is how the unofficial KIL instruction is emulated.
         when {
             state.halted -> execute(OPCODES[fetchOpcode()])
             state.nmiPending -> {
                 state.nmiPending = false
+                state.nmiSample = false
                 serviceInterrupt(0xFFFA)
             }
 
@@ -752,6 +748,8 @@ class Cpu6502(
         state.halted = true
         state.irqPending = false
         state.nmiPending = false
+        state.nmiSample = false
+        state.nmiDetected = false
     }
 
     /** Pushes status with B/U set, as required by PHP. */
@@ -1071,18 +1069,24 @@ class Cpu6502(
         val index = if (mode == AX) state.x else state.y
         val target = (base + index).low16Bits()
         // Unstable stores perform the same preliminary read as other indexed writes.
+        val cyclesBeforeDummyRead = state.totalCycles
         dummyRead(base.pageBase() or target.low8Bits())
+        val dmaInterruptedRead = state.totalCycles - cyclesBeforeDummyRead > 1
         val valueRegister = when (instruction) {
             SHY -> state.y
             SHX -> state.x
             AHX -> state.a and state.x
             TAS -> {
-                state.a and state.x.also { state.sp = it }
+                (state.a and state.x).also { state.sp = it }
             }
 
             else -> 0
         }
-        val value = valueRegister and (((base shr 8) + 1).low8Bits())
+        val value = if (dmaInterruptedRead) {
+            valueRegister
+        } else {
+            valueRegister and (((base shr 8) + 1).low8Bits())
+        }
         // On a page crossing, the corrupted high byte also changes the destination address.
         val destination = if (base.pageBase() != target.pageBase()) {
             target.low8Bits() or (((target shr 8) and valueRegister) shl 8)
@@ -1171,6 +1175,7 @@ class Cpu6502(
         val selectedVector = if (state.nmiPending) {
             // An NMI arriving during entry wins over the originally requested IRQ vector.
             state.nmiPending = false
+            state.nmiSample = false
             0xFFFA
         } else {
             vector
@@ -1184,12 +1189,14 @@ class Cpu6502(
 
     /** Executes BRK, including its padding-byte read and software-interrupt stack frame. */
     private fun brk() {
-        fetch() // BRK's padding byte is a real read.
-        // BRK pushes the PC after its padding byte, followed by a status copy with B set.
-        push(state.pc shr 8)
-        push(state.pc)
+        // BRK reads but does not internally retain the padding byte; the return address skips it.
+        dummyRead(state.pc)
+        val returnAddress = (state.pc + 1).low16Bits()
+        push(returnAddress shr 8)
+        push(returnAddress)
         val vector = if (state.nmiPending) {
             state.nmiPending = false
+            state.nmiSample = false
             0xFFFA
         } else {
             0xFFFE
@@ -1197,6 +1204,8 @@ class Cpu6502(
         push(state.status or B or U)
         set(I, true)
         state.pc = read(vector) or (read(vector + 1) shl 8)
+        // A later NMI remains latched, but cannot preempt the first handler instruction.
+        state.nmiPending = false
     }
 
     /** Executes JSR by pushing the return address and loading the absolute target. */
@@ -1255,6 +1264,8 @@ class Cpu6502(
             else -> false
         }
         if (!take) return
+        // A taken branch uses the interrupt sample captured during its offset fetch.
+        state.irqSample = state.irqPending
         // A taken branch first performs a dummy read at the old PC.
         val oldPc = state.pc
         dummyRead(oldPc)
@@ -1262,6 +1273,8 @@ class Cpu6502(
         val target = (oldPc + signed).low16Bits()
         // Crossing a page requires one additional read from the partially corrected address.
         if (oldPc.pageBase() != target.pageBase()) {
+            // Preserve either branch poll before the final page-correction cycle.
+            state.irqSample = state.irqSample || state.irqPending
             dummyRead(oldPc.pageBase() or target.low8Bits())
         }
         state.pc = target

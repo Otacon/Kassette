@@ -13,7 +13,6 @@ import nes.cartridge.Mapper0
 import nes.cartridge.Mirroring
 import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
-import nes.cpu.CpuStall
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
@@ -87,9 +86,9 @@ class NesMachineTest {
         val socket = CartridgeSocket()
         val ppu = Ppu(PpuBus(socket))
         val controller = NesController()
-        val stall = CpuStall()
-        val apu = NesApu(DmcDma(socket, stall))
-        val cpuBus = CpuBus(socket, ppu, controller, apu, stall)
+        val dmcDma = DmcDma()
+        val apu = NesApu(dmcDma)
+        val cpuBus = CpuBus(socket, ppu, controller, apu, dmcDma)
         val cpu = Cpu6502(cpuBus)
         val machine = NesMachine(controller, socket, ppu, apu, cpu, cpuBus)
         socket.insert(

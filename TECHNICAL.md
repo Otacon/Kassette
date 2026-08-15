@@ -74,8 +74,8 @@ This is an MVP, not a cycle-perfect emulator.
 * APU channel timers, counters, sweep muting, triangle DAC hold, DMC output, nonlinear mixing, and output filtering are
   modeled, with pulse sweep divider periods, DMC bit-counter startup, and DMC NTSC/PAL period tables; register writes
   and frame-counter events are still advanced in instruction-sized batches rather than on exact CPU bus cycles.
-* DMC DMA reads are immediate fixed four-cycle stalls; exact 3/4-cycle alignment and DMC/OAM DMA conflicts are not
-  modeled, and PCM generation uses point sampling rather than band-limited synthesis.
+* DMC DMA starts on eligible CPU reads, observes 3/4-cycle alignment, and arbitrates with OAM DMA; PCM generation still
+  uses point sampling rather than band-limited synthesis.
 * Mapper 0, Mapper 1, Mapper 2, Mapper 3, Mapper 4, Mapper 7, Mapper 11, Mapper 34, Mapper 66, Mapper 71, Mapper 79,
   Mapper 87, and Mapper 113 only.
 * Mapper 1 supports basic MMC1/submapper 0 boards; SUROM/SOROM/SXROM-style extended banking variants are not supported.
@@ -87,7 +87,6 @@ This is an MVP, not a cycle-perfect emulator.
 * PPU rendering is approximate in several edge cases.
 * Sprite-zero hit is approximate.
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
-* OAM DMA uses a fixed 513-cycle stall; exact 513/514 parity requires intra-instruction CPU bus-cycle timing.
 * PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are
   approximate.
 * The steady-state CPU path avoids collections in dispatch, but address helper objects remain and should be removed
@@ -102,7 +101,7 @@ ROM loading APIs.
   interrupt sampling, and input polling cadence.
 * `nes.cartridge`: cartridge metadata, cartridge socket, Mapper abstraction, Mapper 0, Mapper 1, Mapper 2, Mapper 3,
   Mapper 4, Mapper 7, Mapper 11, Mapper 34, Mapper 66, Mapper 71, Mapper 79, Mapper 87, Mapper 113 behavior.
-* `nes.cpu`: CPU core, CPU bus memory map, and pending OAM/DMC CPU stalls.
+* `nes.cpu`: CPU core, CPU bus memory map, interrupt polling, and OAM/DMC DMA arbitration.
 * `nes.apu`: region-aware pulse, triangle, noise, and DMC generation, frame/DMC IRQ state, nonlinear mixing, and output
   filtering.
 * `nes.ppu`: PPU registers, PPU bus, memory, timing, and framebuffer generation.

@@ -9,7 +9,6 @@ import nes.apu.NesApu
 import nes.cartridge.CartridgeSocket
 import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
-import nes.cpu.CpuStall
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
@@ -30,11 +29,7 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun cpuStall(): CpuStall = CpuStall()
-
-    @NesScope
-    @Provides
-    fun dmcDma(cartridgeSocket: CartridgeSocket, cpuStall: CpuStall): DmcDma = DmcDma(cartridgeSocket, cpuStall)
+    fun dmcDma(): DmcDma = DmcDma()
 
     @NesScope
     @Provides
@@ -55,8 +50,8 @@ interface NesComponent {
         ppu: Ppu,
         controller: NesController,
         apu: NesApu,
-        cpuStall: CpuStall,
-    ): CpuBus = CpuBus(cartridgeSocket, ppu, controller, apu, cpuStall)
+        dmcDma: DmcDma,
+    ): CpuBus = CpuBus(cartridgeSocket, ppu, controller, apu, dmcDma)
 
     @NesScope
     @Provides

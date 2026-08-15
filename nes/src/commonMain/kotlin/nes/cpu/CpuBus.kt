@@ -1,6 +1,7 @@
 package nes.cpu
 
 import nes.apu.NesApu
+import nes.apu.DmcDma
 import nes.ConsoleRegion
 import nes.cartridge.CartridgeSocket
 import nes.input.NesController
@@ -14,7 +15,7 @@ class CpuBus(
     private val ppu: Ppu,
     private val controller: NesController,
     private val apu: NesApu,
-    private val cpuStall: CpuStall,
+    private val dmcDma: DmcDma,
 ) {
     enum class CycleType {
         READ,
@@ -73,7 +74,7 @@ class CpuBus(
         opcodeFetch: Boolean = false,
     ): Int {
         val dmaCycles = if (cartridgeSocket.region != ConsoleRegion.PAL || opcodeFetch) {
-            runPendingOamDma(address.low16Bits(), cycle)
+            runPendingDma(address.low16Bits(), cycle)
         } else {
             0
         }
@@ -92,8 +93,6 @@ class CpuBus(
         notifyPhase(type, beforeAccess = false)
     }
 
-    fun consumeDmaCycles(): Int = cpuStall.drain()
-
     fun captureState(): CpuBusState = state.copy(ram = ram.copyOf())
 
     fun restoreState(state: CpuBusState) {
@@ -101,33 +100,52 @@ class CpuBus(
     }
 
     fun reset() {
-        cpuStall.reset()
+        dmcDma.reset()
         openBus = 0
         oamDmaPage = NO_DMA_PAGE
     }
 
-    private fun runPendingOamDma(readAddress: Int, startCycle: Long): Int {
+    private fun runPendingDma(readAddress: Int, startCycle: Long): Int {
         val page = oamDmaPage
-        if (page == NO_DMA_PAGE) return 0
+        if (page == NO_DMA_PAGE && !dmcDma.pending()) return 0
         oamDmaPage = NO_DMA_PAGE
 
+        // DMA starts by halting and repeating the CPU read that was about to occur.
         var cycles = 0
-        var value = clockedRead(readAddress, CycleType.DMA_READ)
+        val internalRegisterOverlap = readAddress in 0x4000..0x401F
+        dmcDma.beginCycle()
+        clockedRead(readAddress, CycleType.DMA_READ)
         cycles++
-
-        // The halt increments the CPU cycle first; an even completed cycle needs alignment.
-        if ((startCycle and 1L) == 0L) {
-            value = clockedRead(readAddress, CycleType.DMA_READ)
-            cycles++
-        }
 
         val base = page shl 8
         var offset = 0
-        while (offset < 256) {
-            value = dmaRead(base + offset)
-            clockedWrite(0x2004, value, CycleType.DMA_WRITE)
-            cycles += 2
-            offset++
+        var oamValue = 0
+        var oamValueReady = false
+        while (dmcDma.pending() || (page != NO_DMA_PAGE && offset < 256) || oamValueReady) {
+            // The parity after the previous DMA cycle determines whether this is a get or put slot.
+            val getCycle = ((startCycle + cycles) and 1L) == 0L
+            val dmcReady = dmcDma.readyToRead()
+            dmcDma.beginCycle()
+
+            when {
+                getCycle && dmcReady -> {
+                    dmcDma.complete(dmaRead(dmcDma.requestedAddress(), internalRegisterOverlap))
+                }
+
+                getCycle && page != NO_DMA_PAGE && offset < 256 -> {
+                    oamValue = dmaRead(base + offset, internalRegisterOverlap)
+                    oamValueReady = true
+                }
+
+                !getCycle && oamValueReady -> {
+                    clockedWrite(0x2004, oamValue, CycleType.DMA_WRITE)
+                    oamValueReady = false
+                    offset++
+                }
+
+                else -> clockedRead(readAddress, CycleType.DMA_READ)
+            }
+            cycles++
         }
         return cycles
     }
@@ -179,8 +197,36 @@ class CpuBus(
         notifyPhase(type, beforeAccess = false)
     }
 
-    private fun dmaRead(address: Int): Int {
+    private fun dmaRead(address: Int, internalRegisterOverlap: Boolean): Int {
         val a = address.low16Bits()
+        if (internalRegisterOverlap) {
+            notifyPhase(CycleType.DMA_READ, beforeAccess = true)
+            val internalAddress = 0x4000 or (a and 0x1F)
+            val value = when (internalAddress) {
+                0x4015 -> {
+                    val internalValue = apu.cpuRead(internalAddress)
+                    if (a != internalAddress) readDmaMapped(a)
+                    internalValue
+                }
+
+                0x4016 -> {
+                    val internalValue = controller.read()
+                    if (a == internalAddress) {
+                        internalValue
+                    } else {
+                        val externalValue = readDmaMapped(a)
+                        (externalValue and CONTROLLER_OPEN_BUS_MASK) or
+                            (internalValue and externalValue and CONTROLLER_DRIVEN_MASK)
+                    }
+                }
+
+                else -> readDmaMapped(a)
+            }.low8Bits()
+            openBus = value
+            notifyCycle(CycleType.DMA_READ, a, value)
+            notifyPhase(CycleType.DMA_READ, beforeAccess = false)
+            return value
+        }
         if (a in 0x4015..0x401A) {
             notifyPhase(CycleType.DMA_READ, beforeAccess = true)
             val value = openBus
@@ -190,6 +236,8 @@ class CpuBus(
         }
         return clockedRead(a, CycleType.DMA_READ)
     }
+
+    private fun readDmaMapped(address: Int): Int = if (address in 0x4015..0x401A) openBus else readMapped(address)
 
     private fun notifyCycle(type: CycleType, address: Int = NO_ADDRESS, value: Int = 0) {
         if (cycleListeners.isEmpty()) return
@@ -210,5 +258,7 @@ class CpuBus(
         const val READ_CYCLES_SHIFT = 8
         const val NO_DMA_PAGE = -1
         const val NO_ADDRESS = -1
+        const val CONTROLLER_OPEN_BUS_MASK = 0xBE
+        const val CONTROLLER_DRIVEN_MASK = 0x41
     }
 }

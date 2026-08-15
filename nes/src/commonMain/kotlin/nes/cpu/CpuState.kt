@@ -9,6 +9,8 @@ data class CpuState(
     var status: Int = Cpu6502.I or Cpu6502.U,
     var totalCycles: Long = 0,
     var nmiPending: Boolean = false,
+    var nmiSample: Boolean = false,
+    var nmiDetected: Boolean = false,
     var irqLine: Boolean = false,
     var irqPending: Boolean = false,
     var irqSample: Boolean = false,

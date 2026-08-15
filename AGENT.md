@@ -45,6 +45,7 @@ Public docs are split by audience:
 * `DEVELOPMENT.md`: local build, test, run, and packaging commands.
 * `TECHNICAL.md`: supported ROM format, emulator scope, limitations, and architecture.
 * `AGENT.md`: this implementation handoff for coding agents.
+* `NES_CPU.md`: cycle-level NES CPU, interrupt, unofficial-opcode, and DMA behavior contract.
 
 Keep the README concise and user-focused. Put internal architecture or command detail in `TECHNICAL.md` or
 `DEVELOPMENT.md` instead.
@@ -60,7 +61,7 @@ Key packages:
 nes/src/commonMain/kotlin/nes/                 Machine orchestration and region timing
 nes/src/commonMain/kotlin/nes/apu/             2A03/2A07-style APU generation and DMC DMA
 nes/src/commonMain/kotlin/nes/cartridge/       Cartridge socket and Mapper 0, 1, 2, 3, 4, 7, 11, 34, 66, 71, 79, 87, 113
-nes/src/commonMain/kotlin/nes/cpu/             6502 CPU, CPU bus, and CPU stall handling
+nes/src/commonMain/kotlin/nes/cpu/             6502 CPU, CPU bus, interrupts, and DMA arbitration
 nes/src/commonMain/kotlin/nes/input/           NES controller strobe/serial protocol
 nes/src/commonMain/kotlin/nes/ppu/             PPU registers, memory, timing, and software rendering
 nes/src/commonMain/kotlin/nes/util/            Shared bit/byte helpers for hot paths
@@ -120,10 +121,10 @@ CPU/bus:
 * 6502/Ricoh 2A03-style CPU with official opcodes.
 * Reset, NMI, IRQ, BRK/RTI, stack behavior, page-cross penalties, branch penalties, zero-page wrapping, and indirect JMP
   wrap bug.
+* Stable unofficial NMOS opcodes, including read-modify-write combinations and unstable indexed stores.
 * CPU memory map for RAM, PPU registers, APU registers, OAM DMA, controller, and cartridge space.
 * Cartridge CPU-space reads/writes go through `CartridgeSocket`, not directly through mapper classes.
-* Unofficial opcodes intentionally throw explicit errors.
-* `CpuStall` owns pending OAM/DMC CPU stalls; `CpuBus` drains stalls as part of CPU stepping.
+* Follow `NES_CPU.md` when changing instruction semantics, interrupt polling, bus cycles, or DMA.
 
 PPU:
 
@@ -150,7 +151,7 @@ APU/audio:
 * NES nonlinear pulse/TND mixing followed by 90 Hz and 440 Hz high-pass filters and a 14 kHz low-pass filter.
 * OpenAL desktop playback and WebAudio browser playback.
 * DMC sample playback with CPU-memory reads, buffered output after reader disable, looping, IRQ state, address wrapping,
-  and fixed four-cycle CPU stalls.
+  and cycle-aligned CPU DMA.
 
 Input/frontend:
 
@@ -180,11 +181,12 @@ Diagnostics:
   use.
 * `NesMachine.powerOn()` performs a hard reset of core components and marks the machine powered on. `powerOff()` only
   changes powered state.
-* `NesMachine.reset()` resets CPU, PPU, APU, controller protocol, pending stalls, and active mapper runtime state while
+* `NesMachine.reset()` resets CPU, PPU, APU, controller protocol, pending DMA, and active mapper runtime state while
   preserving RAM where soft reset behavior applies.
 * `NesMachine.runUntilFrame()` clears frame-complete state, begins an APU frame, steps CPU instructions until the PPU
   completes a frame, and invokes an optional input poll callback during CPU phases.
-* NMI is edge-latched; IRQ is a level sampled at CPU instruction boundaries from mapper and APU sources.
+* NMI is edge-latched with one-cycle recognition latency; IRQ is level-sampled each CPU cycle from mapper and APU
+  sources and accepted with instruction-specific polling behavior.
 * CPU and PPU buses should depend on `CartridgeSocket`, not concrete mapper classes.
 * `InesParserComposite` hashes ROM data excluding the iNES header/trainer payload, consults nes20db, routes to iNES 1.0
   or NES 2.0 parsing, and applies database metadata when present.
@@ -216,15 +218,12 @@ Diagnostics:
 * Sprite overflow uses simple ninth-sprite detection and does not emulate the hardware evaluation bug.
 * APU register effects and frame-counter events are instruction-batched; `$4017`'s parity-dependent 3/4-cycle reset
   delay, exact frame IRQ edge timing, and Mesen's full event scheduler are not modeled.
-* DMC DMA fetches immediately and always stalls for four cycles. Exact 3/4-cycle alignment, OAM DMA conflicts, and
-  cycle-level bus arbitration are not modeled.
 * APU PCM uses point sampling plus the output filter chain, not band-limited synthesis, so high-frequency aliasing can
   remain.
 * No save states, rewind, cheats, debugger UI, two-player input, ZIP loading, networking, ROM downloading, or ROM
   patching.
 * PPU rendering remains scanline-based, so mid-scanline palette, scroll, CHR bank, mask, and OAM changes are
   approximate.
-* OAM DMA uses a fixed 513-cycle stall; exact 513/514 parity requires intra-instruction CPU bus-cycle timing.
 
 ## Development Guidance
 

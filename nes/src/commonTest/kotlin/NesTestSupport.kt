@@ -6,7 +6,6 @@ import nes.apu.DmcDma
 import nes.apu.NesApu
 import nes.cpu.Cpu6502
 import nes.cpu.CpuBus
-import nes.cpu.CpuStall
 import nes.input.NesController
 import nes.ppu.Ppu
 import nes.ppu.PpuBus
@@ -36,13 +35,13 @@ fun cpuWithProgram(program: ByteArray, start: Int = 0x8000): Triple<Cpu6502, Cpu
     val cartridgeSocket = CartridgeSocket()
     cartridgeSocket.insert(cartridge)
     val ppu = Ppu(PpuBus(cartridgeSocket))
-    val cpuStall = CpuStall()
+    val dmcDma = DmcDma()
     val bus = CpuBus(
         cartridgeSocket,
         ppu,
         NesController(),
-        NesApu(DmcDma(cartridgeSocket, cpuStall)),
-        cpuStall,
+        NesApu(dmcDma),
+        dmcDma,
     )
     val cpu = Cpu6502(bus)
     cpu.reset()

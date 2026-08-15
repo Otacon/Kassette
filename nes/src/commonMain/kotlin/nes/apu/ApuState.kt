@@ -63,7 +63,7 @@ data class NoiseState(
 
 data class DmcState(
     var values: IntArray = intArrayOf(0, -1, 0, 0xC000, 1, 0xC000, 0, 0, 8, 0),
-    var flags: BooleanArray = BooleanArray(6),
+    var flags: BooleanArray = BooleanArray(7),
 ) {
     override fun equals(other: Any?): Boolean = other is DmcState &&
         values.contentEquals(other.values) && flags.contentEquals(other.flags)

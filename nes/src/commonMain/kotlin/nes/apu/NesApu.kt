@@ -7,7 +7,7 @@ import nes.util.low8Bits
 import nes.Timing
 
 class NesApu(
-    dmcDma: DmcDma,
+    private val dmcDma: DmcDma,
 ) {
     companion object {
         private const val SAMPLE_RATE = 44_100
@@ -93,6 +93,7 @@ class NesApu(
     fun reset() {
         state = ApuState()
         sampleCount = 0
+        dmcDma.reset()
     }
 
     fun beginFrame() {
@@ -454,6 +455,7 @@ class NesApu(
         private var loop: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
         private var sampleBufferFull: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
         private var silence: Boolean get() = !state.flags[5]; set(value) { state.flags[5] = !value }
+        private var sampleFetchPending: Boolean get() = state.flags[6]; set(value) { state.flags[6] = value }
 
         fun write(register: Int, value: Int) {
             when (register) {
@@ -474,6 +476,7 @@ class NesApu(
             channelEnabled = value
             if (!channelEnabled) {
                 bytesRemaining = 0
+                if (sampleFetchPending && dmcDma.cancelBeforeHalt()) sampleFetchPending = false
             } else if (bytesRemaining == 0) {
                 restartSample()
                 fetchSampleIfNeeded()
@@ -491,6 +494,7 @@ class NesApu(
         }
 
         fun stepTimer() {
+            finishSampleFetch()
             if (timerCounter <= 0) {
                 timerCounter = period - 1
                 clockOutputUnit()
@@ -504,8 +508,15 @@ class NesApu(
         }
 
         private fun fetchSampleIfNeeded() {
-            if (sampleBufferFull || bytesRemaining == 0) return
-            sampleBuffer = dmcDma.read(currentAddress).low8Bits()
+            if (sampleBufferFull || sampleFetchPending || bytesRemaining == 0) return
+            sampleFetchPending = dmcDma.request(currentAddress)
+        }
+
+        private fun finishSampleFetch() {
+            if (!sampleFetchPending) return
+            val value = dmcDma.takeResult() ?: return
+            sampleFetchPending = false
+            sampleBuffer = value.low8Bits()
             sampleBufferFull = true
             currentAddress++
             if (currentAddress > 0xFFFF) currentAddress = 0x8000
