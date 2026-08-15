@@ -21,13 +21,31 @@ class NesController {
     private var index = 0
     private var strobe = false
     private var buffered = 0
+    private var pendingWriteValue = 0
+    private var pendingWriteDelay = 0
     private val log = Logger.withTag("NesController")
+
+    fun captureState(): NesControllerState = NesControllerState(
+        live, latched, index, strobe, buffered, pendingWriteValue, pendingWriteDelay,
+    )
+
+    fun restoreState(state: NesControllerState) {
+        live = state.live
+        latched = state.latched
+        index = state.index
+        strobe = state.strobe
+        buffered = state.buffered
+        pendingWriteValue = state.pendingWriteValue
+        pendingWriteDelay = state.pendingWriteDelay
+    }
 
     fun reset() {
         latched = live
         index = 0
         strobe = false
         buffered = 0
+        pendingWriteValue = 0
+        pendingWriteDelay = 0
     }
 
     fun poll() {
@@ -52,6 +70,15 @@ class NesController {
         }
     }
 
+    fun scheduleWrite(value: Int, delay: Int) {
+        pendingWriteValue = value
+        pendingWriteDelay = delay
+    }
+
+    fun step() {
+        if (pendingWriteDelay > 0 && --pendingWriteDelay == 0) write(pendingWriteValue)
+    }
+
     fun read(): Int {
         val bit = if (index < 8) (latched shr index) and 1 else 1
         if (!strobe && index < 8) index++
@@ -62,10 +89,10 @@ class NesController {
         val previous = live
         live = buttons and 0xFF
         if ((live and (1 shl BUTTON_LEFT)) != 0 && (live and (1 shl BUTTON_RIGHT)) != 0) {
-            live = live and (1 shl BUTTON_RIGHT).inv()
+            live = live and ((1 shl BUTTON_LEFT) or (1 shl BUTTON_RIGHT)).inv()
         }
         if ((live and (1 shl BUTTON_UP)) != 0 && (live and (1 shl BUTTON_DOWN)) != 0) {
-            live = live and (1 shl BUTTON_DOWN).inv()
+            live = live and ((1 shl BUTTON_UP) or (1 shl BUTTON_DOWN)).inv()
         }
         logButtonEdges(previous, live)
         if (strobe) latched = live
@@ -89,3 +116,13 @@ class NesController {
         if ((buttons and (1 shl BUTTON_RIGHT)) != 0) log.d { "RIGHT $action" }
     }
 }
+
+data class NesControllerState(
+    var live: Int = 0,
+    var latched: Int = 0,
+    var index: Int = 0,
+    var strobe: Boolean = false,
+    var buffered: Int = 0,
+    var pendingWriteValue: Int = 0,
+    var pendingWriteDelay: Int = 0,
+)

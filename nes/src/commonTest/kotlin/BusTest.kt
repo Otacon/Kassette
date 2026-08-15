@@ -79,6 +79,14 @@ class BusTest {
     }
 
     @Test
+    fun `controller reads preserve undriven CPU open bus bits`() {
+        val (_, bus, _) = cpuWithProgram(byteArrayOf(0xEA.toByte()))
+        bus.write(0x4000, 0xA0)
+
+        assertEquals(0xE0, bus.read(0x4016))
+    }
+
+    @Test
     fun `cartridge socket reads mirrored PRG ROM`() {
         val prg = ByteArray(16 * 1024)
         prg[0] = 0x12
@@ -114,8 +122,22 @@ class BusTest {
         val buttons = controller.readButtons()
 
         assertTrue((buttons and (1 shl NesController.BUTTON_A)) != 0)
-        assertTrue((buttons and (1 shl NesController.BUTTON_LEFT)) != 0)
+        assertFalse((buttons and (1 shl NesController.BUTTON_LEFT)) != 0)
         assertFalse((buttons and (1 shl NesController.BUTTON_RIGHT)) != 0)
+    }
+
+    @Test
+    fun `controller serial position survives CPU bus restore`() {
+        val (_, bus, _) = cpuWithProgram(byteArrayOf(0xEA.toByte()))
+        bus.write(0x4016, 1)
+        bus.write(0x4016, 0)
+        bus.read(0x4016)
+        val snapshot = bus.captureState()
+
+        bus.read(0x4016)
+        bus.restoreState(snapshot)
+
+        assertEquals(snapshot.controller1.index, bus.captureState().controller1.index)
     }
 
     @Test
@@ -230,6 +252,50 @@ class BusTest {
         dmcDma.request(0x8000)
 
         assertEquals(5, cpu.step(), "Three DMA cycles plus the two-cycle NOP")
+    }
+
+    @Test
+    fun `DMC overlap clocks second controller port`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val dmcDma = DmcDma()
+        val bus = CpuBus(socket, ppu, NesController(), NesApu(dmcDma), dmcDma)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_LDA_ABS)
+        bus.write(1, 0x17)
+        bus.write(2, 0x40)
+        bus.setCycleListener { cycle ->
+            if (cycle.type == CpuBus.CycleType.READ && cycle.address == 2) dmcDma.request(0x8000)
+        }
+
+        cpu.step()
+
+        assertTrue(bus.captureState().controller2.index > 0)
+    }
+
+    @Test
+    fun `DMC disable during halt aborts after one stall cycle`() {
+        val socket = CartridgeSocket()
+        socket.insert(cartridge())
+        val ppu = Ppu(PpuBus(socket))
+        val dmcDma = DmcDma()
+        val apu = NesApu(dmcDma)
+        val bus = CpuBus(socket, ppu, NesController(), apu, dmcDma)
+        val cpu = Cpu6502(bus)
+        cpu.reset()
+        bus.write(0, Cpu6502.OP_NOP)
+        val state = apu.captureState()
+        state.dmc.flags[6] = true
+        state.dmc.values[11] = 1
+        state.dmcDma.address = 0x8000
+        state.dmcDma.phase = 1
+        apu.restoreState(state)
+        bus.setCyclePhaseListener { _, beforeAccess -> if (beforeAccess) apu.step() }
+
+        assertEquals(3, cpu.step())
+        assertFalse(dmcDma.pending())
     }
 
     @Test

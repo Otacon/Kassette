@@ -58,8 +58,8 @@ eight startup cycles before opcode execution. Soft reset preserves A, X, and Y, 
 
 ## DMA
 
-DMA starts only when the CPU attempts an eligible read; writes delay the halt. PAL DMC DMA waits for an opcode-fetch
-read. The halt cycle repeats the CPU's pending read address.
+DMA starts only when the CPU attempts an eligible read; writes delay the halt. On PAL, DMA halt acquisition waits for an
+opcode-fetch read. The halt cycle repeats the CPU's pending read address.
 
 OAM DMA performs a halt cycle, an optional parity-alignment cycle, and 256 alternating source reads and `$2004` writes.
 Its writes use DMA/read-cycle phase timing even though the memory operation is a write.
@@ -71,6 +71,11 @@ waiting until the complete OAM transfer finishes.
 DMA reads preserve open-bus behavior. If a CPU read from `$4000-$401F` is halted, internal APU/controller register reads
 can overlap DMA's external read; changes in this area require dedicated tests for `$4015-$4017` side effects.
 
+Controller ports preserve their undriven high open-bus bits, force the standard console identification bit, and return
+serial data on bit 0. Reads from `$4016` and `$4017` clock their respective serial ports. Writes to `$4016` update both
+controller strobes at the next PUT-cycle boundary, with a one/two-cycle parity delay. Impossible opposite directional
+pairs are filtered by clearing both directions.
+
 ## Unofficial Opcodes
 
 SLO, RLA, SRE, RRA, DCP, and ISB use the normal read-modify-write bus sequence before their combined accumulator
@@ -81,6 +86,26 @@ base-address high byte plus one. On a page crossing, the register value also cor
 extends their preliminary dummy read, the written value is not high-byte-masked.
 
 KIL repeatedly fetches itself and ignores IRQ/NMI until reset.
+
+ANC performs `A and immediate` and copies N into C. ALR performs AND then LSR. ARR performs AND then rotate-right with
+its NMOS-specific C/V results. XAA computes the modeled unstable immediate result, and AXS stores `(A and X) - immediate`
+in X with compare-style carry.
+
+## State
+
+Captured state includes registers, total cycle count, IRQ/NMI sampling latches, KIL state, CPU RAM, internal and external
+open buses, pending OAM DMA, DMC DMA phase, and both controller shift/strobe/pending-write states. Restore operations copy
+mutable state so a snapshot remains reusable after execution resumes.
+
+State restoration assumes the same cartridge and mapper remain inserted. Supported captures occur between CPU steps;
+the synchronous local variables of an OAM transfer are not resumable from a capture taken inside a cycle-listener
+callback during that transfer.
+
+## Compatibility Boundaries
+
+The bus models the standard front-loading NES controller-port masks. Famicom microphone wiring, top-loading NES mask
+differences, VS-system controls, CPU test-mode registers, and expansion-port devices are outside this contract. The
+second serial port and its state are emulated, but the current frontend attaches user input only to port one.
 
 ## Regression Testing
 

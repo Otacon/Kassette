@@ -30,16 +30,15 @@ Unsupported mapper-related configurations include:
 | Mapper IDs                          | Any mapper not listed above                                                                                                                                     |
 | Submappers                          | Unsupported submappers for listed mappers, including MMC6 / Mapper 4 submapper 1                                                                                |
 | MMC1 variants                       | SUROM, SOROM, SXROM-style extended PRG/WRAM banking and other non-submapper-0 variants                                                                          |
-| Nametables                          | Four-screen mirroring                                                                                                                                           |
 | ROM layout                          | Mixed CHR ROM and CHR RAM boards, miscellaneous NES 2.0 ROM regions, invalid PRG/CHR sizes                                                                      |
 | Hardware                            | Nonstandard NES 2.0 console types and accessories                                                                                                               |
 | Complex mappers not yet implemented | MMC2/MMC4 (`9/10`), MMC5 (`5`), Bandai FCG (`16/159`), Jaleco SS88006 (`18`), Namco 163 (`19`), VRC2/VRC4 (`21/22/23/25`), VRC6 (`24/26`), Sunsoft FME-7 (`69`) |
 
-The parser also supports horizontal and vertical nametable mirroring, NES 2.0 extended mapper numbers, submapper
+The parser also supports horizontal, vertical, single-screen, and four-screen nametable mirroring, NES 2.0 extended mapper numbers, submapper
 validation, linear and exponent/multiplier ROM sizes, explicit CHR RAM/NVRAM sizes, and NTSC/PAL/Dendy timing modes.
 
-Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, four-screen
-mirroring, nonstandard console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes,
+Unsupported formats are rejected with clear startup errors, including unsupported mappers/submappers, nonstandard
+console types, miscellaneous ROM regions, mixed CHR ROM/RAM boards, invalid mapper PRG/CHR sizes,
 invalid headers, and truncated data.
 
 ## Current Emulator Scope

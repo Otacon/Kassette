@@ -239,7 +239,7 @@ class ApuTest {
         val apu = apu()
 
         assertEquals(1, apu.captureState().noise.values[5])
-        apu.step(4)
+        apu.step()
 
         assertEquals(0x4000, apu.captureState().noise.values[5])
     }
@@ -295,6 +295,24 @@ class ApuTest {
         apu.step()
 
         assertEquals(9, apu.captureState().pulse1.lengthCounter)
+    }
+
+    @Test
+    fun `envelope loop write is deferred past a coincident quarter-frame clock`() {
+        val apu = apu()
+        val state = apu.captureState()
+        state.frameCycle = 7_456
+        state.pulse1.values[5] = 0
+        state.pulse1.values[6] = 0
+        state.pulse1.flags[6] = false
+        state.pulse1.flags[7] = false
+        apu.restoreState(state)
+
+        apu.cpuWrite(0x4000, 0x20)
+        apu.step()
+
+        assertEquals(0, apu.captureState().pulse1.values[6])
+        assertTrue(apu.captureState().pulse1.flags[6])
     }
 
     @Test

@@ -1,5 +1,7 @@
 package nes.cpu
 
+import nes.input.NesControllerState
+
 data class CpuState(
     var pc: Int = 0,
     var a: Int = 0,
@@ -21,14 +23,21 @@ data class CpuBusState(
     var ram: ByteArray = ByteArray(2048),
     var openBus: Int = 0,
     var oamDmaPage: Int = -1,
+    var externalOpenBus: Int = 0,
+    var controller1: NesControllerState = NesControllerState(),
+    var controller2: NesControllerState = NesControllerState(),
 ) {
     override fun equals(other: Any?): Boolean = other is CpuBusState &&
-        ram.contentEquals(other.ram) && openBus == other.openBus && oamDmaPage == other.oamDmaPage
+        ram.contentEquals(other.ram) && openBus == other.openBus && oamDmaPage == other.oamDmaPage &&
+        externalOpenBus == other.externalOpenBus && controller1 == other.controller1 && controller2 == other.controller2
 
     override fun hashCode(): Int {
         var result = ram.contentHashCode()
         result = 31 * result + openBus
         result = 31 * result + oamDmaPage
+        result = 31 * result + externalOpenBus
+        result = 31 * result + controller1.hashCode()
+        result = 31 * result + controller2.hashCode()
         return result
     }
 }

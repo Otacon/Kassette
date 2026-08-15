@@ -41,7 +41,8 @@ class Mapper3(
     override fun captureState(): MapperState = state.copy()
 
     override fun restoreState(state: MapperState) {
-        this.state = state as Mapper3State
+        state as Mapper3State
+        this.state = state.copy()
     }
 
     companion object {

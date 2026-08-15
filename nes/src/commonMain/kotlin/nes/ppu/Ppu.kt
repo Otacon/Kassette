@@ -68,7 +68,22 @@ class Ppu(
     )
 
     fun restoreState(state: PpuState) {
-        this.state = state
+        this.state = state.copy(
+            frameColorIds = Array(state.frameColorIds.size) { state.frameColorIds[it].copyOf() },
+            oam = state.oam.copyOf(),
+            secondaryOam = state.secondaryOam.copyOf(),
+            activeSpriteX = state.activeSpriteX.copyOf(),
+            activeSpriteAttributes = state.activeSpriteAttributes.copyOf(),
+            activeSpriteLow = state.activeSpriteLow.copyOf(),
+            activeSpriteHigh = state.activeSpriteHigh.copyOf(),
+            fetchedSpriteX = state.fetchedSpriteX.copyOf(),
+            fetchedSpriteAttributes = state.fetchedSpriteAttributes.copyOf(),
+            fetchedSpriteLow = state.fetchedSpriteLow.copyOf(),
+            fetchedSpriteHigh = state.fetchedSpriteHigh.copyOf(),
+            openBusDecayStamps = state.openBusDecayStamps.copyOf(),
+            counters = state.counters.copyOf(),
+            flags = state.flags.copyOf(),
+        )
         this.state.counters[COUNTER_PALETTE_COLOR_ID_CACHE_MASK] = -1
         cpuCycle = -1
         argbFramebuffers.forEach { it?.fill(0) }
@@ -791,7 +806,7 @@ class Ppu(
 
     private fun grayscaleMask(): Int = if ((state.mask and 1) != 0) 0x30 else 0x3F
 
-    private fun emphasisBits(): Int = if (isPalTiming()) {
+    private fun emphasisBits(): Int = if (timing.scanlinesPerFrame == 312) {
         ((state.mask and 0x40) shl 0) or ((state.mask and 0x20) shl 2) or ((state.mask and 0x80) shl 1)
     } else {
         (state.mask and 0xE0) shl 1

@@ -89,14 +89,15 @@ class NesMachine(
         ppu.reset(softReset)
         apu.reset(softReset)
         cpu.reset(softReset)
-        controller.reset()
     }
 
     fun runUntilFrame(onInputPoll: (() -> Unit)? = null) {
         ppu.clearFrameComplete()
         apu.beginFrame()
         inputPollCallback = onInputPoll
-        cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        if (onInputPoll != null && cyclesUntilInputPoll <= 0) {
+            cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        }
         try {
             while (!ppu.state.frameComplete) cpu.step()
         } finally {
@@ -108,7 +109,9 @@ class NesMachine(
         ppu.clearFrameComplete()
         apu.beginFrame()
         inputPollCallback = onInputPoll
-        cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        if (onInputPoll != null && cyclesUntilInputPoll <= 0) {
+            cyclesUntilInputPoll = timing.cpuHz / INPUT_POLLS_PER_SECOND
+        }
         var cyclesUntilYield = CPU_CYCLES_PER_YIELD
         try {
             while (!ppu.state.frameComplete) {
@@ -142,6 +145,7 @@ class NesMachine(
             return
         }
 
+        cpuBus.stepControllers()
         apu.step()
 
         val callback = inputPollCallback ?: return

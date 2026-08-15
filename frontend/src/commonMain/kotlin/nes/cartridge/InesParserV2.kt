@@ -27,10 +27,6 @@ class InesParserV2(
         val chrLsb = bytes[5].toUnsignedInt()
         val flags6 = bytes[6].toUnsignedInt()
         val flags7 = bytes[7].toUnsignedInt()
-        if ((flags6 and 0x08) != 0) {
-            log.e { "Unsupported mirroring mode: four-screen mirroring" }
-            throw RomFormatException("Unsupported mirroring mode: four-screen mirroring")
-        }
         val headerRegion = validateNes2Header(bytes, flags7)
         val region = if (headerRegion == ConsoleRegion.MULTI_REGION) {
             utils.regionFromFilename(romData.name) ?: headerRegion

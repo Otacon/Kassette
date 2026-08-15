@@ -111,12 +111,12 @@ ROM/cartridge:
 * Mapper 71 / BF909x, Mapper 79 / NINA-03/06, Mapper 87 / Jaleco JF-xx, and Mapper 113 / multicart NINA follow Mesen's
   discrete mapper behavior.
 * CHR ROM and CHR RAM, but not mixed CHR ROM plus CHR RAM boards.
-* Horizontal and vertical mirroring.
+* Horizontal, vertical, single-screen, and four-screen mirroring.
 * PAL, NTSC, Dendy, and multi-region timing metadata; multi-region currently maps to NTSC timing.
 * `Cartridge` stores ROM metadata/data plus a generic `Mapper` instance.
 * `CartridgeSocket` simulates cartridge insertion/removal and is the only cartridge access point for CPU/PPU buses.
 * Clear rejection for invalid headers, truncated ROMs, unsupported mappers/submappers, unsupported NES 2.0 hardware,
-  four-screen mirroring, miscellaneous ROM regions, and invalid mapper sizes.
+  miscellaneous ROM regions, and invalid mapper sizes.
 
 CPU/bus:
 

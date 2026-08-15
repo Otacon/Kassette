@@ -1,7 +1,7 @@
 package nes.ppu
 
 data class PpuBusState(
-    var nametables: ByteArray = ByteArray(2048),
+    var nametables: ByteArray = ByteArray(4096),
     var paletteRam: ByteArray = ByteArray(32),
 ) {
     override fun equals(other: Any?): Boolean = other is PpuBusState &&

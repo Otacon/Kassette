@@ -40,7 +40,7 @@ class PpuBus(
     fun captureState(): PpuBusState = state.copy(nametables = nametables.copyOf(), paletteRam = paletteRam.copyOf())
 
     fun restoreState(state: PpuBusState) {
-        this.state = state
+        this.state = state.copy(nametables = state.nametables.copyOf(), paletteRam = state.paletteRam.copyOf())
     }
 
     private fun mirrorNametable(address: Int): Int {
@@ -52,6 +52,7 @@ class PpuBus(
             Mirroring.HORIZONTAL -> table shr 1
             Mirroring.SINGLE_SCREEN_LOWER -> 0
             Mirroring.SINGLE_SCREEN_UPPER -> 1
+            Mirroring.FOUR_SCREEN -> table
             else -> table shr 1
         }
         return (physical shl 10) + offset

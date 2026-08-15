@@ -27,7 +27,8 @@ class Mapper0(
     override fun captureState(): MapperState = state.copy(chr = state.chr.copyOf())
 
     override fun restoreState(state: MapperState) {
-        this.state = state as Mapper0State
+        state as Mapper0State
+        this.state = state.copy(chr = state.chr.copyOf())
     }
 
 }

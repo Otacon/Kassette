@@ -101,6 +101,11 @@ class InesParserV1Test {
     }
 
     @Test
+    fun `four-screen mirroring flag parses as four-screen`() = runTest {
+        assertEquals(Mirroring.FOUR_SCREEN, parser.parse(ines(flags6 = 0x08)).mirroring)
+    }
+
+    @Test
     fun `PAL TV system flag parses PAL region`() = runTest {
         val rom = ines().also { it[9] = 1 }
 

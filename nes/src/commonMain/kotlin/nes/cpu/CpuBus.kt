@@ -17,6 +17,7 @@ class CpuBus(
     private val apu: NesApu,
     private val dmcDma: DmcDma,
 ) {
+    private val controller2 = NesController()
     enum class CycleType {
         READ,
         WRITE,
@@ -49,6 +50,7 @@ class CpuBus(
     private var cyclePhaseListener: CyclePhaseListener? = null
     private var openBus: Int get() = state.openBus; set(value) { state.openBus = value }
     private var oamDmaPage: Int get() = state.oamDmaPage; set(value) { state.oamDmaPage = value }
+    private var externalOpenBus: Int get() = state.externalOpenBus; set(value) { state.externalOpenBus = value }
 
     /** Adds a listener invoked exactly once for every CPU-owned cycle. */
     fun setCycleListener(listener: CycleListener) {
@@ -64,7 +66,7 @@ class CpuBus(
 
     /** Direct, unclocked bus access for tests, debuggers, and setup code. */
     fun write(address: Int, value: Int) {
-        writeMapped(address, value)
+        writeMapped(address, value, -1)
     }
 
     internal fun cpuRead(
@@ -83,8 +85,8 @@ class CpuBus(
         return value or ((dmaCycles + 1) shl READ_CYCLES_SHIFT)
     }
 
-    internal fun cpuWrite(address: Int, value: Int, dummy: Boolean = false) {
-        clockedWrite(address, value, if (dummy) CycleType.DUMMY_WRITE else CycleType.WRITE)
+    internal fun cpuWrite(address: Int, value: Int, cycle: Long, dummy: Boolean = false) {
+        clockedWrite(address, value, cycle, if (dummy) CycleType.DUMMY_WRITE else CycleType.WRITE)
     }
 
     internal fun idle(type: CycleType = CycleType.IDLE) {
@@ -93,16 +95,36 @@ class CpuBus(
         notifyPhase(type, beforeAccess = false)
     }
 
-    fun captureState(): CpuBusState = state.copy(ram = ram.copyOf())
+    fun captureState(): CpuBusState = state.copy(
+        ram = ram.copyOf(),
+        controller1 = controller.captureState(),
+        controller2 = controller2.captureState(),
+    )
 
     fun restoreState(state: CpuBusState) {
-        this.state = state
+        this.state = state.copy(
+            ram = state.ram.copyOf(),
+            controller1 = state.controller1.copy(),
+            controller2 = state.controller2.copy(),
+        )
+        controller.restoreState(this.state.controller1)
+        controller2.restoreState(this.state.controller2)
     }
 
-    fun reset() {
+    fun reset(softReset: Boolean) {
         dmcDma.reset()
         openBus = 0
+        externalOpenBus = 0
         oamDmaPage = NO_DMA_PAGE
+        if (!softReset) {
+            controller.reset()
+            controller2.reset()
+        }
+    }
+
+    fun stepControllers() {
+        controller.step()
+        controller2.step()
     }
 
     private fun runPendingDma(readAddress: Int, startCycle: Long): Int {
@@ -138,7 +160,7 @@ class CpuBus(
                 }
 
                 !getCycle && oamValueReady -> {
-                    clockedWrite(0x2004, oamValue, CycleType.DMA_WRITE)
+                    clockedWrite(0x2004, oamValue, startCycle + cycles, CycleType.DMA_WRITE)
                     oamValueReady = false
                     offset++
                 }
@@ -157,16 +179,16 @@ class CpuBus(
             in 0x4000..0x4013 -> openBus
             0x4014 -> openBus
             0x4015 -> apu.cpuRead(a, openBus)
-            0x4016 -> controller.read()
-            0x4017 -> openBus
-            in 0x4020..0xFFFF -> cartridgeSocket.cpuRead(a, openBus)
+            0x4016 -> controllerValue(controller)
+            0x4017 -> controllerValue(controller2)
+            in 0x4020..0xFFFF -> cartridgeSocket.cpuRead(a, externalOpenBus).also { externalOpenBus = it }
             else -> openBus
         }.low8Bits()
         openBus = value
         return value
     }
 
-    private fun writeMapped(address: Int, value: Int) {
+    private fun writeMapped(address: Int, value: Int, cycle: Long) {
         val a = address.low16Bits()
         val v = value.low8Bits()
         openBus = v
@@ -176,9 +198,21 @@ class CpuBus(
             in 0x4000..0x4013 -> apu.cpuWrite(a, v)
             0x4014 -> oamDmaPage = v
             0x4015 -> apu.cpuWrite(a, v)
-            0x4016 -> controller.write(v)
+            0x4016 -> {
+                if (cycle < 0) {
+                    controller.write(v)
+                    controller2.write(v)
+                } else {
+                    val delay = if ((cycle and 1L) != 0L) 1 else 2
+                    controller.scheduleWrite(v, delay)
+                    controller2.scheduleWrite(v, delay)
+                }
+            }
             0x4017 -> apu.cpuWrite(a, v)
-            in 0x4020..0xFFFF -> cartridgeSocket.cpuWrite(a, v)
+            in 0x4020..0xFFFF -> {
+                externalOpenBus = v
+                cartridgeSocket.cpuWrite(a, v)
+            }
         }
     }
 
@@ -190,9 +224,9 @@ class CpuBus(
         return value
     }
 
-    private fun clockedWrite(address: Int, value: Int, type: CycleType) {
+    private fun clockedWrite(address: Int, value: Int, cycle: Long, type: CycleType) {
         notifyPhase(type, beforeAccess = true)
-        writeMapped(address, value)
+        writeMapped(address, value, cycle)
         notifyCycle(type, address, value)
         notifyPhase(type, beforeAccess = false)
     }
@@ -205,24 +239,28 @@ class CpuBus(
             val value = when (internalAddress) {
                 0x4015 -> {
                     val internalValue = apu.cpuRead(internalAddress, openBus)
-                    if (a != internalAddress) readDmaMapped(a)
+                    openBus = internalValue
+                    if (a != internalAddress) readExternalDma(a)
                     internalValue
                 }
 
-                0x4016 -> {
-                    val internalValue = controller.read()
+                0x4016, 0x4017 -> {
+                    val internalValue = controllerValue(if (internalAddress == 0x4016) controller else controller2)
+                    openBus = internalValue
                     if (a == internalAddress) {
                         internalValue
                     } else {
-                        val externalValue = readDmaMapped(a)
+                        val externalValue = readExternalDma(a)
+                        externalOpenBus = (externalValue and CONTROLLER_OPEN_BUS_MASK) or
+                            (internalValue and CONTROLLER_DRIVEN_MASK)
                         (externalValue and CONTROLLER_OPEN_BUS_MASK) or
-                            (internalValue and externalValue and CONTROLLER_DRIVEN_MASK)
+                            ((internalValue and CONTROLLER_DRIVEN_MASK) and
+                                (externalValue and CONTROLLER_DRIVEN_MASK))
                     }
                 }
 
-                else -> readDmaMapped(a)
+                else -> readExternalDma(a)
             }.low8Bits()
-            openBus = value
             notifyCycle(CycleType.DMA_READ, a, value)
             notifyPhase(CycleType.DMA_READ, beforeAccess = false)
             return value
@@ -238,6 +276,17 @@ class CpuBus(
     }
 
     private fun readDmaMapped(address: Int): Int = if (address in 0x4015..0x401A) openBus else readMapped(address)
+
+    private fun readExternalDma(address: Int): Int {
+        val internalOpenBus = openBus
+        val value = readDmaMapped(address)
+        openBus = internalOpenBus
+        externalOpenBus = value
+        return value
+    }
+
+    private fun controllerValue(port: NesController): Int =
+        (openBus and CONTROLLER_OPEN_BUS_MASK) or port.read()
 
     private fun notifyCycle(type: CycleType, address: Int = NO_ADDRESS, value: Int = 0) {
         if (cycleListeners.isEmpty()) return
@@ -258,7 +307,7 @@ class CpuBus(
         const val READ_CYCLES_SHIFT = 8
         const val NO_DMA_PAGE = -1
         const val NO_ADDRESS = -1
-        const val CONTROLLER_OPEN_BUS_MASK = 0xBE
-        const val CONTROLLER_DRIVEN_MASK = 0x41
+        const val CONTROLLER_OPEN_BUS_MASK = 0xE0
+        const val CONTROLLER_DRIVEN_MASK = 0x1F
     }
 }

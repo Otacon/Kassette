@@ -122,7 +122,7 @@ class NesApu(
             state.triangle.values[7] = retainedTrianglePreviousLength
         }
         state.noise.values[3] = timing.noisePeriods[0]
-        state.noise.values[4] = timing.noisePeriods[0] - 1
+        state.noise.values[4] = 0
         state.dmc.values[0] = timing.dmcPeriods[0]
         state.dmc.values[1] = timing.dmcPeriods[0] - 1
         state.pendingFrameCounterValue = if (state.frameMode == 1) 0x80 else 0
@@ -157,7 +157,7 @@ class NesApu(
         )
         if (this.state.noise.values[3] <= 0) {
             this.state.noise.values[3] = timing.noisePeriods[0]
-            this.state.noise.values[4] = timing.noisePeriods[0] - 1
+            this.state.noise.values[4] = 0
         }
         if (this.state.noise.values[5] == 0) this.state.noise.values[5] = 1
         if (this.state.dmc.values[0] <= 0) {
@@ -400,7 +400,7 @@ class NesApu(
                 envelopeStart = false; envelopeDecay = 15; envelopeDivider = volume
             } else if (envelopeDivider == 0) {
                 envelopeDivider = volume
-                if (envelopeDecay > 0) envelopeDecay-- else if (envelopeLoop) envelopeDecay = 15
+                if (envelopeDecay > 0) envelopeDecay-- else if (lengthHalt) envelopeDecay = 15
             } else envelopeDivider--
         }
 
@@ -565,7 +565,7 @@ class NesApu(
                 envelopeStart = false; envelopeDecay = 15; envelopeDivider = volume
             } else if (envelopeDivider == 0) {
                 envelopeDivider = volume
-                if (envelopeDecay > 0) envelopeDecay-- else if (envelopeLoop) envelopeDecay = 15
+                if (envelopeDecay > 0) envelopeDecay-- else if (lengthHalt) envelopeDecay = 15
             } else envelopeDivider--
         }
 
@@ -642,7 +642,7 @@ class NesApu(
             if (disableDelay > 0 && --disableDelay == 0) {
                 bytesRemaining = 0
                 transferStartDelay = 0
-                if (sampleFetchPending && dmcDma.cancelBeforeHalt()) sampleFetchPending = false
+                if (sampleFetchPending && dmcDma.cancelTransfer()) sampleFetchPending = false
             }
             if (transferStartDelay > 0 && --transferStartDelay == 0) fetchSampleIfNeeded()
         }

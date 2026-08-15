@@ -30,6 +30,14 @@ class DmcDma {
         return true
     }
 
+    /** Cancels before halt without a stall, or during halt after that one cycle has been consumed. */
+    fun cancelTransfer(): Boolean {
+        if (phase != HALT && phase != DUMMY) return false
+        address = NO_ADDRESS
+        phase = IDLE
+        return true
+    }
+
     /** Returns the sample address currently requested by the DMC reader. */
     fun requestedAddress(): Int = address
 

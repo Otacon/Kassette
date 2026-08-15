@@ -6,8 +6,8 @@ address-bus, and mapper changes consistent with these rules and protect timing-s
 ## Timeline
 
 Each scanline has 341 dots. NTSC has 262 scanlines; PAL and Dendy have 312. Scanline `-1` is pre-render, `0-239` are
-visible, and 240 is post-render. Vblank begins at dot 1 of scanline 241 on NTSC/PAL and scanline 291 on Dendy. Vblank,
-sprite-zero hit, and sprite overflow clear at pre-render dot 1.
+visible, and 240 is post-render. Vblank begins at dot 1 of scanline 241 on NTSC/PAL and scanline 291 on Dendy. Sprite-zero
+hit and sprite overflow clear when pre-render dot 0 begins; vblank clears at pre-render dot 1.
 
 Rendered odd NTSC frames skip pre-render dot 340. PAL and Dendy do not skip a dot. PAL performs forced OAM refresh on
 scanlines 265-310.
@@ -32,22 +32,26 @@ Visible and pre-render fetches repeat an eight-dot sequence: nametable, attribut
 reload. Coarse X increments at tile boundaries, Y increments at dot 256, horizontal scroll bits copy at dot 257, and
 vertical bits copy during pre-render dots 280-304. Dots 337 and 339 perform terminal nametable reads.
 
-The physical PPU address bus is distinct from `v`. Rendering fetches, `$2006` commits outside rendering, `$2007`
-increments, rendering transitions, and scanline boundaries all drive this bus. Every transition is visible to the
-cartridge so address-sensitive mappers can observe CHR A12 edges.
+The physical PPU address bus is distinct from `v`. Rendering fetches, `$2006` commits outside rendering, rendering
+transitions, scanline boundaries, and `$2007` increments while rendering does not own the bus can drive it. Every actual
+bus transition is visible to the cartridge so address-sensitive mappers can observe CHR A12 edges.
+
+Horizontal, vertical, single-screen, and four-screen nametable layouts are supported. Four-screen cartridges use four
+independent 1 KiB nametables and ignore mapper mirroring-register changes.
 
 ## Sprites
 
 Dots 1-64 clear secondary OAM, dots 65-256 evaluate sprites for the next line, and dots 257-320 fetch sprite data.
 Evaluation starts at OAMADDR and reproduces the post-eight-sprite diagonal scan that causes false overflow results. The
-first in-range sprite selected by an evaluation pass is the sprite-zero candidate even when OAMADDR is nonzero.
+first evaluated entry is the sprite-zero candidate only if that initial entry is in range, even when OAMADDR is nonzero.
 
 Sprite pixels are selected in OAM order. A transparent sprite pixel allows later sprites to compete; an opaque earlier
 sprite wins even when its priority places it behind an opaque background. Sprite-zero hit requires opaque sprite and
 background pixels, both layers enabled at that pixel, and x other than 255.
 
-OAM attribute writes mask bits 2-4. `$2004` writes during rendering do not update OAM and instead increment the high six
-bits of OAMADDR. OAM DMA starts at OAMADDR, wraps after 256 bytes, and leaves OAMADDR unchanged.
+OAM attribute writes mask bits 2-4. `$2004` writes during rendering do not update OAM; they clear OAMADDR's low two bits
+and increment its high six bits. Outside rendering, OAM DMA starts at OAMADDR, wraps after 256 bytes, and leaves OAMADDR
+unchanged. During rendering it follows the rendering-time `$2004` behavior instead.
 
 ## Palette And Output
 
@@ -58,6 +62,9 @@ emphasis interpretation. Mid-frame mask changes apply only to subsequently emitt
 Any derived palette cache must be invalidated after direct palette writes, delayed `$2007` writes, bus-state restore,
 or PPU-state restore.
 
+Internal framebuffers store each nine-bit color/emphasis ID in four bytes: low ID byte, high ID byte, zero, and `$FF`.
+The renderer decodes this format without converting the PPU's retained per-pixel emphasis state.
+
 ## NMI And Vblank Races
 
 The NMI output is `PPUCTRL.7 && PPUSTATUS.7`. Enabling NMI during vblank raises the line; disabling it or reading `$2002`
@@ -66,9 +73,10 @@ the line itself, not from a separate persistent PPU event queue.
 
 ## Reset And State
 
-Soft reset preserves primary OAM and VRAM contents while resetting register and rendering-pipeline state. Power-on RAM
-contents are not generally guaranteed by hardware; deterministic initialization is acceptable when explicitly treated
-as an emulator policy.
+Soft reset preserves primary and secondary OAM, nametable and palette RAM, PPUSTATUS, and `v` while resetting the
+remaining register and rendering-pipeline state. The current reset policy also retains OAM, nametable, and palette RAM
+on hard reset. Power-on RAM contents are not generally guaranteed by hardware; deterministic initialization is
+acceptable when explicitly treated as emulator policy.
 
 Captured state must include every value that affects future bus accesses or pixels. Derived host-framebuffer and palette
 caches are rebuilt or invalidated after restoration.

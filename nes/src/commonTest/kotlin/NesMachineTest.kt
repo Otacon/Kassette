@@ -48,6 +48,17 @@ class NesMachineTest {
     }
 
     @Test
+    fun `input polling phase carries across frame boundaries`() {
+        val machine = fixture().machine
+        machine.powerOn()
+        var inputPolls = 0
+
+        repeat(10) { machine.runUntilFrame { inputPolls++ } }
+
+        assertTrue(inputPolls in 18..21, "Expected approximately 120 Hz polling, got $inputPolls polls")
+    }
+
+    @Test
     fun `soft reset preserves CPU RAM and general registers`() {
         val fixture = fixture(program = byteArrayOf(Cpu6502.OP_LDA_IMM.toByte(), 0x5A, Cpu6502.OP_JMP_ABS.toByte(), 0x02, 0x80.toByte()))
         val machine = fixture.machine

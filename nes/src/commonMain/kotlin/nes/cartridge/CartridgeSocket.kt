@@ -15,7 +15,7 @@ class CartridgeSocket {
     fun insert(cartridge: Cartridge) {
         this.cartridge = cartridge
         mapper = cartridge.mapper
-        mirroring = mapper?.mirroring() ?: cartridge.mirroring
+        mirroring = effectiveMirroring(cartridge, mapper)
         region = cartridge.region
     }
 
@@ -30,7 +30,7 @@ class CartridgeSocket {
         val inserted = cartridge ?: return
         val activeMapper = mapper ?: return
         activeMapper.reset()
-        mirroring = activeMapper.mirroring() ?: inserted.mirroring
+        mirroring = effectiveMirroring(inserted, activeMapper)
     }
 
     fun cpuRead(address: Int): Int {
@@ -45,7 +45,7 @@ class CartridgeSocket {
         val inserted = cartridge ?: return
         val activeMapper = mapper ?: return
         activeMapper.cpuWrite(address, value)
-        mirroring = activeMapper.mirroring() ?: inserted.mirroring
+        mirroring = effectiveMirroring(inserted, activeMapper)
     }
 
     fun ppuRead(address: Int): Int {
@@ -74,6 +74,10 @@ class CartridgeSocket {
         val inserted = cartridge ?: return
         val activeMapper = mapper ?: return
         activeMapper.restoreState(state)
-        mirroring = activeMapper.mirroring() ?: inserted.mirroring
+        mirroring = effectiveMirroring(inserted, activeMapper)
     }
+
+    private fun effectiveMirroring(cartridge: Cartridge, mapper: Mapper?): Mirroring =
+        if (cartridge.mirroring == Mirroring.FOUR_SCREEN) Mirroring.FOUR_SCREEN
+        else mapper?.mirroring() ?: cartridge.mirroring
 }

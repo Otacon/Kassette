@@ -7,6 +7,11 @@ class InesParserV2Test {
     private val parser = InesParserV2(utils = InesParserUtils())
 
     @Test
+    fun `four-screen mirroring flag parses as four-screen`() = runTest {
+        assertEquals(Mirroring.FOUR_SCREEN, parser.parse(nes2(flags6 = 0x08)).mirroring)
+    }
+
+    @Test
     fun `valid NES 2 NROM parses PRG ROM and CHR ROM`() = runTest {
         val cartridge = parser.parse(nes2(prgLsb = 1, chrLsb = 1))
 

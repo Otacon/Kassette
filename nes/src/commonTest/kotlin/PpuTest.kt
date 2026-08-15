@@ -11,6 +11,34 @@ import nes.ppu.PpuBus
 import nes.util.toUnsignedInt
 
 class PpuTest {
+    @Test
+    fun `four-screen mirroring keeps all nametables independent`() {
+        val prg = ByteArray(16 * 1024)
+        val chr = ByteArray(8 * 1024)
+        val socket = CartridgeSocket()
+        socket.insert(
+            Cartridge(
+                mirroring = Mirroring.FOUR_SCREEN,
+                prgRom = prg,
+                chr = chr,
+                isChrRam = true,
+                trainerPresent = false,
+                mapper = Mapper0(prg, chr, isChrRam = true),
+            ),
+        )
+        val bus = PpuBus(socket)
+
+        bus.write(0x2000, 1)
+        bus.write(0x2400, 2)
+        bus.write(0x2800, 3)
+        bus.write(0x2C00, 4)
+
+        assertEquals(1, bus.read(0x2000))
+        assertEquals(2, bus.read(0x2400))
+        assertEquals(3, bus.read(0x2800))
+        assertEquals(4, bus.read(0x2C00))
+    }
+
     private fun ppu(mirroring: Mirroring = Mirroring.HORIZONTAL): Ppu {
         val chr = ByteArray(8192)
         val prgRom = ByteArray(16 * 1024)
@@ -520,6 +548,30 @@ class PpuTest {
         repeat(3) { ppu.step() }
 
         assertEquals(Palette.color(0x21 or 0x40), ppu.framebuffer()[0])
+    }
+
+    @Test
+    fun `Dendy swaps red and green emphasis bits`() {
+        val ppu = ppu()
+        ppu.timing = ConsoleRegion.DENDY.timing
+        ppu.ppuWrite(0x3F00, 0x21)
+        ppu.cpuWrite(1, 0x20)
+
+        repeat(3) { ppu.step() }
+
+        assertEquals(Palette.color(0x21 or 0x80), ppu.framebuffer()[0])
+    }
+
+    @Test
+    fun `restoring PPU state does not alias the snapshot`() {
+        val ppu = ppu()
+        val snapshot = ppu.captureState()
+
+        ppu.restoreState(snapshot)
+        repeat(100) { ppu.step() }
+
+        assertEquals(0, snapshot.ppuCycle)
+        assertEquals(340, snapshot.cycle)
     }
 
     @Test

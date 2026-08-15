@@ -30,11 +30,6 @@ class InesParserV1(
         val prgRamSize = decodePrgRamSize(bytes)
         val region = utils.regionFromFilename(romData.name) ?: decodeRegion(bytes)
         log.d { "Region: $region" }
-        if ((flags6 and 0x08) != 0) {
-            log.e { "Unsupported mirroring mode: four-screen mirroring" }
-            throw RomFormatException("Unsupported mirroring mode: four-screen mirroring")
-        }
-
         val mapper = (flags6 shr 4) or (flags7 and 0xF0)
         val prgRomSize = prgBanks.toLong() * InesParserUtils.PRG_BANK_SIZE
         val chrRomSize = chrBanks.toLong() * InesParserUtils.CHR_BANK_SIZE

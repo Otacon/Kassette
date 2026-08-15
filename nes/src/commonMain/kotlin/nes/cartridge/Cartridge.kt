@@ -2,7 +2,7 @@ package nes.cartridge
 
 import nes.ConsoleRegion
 
-enum class Mirroring { HORIZONTAL, VERTICAL, SINGLE_SCREEN_LOWER, SINGLE_SCREEN_UPPER }
+enum class Mirroring { HORIZONTAL, VERTICAL, SINGLE_SCREEN_LOWER, SINGLE_SCREEN_UPPER, FOUR_SCREEN }
 
 class RomFormatException(message: String) : IllegalArgumentException(message)
 

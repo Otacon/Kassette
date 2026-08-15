@@ -38,7 +38,8 @@ update all length counters and both pulse sweep units.
 
 Envelope restart loads decay 15 and the divider period on the next quarter-frame clock. Divider periods are inclusive;
 looping envelopes wrap decay from zero to 15. Constant-volume mode selects the register volume without stopping envelope
-state progression.
+state progression. Envelope wrapping observes the active loop/halt state, so a loop-bit write coincident with a
+quarter-frame clock takes effect only after that clock.
 
 Length loads and halt changes are pending until frame-counter processing for the following APU cycle completes. If a
 half-frame clock changes a counter on that cycle, its pending reload is suppressed.
@@ -61,7 +62,8 @@ ultrasonic suppression is not part of the base hardware contract.
 
 The 15-bit noise shift register starts at 1. Feedback is bit 0 XOR bit 1 in normal mode and bit 0 XOR bit 6 in short
 mode, inserted at bit 14 after shifting right. A set low bit mutes channel output. NTSC/Dendy and PAL use their respective
-hardware period tables, and writing `$400F` does not reset the shift register.
+hardware period tables. The timer countdown starts at zero, so reset is followed by an immediate first LFSR clock.
+Writing `$400F` does not reset the shift register.
 
 ## DMC Channel And DMA
 
@@ -70,8 +72,9 @@ hardware period tables, and writing `$400F` does not reset the shift register.
 `$4011` changes the DAC immediately.
 
 Enabling an inactive sample initializes its address and length immediately, then delays the first DMA request by two or
-three CPU cycles according to parity. Disabling similarly delays termination and cancels a transfer that has not passed
-its halt phase. DMA uses halt, dummy, and get phases and arbitrates with OAM DMA. PAL starts DMC DMA only on opcode-fetch
+three CPU cycles according to parity. Disabling similarly delays termination, cancels before halt without a stall, and
+can consume only the halt stall before aborting the remaining transfer. DMA uses halt, dummy, and get phases and
+arbitrates with OAM DMA. PAL starts DMC DMA only on opcode-fetch
 reads; NTSC and Dendy allow eligible CPU reads.
 
 The final fetched byte restarts a looping sample or raises DMC IRQ when enabled. Buffered data continues through the

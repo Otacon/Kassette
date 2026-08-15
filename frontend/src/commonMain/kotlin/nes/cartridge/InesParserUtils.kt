@@ -86,7 +86,10 @@ class InesParserUtils {
             log.d { "CHR: ${chrSize / 1024} KiB ROM" }
             bytes.copyOfRange(offset, offset + chrSize)
         }
-        val mirroring = if ((flags6 and 0x01) != 0) {
+        val mirroring = if ((flags6 and 0x08) != 0) {
+            log.d { "Mirroring: Four-screen" }
+            Mirroring.FOUR_SCREEN
+        } else if ((flags6 and 0x01) != 0) {
             log.d { "Mirroring: Vertical" }
             Mirroring.VERTICAL
         } else {

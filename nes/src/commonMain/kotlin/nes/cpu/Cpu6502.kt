@@ -589,7 +589,7 @@ class Cpu6502(
 
     /** Replaces the live CPU state with a previously captured snapshot. */
     fun restoreState(state: CpuState) {
-        this.state = state
+        this.state = state.copy()
     }
 
     /** Performs a power-on reset, clearing registers before reading the reset vector. */
@@ -602,7 +602,7 @@ class Cpu6502(
      */
     fun reset(softReset: Boolean) {
         // Resetting the bus also clears pending DMA work and restores its open-bus state.
-        bus.reset()
+        bus.reset(softReset)
         state.totalCycles = -1
         if (softReset) {
             // A reset behaves like an interrupt: reserve three stack bytes and mask IRQs.
@@ -1099,13 +1099,13 @@ class Cpu6502(
     /** Performs a real CPU write and advances the cycle counter by the bus-reported write cycle. */
     private fun write(address: Int, value: Int) {
         // CpuBus owns memory mapping and reports the write to all mapped devices.
-        bus.cpuWrite(address, value)
+        bus.cpuWrite(address, value, state.totalCycles)
         state.totalCycles++
     }
 
     /** Performs the write half of a read-modify-write bus sequence without changing its value. */
     private fun dummyWrite(address: Int, value: Int) {
-        bus.cpuWrite(address, value, dummy = true)
+        bus.cpuWrite(address, value, state.totalCycles, dummy = true)
         state.totalCycles++
     }
 

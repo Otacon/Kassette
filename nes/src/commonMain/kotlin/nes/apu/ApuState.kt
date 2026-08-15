@@ -88,7 +88,7 @@ data class TriangleState(
 data class NoiseState(
     var enabled: Boolean = false,
     var lengthCounter: Int = 0,
-    var values: IntArray = intArrayOf(0, 0, 0, 4, 3, 1, 0, 0),
+    var values: IntArray = intArrayOf(0, 0, 0, 4, 0, 1, 0, 0),
     var flags: BooleanArray = BooleanArray(6),
 ) {
     override fun equals(other: Any?): Boolean = other is NoiseState &&

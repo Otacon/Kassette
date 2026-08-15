@@ -11,6 +11,7 @@ import nes.apu.*
 import nes.cartridge.*
 import nes.cpu.CpuBusState
 import nes.cpu.CpuState
+import nes.input.NesControllerState
 import nes.ppu.PpuBusState
 import nes.ppu.PpuState
 
@@ -31,7 +32,7 @@ class SavestateCodec(
     }
 
     private companion object {
-        const val CURRENT_SAVESTATE_FORMAT = 4
+        const val CURRENT_SAVESTATE_FORMAT = 5
     }
 }
 
@@ -53,7 +54,7 @@ class SavestateStateMapper {
         cpuBus = dto.cpuBus.toState(),
         ppu = dto.ppu.toState(),
         ppuBus = dto.ppuBus.toState(),
-        apu = dto.apu.toState(),
+        apu = dto.apu.toState(dto.formatVersion),
         mapper = dto.mapper.toState(),
     )
 
@@ -70,11 +71,23 @@ class SavestateStateMapper {
         irqLine = irqLine, irqPending = irqPending, irqSample = irqSample, halted = halted,
     )
 
-    private fun CpuBusState.toDto() = CpuBusStateDto(ram, openBus, oamDmaPage)
-    private fun CpuBusStateDto.toState() = CpuBusState(ram, openBus, oamDmaPage)
+    private fun CpuBusState.toDto() = CpuBusStateDto(
+        ram, openBus, oamDmaPage, externalOpenBus, controller1.toDto(), controller2.toDto(),
+    )
+    private fun CpuBusStateDto.toState() = CpuBusState(
+        ram, openBus, oamDmaPage, externalOpenBus, controller1.toState(), controller2.toState(),
+    )
+    private fun NesControllerState.toDto() = NesControllerStateDto(
+        live, latched, index, strobe, buffered, pendingWriteValue, pendingWriteDelay,
+    )
+    private fun NesControllerStateDto.toState() = NesControllerState(
+        live, latched, index, strobe, buffered, pendingWriteValue, pendingWriteDelay,
+    )
 
     private fun PpuBusState.toDto() = PpuBusStateDto(nametables, paletteRam)
-    private fun PpuBusStateDto.toState() = PpuBusState(nametables, paletteRam)
+    private fun PpuBusStateDto.toState() = PpuBusState(
+        nametables.copyOf(maxOf(nametables.size, 4096)), paletteRam,
+    )
 
     private fun PpuState.toDto() = PpuStateDto(
         frameColorIds = frameColorIds.toList(),
@@ -167,12 +180,20 @@ class SavestateStateMapper {
         frameIrqFlag, frameIrqClearDelay,
     )
 
-    private fun ApuStateDto.toState() = ApuState(
-        pulse1.toState(), pulse2.toState(), triangle.toState(), noise.toState(), dmc.toState(),
+    private fun ApuStateDto.toState(formatVersion: Int): ApuState {
+        val restoredDmc = dmc.toState()
+        val restoredDma = if (formatVersion < 4 && restoredDmc.flags[6]) {
+            DmcDmaState(address = restoredDmc.values[5], phase = 1)
+        } else {
+            dmcDma.toState()
+        }
+        return ApuState(
+        pulse1.toState(), pulse2.toState(), triangle.toState(), noise.toState(), restoredDmc,
         frameCycle, frameEventIndex, frameMode, frameIrqInhibit, frameIrqPending, apuCycle, samplePhase, filters,
-        pendingFrameCounterValue, frameCounterWriteDelay, blockFrameCounterTicks, dmcDma.toState(),
+        pendingFrameCounterValue, frameCounterWriteDelay, blockFrameCounterTicks, restoredDma,
         frameIrqFlag, frameIrqClearDelay,
-    )
+        )
+    }
 
     private fun PulseState.toDto() = PulseStateDto(enabled, lengthCounter, values, flags)
     private fun PulseStateDto.toState(): PulseState {
@@ -239,7 +260,7 @@ class SavestateStateMapper {
 
 @Serializable
 data class SavestateDto(
-    val formatVersion: Int = 4,
+    val formatVersion: Int = 5,
     val machine: NesMachineStateDto,
     val cpu: CpuStateDto,
     val cpuBus: CpuBusStateDto,
@@ -251,7 +272,16 @@ data class SavestateDto(
 
 @Serializable data class NesMachineStateDto(val ppuMasterClockRemainder: Int, val previousNmiLine: Boolean, val cyclesUntilInputPoll: Int, val region: ConsoleRegion? = null)
 @Serializable data class CpuStateDto(val pc: Int, val a: Int, val x: Int, val y: Int, val sp: Int, val status: Int, val totalCycles: Long, val nmiPending: Boolean, val irqLine: Boolean, val irqPending: Boolean, val irqSample: Boolean, val halted: Boolean, val nmiSample: Boolean = false, val nmiDetected: Boolean = false)
-@Serializable data class CpuBusStateDto(val ram: ByteArray, val openBus: Int, val oamDmaPage: Int)
+@Serializable data class CpuBusStateDto(
+    val ram: ByteArray, val openBus: Int, val oamDmaPage: Int,
+    val externalOpenBus: Int = openBus,
+    val controller1: NesControllerStateDto = NesControllerStateDto(),
+    val controller2: NesControllerStateDto = NesControllerStateDto(),
+)
+@Serializable data class NesControllerStateDto(
+    val live: Int = 0, val latched: Int = 0, val index: Int = 0, val strobe: Boolean = false,
+    val buffered: Int = 0, val pendingWriteValue: Int = 0, val pendingWriteDelay: Int = 0,
+)
 @Serializable data class PpuBusStateDto(val nametables: ByteArray, val paletteRam: ByteArray)
 @Serializable data class PpuStateDto(
     val frameColorIds: List<ByteArray>, val renderFramebufferIndex: Int, val completedFramebufferIndex: Int, val oam: ByteArray,
