@@ -10,7 +10,11 @@ import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.system.Configuration
 
 fun main(args: Array<String>) {
-    Configuration.GLFW_LIBRARY_NAME.set("glfw_async")
+    // The macOS LWJGL bundle provides the async GLFW variant; Windows and Linux
+    // provide only the standard GLFW native library.
+    if (System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) {
+        Configuration.GLFW_LIBRARY_NAME.set("glfw_async")
+    }
     GLFWErrorCallback.createPrint(System.out).set()
     val cliArgs = CliArgsParser()
     cliArgs.main(args)
