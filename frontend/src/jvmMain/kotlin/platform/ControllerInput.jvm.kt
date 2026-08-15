@@ -10,6 +10,7 @@ import org.lwjgl.system.MemoryUtil
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import kotlin.time.Duration.Companion.seconds
 
 actual class ControllerInput actual constructor(
     private val controller: NesController,
@@ -26,6 +27,7 @@ actual class ControllerInput actual constructor(
 
     @Synchronized
     actual override fun init() {
+        Thread.sleep(2_000)
         for (i in 0..5) {
             log.i { "Trying to initialize gaming devices. Attempt $i / 5" }
             if (!glfwInit()) {
