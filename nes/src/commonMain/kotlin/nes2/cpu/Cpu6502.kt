@@ -65,6 +65,16 @@ class Cpu6502(
         instructions[0xBD] = Instruction(Operation.LDA, ABSOLUTE_X, 4)
         instructions[0xB9] = Instruction(Operation.LDA, ABSOLUTE_Y, 4)
 
+        // CMP
+        instructions[0xC9] = Instruction(Operation.CMP, IMMEDIATE, 2)
+        instructions[0xC5] = Instruction(Operation.CMP, ZERO_PAGE, 3)
+        instructions[0xD5] = Instruction(Operation.CMP, ZERO_PAGE_X, 4)
+        instructions[0xC1] = Instruction(Operation.CMP, INDIRECT_X, 6)
+        instructions[0xCD] = Instruction(Operation.CMP, ABSOLUTE, 4)
+        instructions[0xD1] = Instruction(Operation.CMP, INDIRECT_Y, 5)
+        instructions[0xDD] = Instruction(Operation.CMP, ABSOLUTE_X, 4)
+        instructions[0xD9] = Instruction(Operation.CMP, ABSOLUTE_Y, 4)
+
     }
 
     fun reset() {
@@ -106,10 +116,18 @@ class Cpu6502(
                 eor(operand)
                 instruction.baseCycles + pageCrossingPenalty
             }
+
             Operation.LDA -> {
                 val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
                 val operand = readOperand(instruction.addressingMode)
                 lda(operand)
+                instruction.baseCycles + pageCrossingPenalty
+            }
+
+            Operation.CMP -> {
+                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
+                val operand = readOperand(instruction.addressingMode)
+                cmp(operand)
                 instruction.baseCycles + pageCrossingPenalty
             }
         }
@@ -262,6 +280,13 @@ class Cpu6502(
         state.a = value.low8Bits()
         state.z = state.a == 0
         state.n = state.a.isNegative8Bit()
+    }
+
+    private fun cmp(value: Int) {
+        val result = (state.a - value).low8Bits()
+        state.c = state.a >= value
+        state.z = state.a == value
+        state.n = result.isNegative8Bit()
     }
 
     // endregion
