@@ -27,3 +27,5 @@ fun Int.low16Bits(): Int = this and 0xFFFF
  * Example: `(0x12FF).pageBase()` returns `0x1200`.
  */
 fun Int.pageBase(): Int = this and 0xFF00
+
+fun Int.isNegative8Bit(): Boolean = (this and 0x80) != 0

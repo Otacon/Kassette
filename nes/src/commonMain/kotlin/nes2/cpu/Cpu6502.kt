@@ -1,7 +1,9 @@
-package nes2
+package nes2.cpu
 
+import nes.util.isNegative8Bit
 import nes.util.low16Bits
 import nes.util.low8Bits
+import nes2.CpuBus
 
 class Cpu6502(
     private val bus: CpuBus,
@@ -70,10 +72,9 @@ class Cpu6502(
         val result = sum.low8Bits()
 
         state.c = sum > 0xFF
-        state.v = ((a xor result) and (value xor result) and 0x80) != 0
+        state.v = ((a xor result) and (value xor result)).isNegative8Bit()
         state.z = result == 0
         state.n = (result and 0x80) != 0
-
         state.a = result
     }
 
@@ -85,45 +86,3 @@ class Cpu6502(
 
 }
 
-data class CpuState(
-    // Program Counter
-    var pc: Int = 0,
-
-    var a: Int = 0,
-    var x: Int = 0,
-    var y: Int = 0,
-    var sp: Int = 0,
-
-    // Carry
-    var c: Boolean = false,
-    // Overflow
-    var v: Boolean = false,
-    // Zero
-    var z: Boolean = false,
-    // Negative
-    var n: Boolean = false,
-)
-
-enum class AddressingMode {
-    IMPLIED,
-    ACCUMULATOR,
-    IMMEDIATE,
-    ZERO_PAGE,
-    ZERO_PAGE_X,
-    ZERO_PAGE_Y,
-    RELATIVE,
-    ABSOLUTE,
-    ABSOLUTE_X,
-    ABSOLUTE_Y,
-    INDIRECT,
-    INDIRECT_X,
-    INDIRECT_Y
-}
-
-data class Instruction(
-    val operation: Operation,
-    val addressingMode: AddressingMode,
-    val baseCycles: Int
-)
-
-enum class Operation { ADC }

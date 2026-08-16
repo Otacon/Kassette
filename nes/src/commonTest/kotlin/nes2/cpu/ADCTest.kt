@@ -1,9 +1,10 @@
-package nes2
+package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes2.CpuBus
 
-class Cpu6502Test : FreeSpec({
+class ADCTest : FreeSpec({
 
     "ADC" - {
 
@@ -46,11 +47,11 @@ class Cpu6502Test : FreeSpec({
                     memory[0x8001] = case.value
                     val bus = CpuBus(memory = memory)
 
-                    val state = CpuState(
-                        pc = 0x8000,
-                        a = case.a,
-                        c = case.carryIn,
-                    )
+                    val state = CpuState().also {
+                        it.pc = 0x8000
+                        it.a = case.a
+                        it.c = case.carryIn
+                    }
 
                     val cpu = Cpu6502(
                         bus = bus,
