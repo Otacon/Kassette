@@ -27,4 +27,11 @@ enum class Operation(val pageCrossingPenalty: Boolean,) {
     CPX(pageCrossingPenalty = false),
     CPY(pageCrossingPenalty = false),
     BIT(pageCrossingPenalty = false),
+    CLC(pageCrossingPenalty = false),
+    SEC(pageCrossingPenalty = false),
+    CLI(pageCrossingPenalty = false),
+    SEI(pageCrossingPenalty = false),
+    CLV(pageCrossingPenalty = false),
+    CLD(pageCrossingPenalty = false),
+    SED(pageCrossingPenalty = false),
 }

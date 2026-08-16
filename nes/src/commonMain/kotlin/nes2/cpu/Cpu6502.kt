@@ -142,6 +142,14 @@ class Cpu6502(
         // BIT
         instructions[0x24] = Instruction(Operation.BIT, ZERO_PAGE, 3)
         instructions[0x2C] = Instruction(Operation.BIT, ABSOLUTE, 4)
+
+        instructions[0x18] = Instruction(Operation.CLC, IMPLIED, 2)
+        instructions[0x38] = Instruction(Operation.SEC, IMPLIED, 2)
+        instructions[0x58] = Instruction(Operation.CLI, IMPLIED, 2)
+        instructions[0x78] = Instruction(Operation.SEI, IMPLIED, 2)
+        instructions[0xB8] = Instruction(Operation.CLV, IMPLIED, 2)
+        instructions[0xD8] = Instruction(Operation.CLD, IMPLIED, 2)
+        instructions[0xF8] = Instruction(Operation.SED, IMPLIED, 2)
     }
 
     fun reset() {
@@ -273,6 +281,30 @@ class Cpu6502(
             Operation.BIT -> {
                 val operand = readOperand(instruction.addressingMode)
                 bit(operand)
+            }
+            Operation.CLC -> {
+                clc()
+            }
+            Operation.SEC -> {
+                sec()
+            }
+
+            Operation.CLI -> {
+                cli()
+            }
+            Operation.SEI -> {
+                sei()
+            }
+
+            Operation.CLV -> {
+                clv()
+            }
+
+            Operation.CLD -> {
+                cld()
+            }
+            Operation.SED -> {
+                sed()
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -556,6 +588,34 @@ class Cpu6502(
         state.z = (state.a and value).low8Bits() == 0
         state.v = (value and 0x40) != 0
         state.n = value.isNegative8Bit()
+    }
+
+    private fun clc() {
+        state.c = false
+    }
+
+    private fun sec() {
+        state.c = true
+    }
+
+    private fun cli() {
+        state.i = false
+    }
+
+    private fun sei() {
+        state.i = true
+    }
+
+    private fun clv() {
+        state.v = false
+    }
+
+    private fun cld() {
+        state.d = false
+    }
+
+    private fun sed() {
+        state.d = true
     }
 
     // endregion
