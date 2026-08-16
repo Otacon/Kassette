@@ -99,6 +99,15 @@ class Cpu6502(
         instructions[0xAC] = Instruction(Operation.LDY, ABSOLUTE, 4)
         instructions[0xBC] = Instruction(Operation.LDY, ABSOLUTE_X, 4)
 
+        // STA
+        instructions[0x85] = Instruction(Operation.STA, ZERO_PAGE, 3)
+        instructions[0x95] = Instruction(Operation.STA, ZERO_PAGE_X, 4)
+        instructions[0x8D] = Instruction(Operation.STA, ABSOLUTE, 4)
+        instructions[0x9D] = Instruction(Operation.STA, ABSOLUTE_X, 5)
+        instructions[0x99] = Instruction(Operation.STA, ABSOLUTE_Y, 5)
+        instructions[0x81] = Instruction(Operation.STA, INDIRECT_X, 6)
+        instructions[0x91] = Instruction(Operation.STA, INDIRECT_Y, 6)
+
     }
 
     fun reset() {
@@ -112,19 +121,49 @@ class Cpu6502(
     }
 
     private fun execute(instruction: Instruction): Int {
-        val pageCrossingPenalty = instruction.operation.supportsPageCrossingPenalty
+        val pageCrossingPenalty = instruction.operation.pageCrossingPenalty
         val cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
-        val operand = readOperand(instruction.addressingMode)
         when (instruction.operation) {
-            Operation.ADC -> adc(operand)
-            Operation.AND -> and(operand)
-            Operation.ORA -> ora(operand)
-            Operation.EOR -> eor(operand)
-            Operation.LDA -> lda(operand)
-            Operation.CMP -> cmp(operand)
-            Operation.SBC -> sbc(operand)
-            Operation.LDX -> ldx(operand)
-            Operation.LDY -> ldy(operand)
+            Operation.ADC -> {
+                val operand = readOperand(instruction.addressingMode)
+                adc(operand)
+            }
+            Operation.AND -> {
+                val operand = readOperand(instruction.addressingMode)
+                and(operand)
+            }
+            Operation.ORA -> {
+                val operand = readOperand(instruction.addressingMode)
+                ora(operand)
+            }
+            Operation.EOR -> {
+                val operand = readOperand(instruction.addressingMode)
+                eor(operand)
+            }
+            Operation.LDA -> {
+                val operand = readOperand(instruction.addressingMode)
+                lda(operand)
+            }
+            Operation.CMP -> {
+                val operand = readOperand(instruction.addressingMode)
+                cmp(operand)
+            }
+            Operation.SBC -> {
+                val operand = readOperand(instruction.addressingMode)
+                sbc(operand)
+            }
+            Operation.LDX -> {
+                val operand = readOperand(instruction.addressingMode)
+                ldx(operand)
+            }
+            Operation.LDY -> {
+                val operand = readOperand(instruction.addressingMode)
+                ldy(operand)
+            }
+            Operation.STA -> {
+                val address = resolveAddress(instruction.addressingMode)
+                sta(address)
+            }
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -132,49 +171,57 @@ class Cpu6502(
     // region Addressing modes
     private fun readOperand(mode: AddressingMode): Int {
         return when (mode) {
-            IMMEDIATE -> {
+            IMMEDIATE -> pcRead()
+            else -> bus.read(resolveAddress(mode))
+        }
+    }
+
+    private fun resolveAddress(mode: AddressingMode): Int {
+        return when (mode) {
+            ZERO_PAGE -> {
                 pcRead()
             }
 
-            ZERO_PAGE -> {
-                val address = pcRead()
-                bus.read(address)
+            ZERO_PAGE_X -> {
+                (pcRead() + state.x).low8Bits()
             }
 
-            ZERO_PAGE_X -> {
-                val address = (pcRead() + state.x).low8Bits()
-                bus.read(address)
+            ZERO_PAGE_Y -> {
+                (pcRead() + state.y).low8Bits()
             }
 
             ABSOLUTE -> {
                 val lo = pcRead()
                 val hi = pcRead()
-                val address = lo or (hi shl 8)
-                bus.read(address)
+
+                lo or (hi shl 8)
             }
 
             ABSOLUTE_X -> {
                 val lo = pcRead()
                 val hi = pcRead()
+
                 val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.x).low16Bits()
-                bus.read(address)
+
+                (baseAddress + state.x).low16Bits()
             }
 
             ABSOLUTE_Y -> {
                 val lo = pcRead()
                 val hi = pcRead()
+
                 val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.y).low16Bits()
-                bus.read(address)
+
+                (baseAddress + state.y).low16Bits()
             }
 
             INDIRECT_X -> {
                 val pointer = (pcRead() + state.x).low8Bits()
+
                 val lo = bus.read(pointer)
                 val hi = bus.read((pointer + 1).low8Bits())
-                val address = lo or (hi shl 8)
-                bus.read(address)
+
+                lo or (hi shl 8)
             }
 
             INDIRECT_Y -> {
@@ -184,20 +231,17 @@ class Cpu6502(
                 val hi = bus.read((pointer + 1).low8Bits())
 
                 val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.y).low16Bits()
 
-                bus.read(address)
+                (baseAddress + state.y).low16Bits()
             }
 
-            IMPLIED -> TODO()
-            ACCUMULATOR -> TODO()
-            ZERO_PAGE_Y -> {
-                val address = (pcRead() + state.y).low8Bits()
-                bus.read(address)
-            }
-
-            RELATIVE -> TODO()
-            INDIRECT -> TODO()
+            IMMEDIATE,
+            IMPLIED,
+            ACCUMULATOR,
+            RELATIVE,
+            INDIRECT -> throw IllegalArgumentException(
+                "Addressing mode $mode cannot resolve a data address"
+            )
         }
     }
 
@@ -310,6 +354,10 @@ class Cpu6502(
         state.y = value.low8Bits()
         state.z = state.y == 0
         state.n = state.y.isNegative8Bit()
+    }
+
+    private fun sta(address: Int) {
+        bus.write(address, state.a)
     }
 
     // endregion

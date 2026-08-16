@@ -1,13 +1,15 @@
 package nes2.cpu
 
-enum class Operation(val supportsPageCrossingPenalty: Boolean,) {
-    ADC(supportsPageCrossingPenalty = true),
-    AND(supportsPageCrossingPenalty = true),
-    ORA(supportsPageCrossingPenalty = true),
-    EOR(supportsPageCrossingPenalty = true),
-    LDA(supportsPageCrossingPenalty = true),
-    CMP(supportsPageCrossingPenalty = true),
-    SBC(supportsPageCrossingPenalty = true),
-    LDX(supportsPageCrossingPenalty = true),
-    LDY(supportsPageCrossingPenalty = true),
+enum class Operation(val pageCrossingPenalty: Boolean,) {
+    ADC(pageCrossingPenalty = true),
+    AND(pageCrossingPenalty = true),
+    ORA(pageCrossingPenalty = true),
+    EOR(pageCrossingPenalty = true),
+    LDA(pageCrossingPenalty = true),
+    CMP(pageCrossingPenalty = true),
+    SBC(pageCrossingPenalty = true),
+    LDX(pageCrossingPenalty = true),
+    LDY(pageCrossingPenalty = true),
+
+    STA(pageCrossingPenalty = false),
 }
