@@ -203,6 +203,10 @@ class Cpu6502(
 
         instructions[0x50] = Instruction(Operation.BVC, RELATIVE, 2)
         instructions[0x70] = Instruction(Operation.BVS, RELATIVE, 2)
+
+        // JMP
+        instructions[0x4C] = Instruction(Operation.JMP, ABSOLUTE, 3)
+        instructions[0x6C] = Instruction(Operation.JMP, INDIRECT, 5)
     }
 
     fun reset() {
@@ -420,6 +424,10 @@ class Cpu6502(
 
             Operation.BVS -> {
                 cyclesPenalty += branch(state.v)
+            }
+
+            Operation.JMP -> {
+                jmp(instruction.addressingMode)
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -848,6 +856,42 @@ class Cpu6502(
         state.pc = newPc
 
         return if (oldPc.pageBase() != newPc.pageBase()) 2 else 1
+    }
+
+    private fun jmp(mode: AddressingMode) {
+        state.pc = when (mode) {
+            ABSOLUTE -> {
+                val lo = pcRead()
+                val hi = pcRead()
+
+                lo or (hi shl 8)
+            }
+
+            INDIRECT -> {
+                val lo = pcRead()
+                val hi = pcRead()
+                val pointer = lo or (hi shl 8)
+
+                val targetLo = bus.read(pointer)
+
+                val targetHiAddress =
+                    if ((pointer and 0x00FF) == 0x00FF) {
+                        // 6502 hardware bug:
+                        // $12FF reads high byte from $1200, not $1300.
+                        pointer and 0xFF00
+                    } else {
+                        (pointer + 1).low16Bits()
+                    }
+
+                val targetHi = bus.read(targetHiAddress)
+
+                targetLo or (targetHi shl 8)
+            }
+
+            else -> throw IllegalArgumentException(
+                "Unsupported JMP addressing mode: $mode"
+            )
+        }
     }
 
     // endregion
