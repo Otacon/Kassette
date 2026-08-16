@@ -113,6 +113,11 @@ class Cpu6502(
         instructions[0x96] = Instruction(Operation.STX, ZERO_PAGE_Y, 4)
         instructions[0x8E] = Instruction(Operation.STX, ABSOLUTE, 4)
 
+        // STY
+        instructions[0x84] = Instruction(Operation.STY, ZERO_PAGE, 3)
+        instructions[0x94] = Instruction(Operation.STY, ZERO_PAGE_X, 4)
+        instructions[0x8C] = Instruction(Operation.STY, ABSOLUTE, 4)
+
     }
 
     fun reset() {
@@ -125,6 +130,8 @@ class Cpu6502(
         return execute(instruction)
     }
 
+    // If performance is needed, use a plain INT and do all you need to do plainly without relying on
+    // data representation. It's ugly AF, but it is more performant.
     private fun execute(instruction: Instruction): Int {
         val pageCrossingPenalty = instruction.operation.pageCrossingPenalty
         val cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
@@ -133,45 +140,60 @@ class Cpu6502(
                 val operand = readOperand(instruction.addressingMode)
                 adc(operand)
             }
+
             Operation.AND -> {
                 val operand = readOperand(instruction.addressingMode)
                 and(operand)
             }
+
             Operation.ORA -> {
                 val operand = readOperand(instruction.addressingMode)
                 ora(operand)
             }
+
             Operation.EOR -> {
                 val operand = readOperand(instruction.addressingMode)
                 eor(operand)
             }
+
             Operation.LDA -> {
                 val operand = readOperand(instruction.addressingMode)
                 lda(operand)
             }
+
             Operation.CMP -> {
                 val operand = readOperand(instruction.addressingMode)
                 cmp(operand)
             }
+
             Operation.SBC -> {
                 val operand = readOperand(instruction.addressingMode)
                 sbc(operand)
             }
+
             Operation.LDX -> {
                 val operand = readOperand(instruction.addressingMode)
                 ldx(operand)
             }
+
             Operation.LDY -> {
                 val operand = readOperand(instruction.addressingMode)
                 ldy(operand)
             }
+
             Operation.STA -> {
                 val address = resolveAddress(instruction.addressingMode)
                 sta(address)
             }
+
             Operation.STX -> {
                 val address = resolveAddress(instruction.addressingMode)
                 stx(address)
+            }
+
+            Operation.STY -> {
+                val address = resolveAddress(instruction.addressingMode)
+                sty(address)
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -371,6 +393,10 @@ class Cpu6502(
 
     private fun stx(address: Int) {
         bus.write(address, state.x)
+    }
+
+    private fun sty(address: Int) {
+        bus.write(address, state.y)
     }
 
     // endregion
