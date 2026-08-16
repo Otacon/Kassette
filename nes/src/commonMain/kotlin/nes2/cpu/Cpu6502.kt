@@ -108,6 +108,11 @@ class Cpu6502(
         instructions[0x81] = Instruction(Operation.STA, INDIRECT_X, 6)
         instructions[0x91] = Instruction(Operation.STA, INDIRECT_Y, 6)
 
+        // STX
+        instructions[0x86] = Instruction(Operation.STX, ZERO_PAGE, 3)
+        instructions[0x96] = Instruction(Operation.STX, ZERO_PAGE_Y, 4)
+        instructions[0x8E] = Instruction(Operation.STX, ABSOLUTE, 4)
+
     }
 
     fun reset() {
@@ -163,6 +168,10 @@ class Cpu6502(
             Operation.STA -> {
                 val address = resolveAddress(instruction.addressingMode)
                 sta(address)
+            }
+            Operation.STX -> {
+                val address = resolveAddress(instruction.addressingMode)
+                stx(address)
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -358,6 +367,10 @@ class Cpu6502(
 
     private fun sta(address: Int) {
         bus.write(address, state.a)
+    }
+
+    private fun stx(address: Int) {
+        bus.write(address, state.x)
     }
 
     // endregion
