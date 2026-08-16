@@ -150,6 +150,18 @@ class Cpu6502(
         instructions[0xB8] = Instruction(Operation.CLV, IMPLIED, 2)
         instructions[0xD8] = Instruction(Operation.CLD, IMPLIED, 2)
         instructions[0xF8] = Instruction(Operation.SED, IMPLIED, 2)
+
+        // INC
+        instructions[0xE6] = Instruction(Operation.INC, ZERO_PAGE, 5)
+        instructions[0xF6] = Instruction(Operation.INC, ZERO_PAGE_X, 6)
+        instructions[0xEE] = Instruction(Operation.INC, ABSOLUTE, 6)
+        instructions[0xFE] = Instruction(Operation.INC, ABSOLUTE_X, 7)
+
+        // DEC
+        instructions[0xC6] = Instruction(Operation.DEC, ZERO_PAGE, 5)
+        instructions[0xD6] = Instruction(Operation.DEC, ZERO_PAGE_X, 6)
+        instructions[0xCE] = Instruction(Operation.DEC, ABSOLUTE, 6)
+        instructions[0xDE] = Instruction(Operation.DEC, ABSOLUTE_X, 7)
     }
 
     fun reset() {
@@ -282,9 +294,11 @@ class Cpu6502(
                 val operand = readOperand(instruction.addressingMode)
                 bit(operand)
             }
+
             Operation.CLC -> {
                 clc()
             }
+
             Operation.SEC -> {
                 sec()
             }
@@ -292,6 +306,7 @@ class Cpu6502(
             Operation.CLI -> {
                 cli()
             }
+
             Operation.SEI -> {
                 sei()
             }
@@ -303,8 +318,18 @@ class Cpu6502(
             Operation.CLD -> {
                 cld()
             }
+
             Operation.SED -> {
                 sed()
+            }
+
+            Operation.INC -> {
+                val address = resolveAddress(instruction.addressingMode)
+                inc(address)
+            }
+            Operation.DEC -> {
+                val address = resolveAddress(instruction.addressingMode)
+                dec(address)
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -616,6 +641,24 @@ class Cpu6502(
 
     private fun sed() {
         state.d = true
+    }
+
+    private fun inc(address: Int) {
+        val result = (bus.read(address) + 1).low8Bits()
+
+        bus.write(address, result)
+
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+    }
+
+    private fun dec(address: Int) {
+        val result = (bus.read(address) - 1).low8Bits()
+
+        bus.write(address, result)
+
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
     }
 
     // endregion
