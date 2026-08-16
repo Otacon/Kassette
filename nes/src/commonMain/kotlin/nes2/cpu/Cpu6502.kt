@@ -123,6 +123,7 @@ class Cpu6502(
         instructions[0x8A] = Instruction(Operation.TXA, IMPLIED, 2)
         instructions[0x98] = Instruction(Operation.TYA, IMPLIED, 2)
         instructions[0xBA] = Instruction(Operation.TSX, IMPLIED, 2)
+        instructions[0x9A] = Instruction(Operation.TXS, IMPLIED, 2)
 
     }
 
@@ -220,6 +221,10 @@ class Cpu6502(
 
             Operation.TSX -> {
                 tsx()
+            }
+
+            Operation.TXS -> {
+                txs()
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -453,6 +458,10 @@ class Cpu6502(
         state.x = state.sp.low8Bits()
         state.z = state.x == 0
         state.n = state.x.isNegative8Bit()
+    }
+
+    private fun txs() {
+        state.sp = state.x.low8Bits()
     }
 
     // endregion
