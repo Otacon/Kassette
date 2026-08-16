@@ -98,56 +98,19 @@ class Cpu6502(
     }
 
     private fun execute(instruction: Instruction): Int {
-        return when (instruction.operation) {
-            Operation.ADC -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                adc(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
-
-            Operation.AND -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                and(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
-
-            Operation.ORA -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                ora(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
-
-            Operation.EOR -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                eor(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
-
-            Operation.LDA -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                lda(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
-
-            Operation.CMP -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                cmp(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
-
-            Operation.SBC -> {
-                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
-                val operand = readOperand(instruction.addressingMode)
-                sbc(operand)
-                instruction.baseCycles + pageCrossingPenalty
-            }
+        val pageCrossingPenalty = instruction.operation.supportsPageCrossingPenalty
+        val cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
+        val operand = readOperand(instruction.addressingMode)
+        when (instruction.operation) {
+            Operation.ADC -> adc(operand)
+            Operation.AND -> and(operand)
+            Operation.ORA -> ora(operand)
+            Operation.EOR -> eor(operand)
+            Operation.LDA -> lda(operand)
+            Operation.CMP -> cmp(operand)
+            Operation.SBC -> sbc(operand)
         }
+        return instruction.baseCycles + cyclesPenalty
     }
 
     // region Addressing modes
