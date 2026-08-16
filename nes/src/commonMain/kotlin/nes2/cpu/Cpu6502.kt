@@ -38,7 +38,7 @@ class Cpu6502(
             Operation.ADC -> when (instruction.addressingMode) {
                 AddressingMode.IMMEDIATE -> adcImmediate()
                 AddressingMode.ZERO_PAGE -> adcZeroPage()
-                AddressingMode.ZERO_PAGE_X -> TODO()
+                AddressingMode.ZERO_PAGE_X -> adcZeroPageX()
 
 
                 AddressingMode.ABSOLUTE -> TODO()
@@ -84,6 +84,12 @@ class Cpu6502(
         adc(value)
     }
 
+    private fun adcZeroPageX() {
+        val address = pcRead()
+        val effectiveAddress = (address + state.x).low8Bits()
+        val value = bus.read(effectiveAddress)
+        adc(value)
+    }
 
     private fun pcRead(): Int {
         val value = bus.read(state.pc)
