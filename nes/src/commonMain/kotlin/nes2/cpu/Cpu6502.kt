@@ -162,6 +162,34 @@ class Cpu6502(
         instructions[0xD6] = Instruction(Operation.DEC, ZERO_PAGE_X, 6)
         instructions[0xCE] = Instruction(Operation.DEC, ABSOLUTE, 6)
         instructions[0xDE] = Instruction(Operation.DEC, ABSOLUTE_X, 7)
+
+        // ASL
+        instructions[0x0A] = Instruction(Operation.ASL, ACCUMULATOR, 2)
+        instructions[0x06] = Instruction(Operation.ASL, ZERO_PAGE, 5)
+        instructions[0x16] = Instruction(Operation.ASL, ZERO_PAGE_X, 6)
+        instructions[0x0E] = Instruction(Operation.ASL, ABSOLUTE, 6)
+        instructions[0x1E] = Instruction(Operation.ASL, ABSOLUTE_X, 7)
+
+        // LSR
+        instructions[0x4A] = Instruction(Operation.LSR, ACCUMULATOR, 2)
+        instructions[0x46] = Instruction(Operation.LSR, ZERO_PAGE, 5)
+        instructions[0x56] = Instruction(Operation.LSR, ZERO_PAGE_X, 6)
+        instructions[0x4E] = Instruction(Operation.LSR, ABSOLUTE, 6)
+        instructions[0x5E] = Instruction(Operation.LSR, ABSOLUTE_X, 7)
+
+        // ROL
+        instructions[0x2A] = Instruction(Operation.ROL, ACCUMULATOR, 2)
+        instructions[0x26] = Instruction(Operation.ROL, ZERO_PAGE, 5)
+        instructions[0x36] = Instruction(Operation.ROL, ZERO_PAGE_X, 6)
+        instructions[0x2E] = Instruction(Operation.ROL, ABSOLUTE, 6)
+        instructions[0x3E] = Instruction(Operation.ROL, ABSOLUTE_X, 7)
+
+        // ROR
+        instructions[0x6A] = Instruction(Operation.ROR, ACCUMULATOR, 2)
+        instructions[0x66] = Instruction(Operation.ROR, ZERO_PAGE, 5)
+        instructions[0x76] = Instruction(Operation.ROR, ZERO_PAGE_X, 6)
+        instructions[0x6E] = Instruction(Operation.ROR, ABSOLUTE, 6)
+        instructions[0x7E] = Instruction(Operation.ROR, ABSOLUTE_X, 7)
     }
 
     fun reset() {
@@ -327,10 +355,16 @@ class Cpu6502(
                 val address = resolveAddress(instruction.addressingMode)
                 inc(address)
             }
+
             Operation.DEC -> {
                 val address = resolveAddress(instruction.addressingMode)
                 dec(address)
             }
+
+            Operation.ASL -> asl(instruction.addressingMode)
+            Operation.LSR -> lsr(instruction.addressingMode)
+            Operation.ROL -> rol(instruction.addressingMode)
+            Operation.ROR -> ror(instruction.addressingMode)
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -659,6 +693,90 @@ class Cpu6502(
 
         state.z = result == 0
         state.n = result.isNegative8Bit()
+    }
+
+    private fun asl(mode: AddressingMode) {
+        if (mode == ACCUMULATOR) {
+            state.a = aslValue(state.a)
+        } else {
+            val address = resolveAddress(mode)
+            bus.write(address, aslValue(bus.read(address)))
+        }
+    }
+
+    private fun aslValue(value: Int): Int {
+        state.c = value.isNegative8Bit()
+
+        val result = (value shl 1).low8Bits()
+
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+
+        return result
+    }
+
+    private fun lsr(mode: AddressingMode) {
+        if (mode == ACCUMULATOR) {
+            state.a = lsrValue(state.a)
+        } else {
+            val address = resolveAddress(mode)
+            bus.write(address, lsrValue(bus.read(address)))
+        }
+    }
+
+    private fun lsrValue(value: Int): Int {
+        state.c = (value and 0x01) != 0
+
+        val result = value ushr 1
+
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+
+        return result
+    }
+
+    private fun rol(mode: AddressingMode) {
+        if (mode == ACCUMULATOR) {
+            state.a = rolValue(state.a)
+        } else {
+            val address = resolveAddress(mode)
+            bus.write(address, rolValue(bus.read(address)))
+        }
+    }
+
+    private fun rolValue(value: Int): Int {
+        val carryIn = if (state.c) 1 else 0
+        val carryOut = value.isNegative8Bit()
+
+        val result = ((value shl 1) or carryIn).low8Bits()
+
+        state.c = carryOut
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+
+        return result
+    }
+
+    private fun ror(mode: AddressingMode) {
+        if (mode == ACCUMULATOR) {
+            state.a = rorValue(state.a)
+        } else {
+            val address = resolveAddress(mode)
+            bus.write(address, rorValue(bus.read(address)))
+        }
+    }
+
+    private fun rorValue(value: Int): Int {
+        val carryIn = if (state.c) 0x80 else 0
+        val carryOut = (value and 0x01) != 0
+
+        val result = ((value ushr 1) or carryIn).low8Bits()
+
+        state.c = carryOut
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+
+        return result
     }
 
     // endregion

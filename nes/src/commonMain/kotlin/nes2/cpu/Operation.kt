@@ -36,4 +36,8 @@ enum class Operation(val pageCrossingPenalty: Boolean,) {
     SED(pageCrossingPenalty = false),
     INC(pageCrossingPenalty = false),
     DEC(pageCrossingPenalty = false),
+    ASL(pageCrossingPenalty = false),
+    LSR(pageCrossingPenalty = false),
+    ROL(pageCrossingPenalty = false),
+    ROR(pageCrossingPenalty = false),
 }
