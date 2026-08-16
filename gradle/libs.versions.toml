@@ -5,6 +5,8 @@ clikt = "5.1.0"
 compose = "1.11.1"
 conveyor = "2.0"
 kermit = "2.1.0"
+ksp = "2.3.11"
+kotest = "6.2.4"
 kotlinxBrowser = "0.5.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerializationJson = "1.11.0"
@@ -28,6 +30,11 @@ lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjglOpenal = { module = "org.lwjgl:lwjgl-openal", version.ref = "lwjgl" }
 lwjglGlfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 
+kotest = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotestAssertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotestFrameworkEngine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+kotestRunnerJunit = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+
 kotlinxBrowser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 
 kotlinxCoroutinesCore = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
@@ -46,6 +53,8 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
 conveyor = { id = "dev.hydraulic.conveyor", version.ref = "conveyor" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotest = { id = "io.kotest", version.ref = "kotest" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }

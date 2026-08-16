@@ -1,7 +1,9 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
+    alias(libs.plugins.kotest)
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.metro)
 }
 
@@ -14,7 +16,7 @@ kotlin {
         browser()
     }
     jvmToolchain(jvmToolchainVersion)
-    
+
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kermit)
@@ -22,6 +24,16 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)
+            implementation(libs.kotest)
+            implementation(libs.kotestAssertions)
+            implementation(libs.kotestFrameworkEngine)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotestRunnerJunit)
         }
     }
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
