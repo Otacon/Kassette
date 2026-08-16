@@ -26,4 +26,5 @@ enum class Operation(val pageCrossingPenalty: Boolean,) {
     DEY(pageCrossingPenalty = false),
     CPX(pageCrossingPenalty = false),
     CPY(pageCrossingPenalty = false),
+    BIT(pageCrossingPenalty = false),
 }
