@@ -124,7 +124,10 @@ class Cpu6502(
         instructions[0x98] = Instruction(Operation.TYA, IMPLIED, 2)
         instructions[0xBA] = Instruction(Operation.TSX, IMPLIED, 2)
         instructions[0x9A] = Instruction(Operation.TXS, IMPLIED, 2)
-
+        instructions[0xE8] = Instruction(Operation.INX, IMPLIED, 2)
+        instructions[0xC8] = Instruction(Operation.INY, IMPLIED, 2)
+        instructions[0xCA] = Instruction(Operation.DEX, IMPLIED, 2)
+        instructions[0x88] = Instruction(Operation.DEY, IMPLIED, 2)
     }
 
     fun reset() {
@@ -225,6 +228,19 @@ class Cpu6502(
 
             Operation.TXS -> {
                 txs()
+            }
+
+            Operation.INX -> {
+                inx()
+            }
+            Operation.INY -> {
+                iny()
+            }
+            Operation.DEX -> {
+                dex()
+            }
+            Operation.DEY -> {
+                dey()
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -462,6 +478,30 @@ class Cpu6502(
 
     private fun txs() {
         state.sp = state.x.low8Bits()
+    }
+
+    private fun inx() {
+        state.x = (state.x + 1).low8Bits()
+        state.z = state.x == 0
+        state.n = state.x.isNegative8Bit()
+    }
+
+    private fun iny() {
+        state.y = (state.y + 1).low8Bits()
+        state.z = state.y == 0
+        state.n = state.y.isNegative8Bit()
+    }
+
+    private fun dex() {
+        state.x = (state.x - 1).low8Bits()
+        state.z = state.x == 0
+        state.n = state.x.isNegative8Bit()
+    }
+
+    private fun dey() {
+        state.y = (state.y - 1).low8Bits()
+        state.z = state.y == 0
+        state.n = state.y.isNegative8Bit()
     }
 
     // endregion

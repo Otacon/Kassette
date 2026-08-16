@@ -20,4 +20,8 @@ enum class Operation(val pageCrossingPenalty: Boolean,) {
     TYA(pageCrossingPenalty = false),
     TSX(pageCrossingPenalty = false),
     TXS(pageCrossingPenalty = false),
+    INX(pageCrossingPenalty = false),
+    INY(pageCrossingPenalty = false),
+    DEX(pageCrossingPenalty = false),
+    DEY(pageCrossingPenalty = false),
 }
