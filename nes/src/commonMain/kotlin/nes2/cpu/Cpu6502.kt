@@ -5,229 +5,228 @@ import nes.util.low16Bits
 import nes.util.low8Bits
 import nes.util.pageBase
 import nes2.CpuBus
-import nes2.cpu.AddressingMode.*
 
 class Cpu6502(
     private val bus: CpuBus,
     private var state: CpuState = CpuState(),
 ) {
 
-    private val instructions = arrayOfNulls<Instruction>(256)
+    private val instructions = Array(256) { Instruction(Operation.NOP, AddressingMode.IMPLIED, 2) }
 
     init {
         // ADC
-        instructions[0x69] = Instruction(Operation.ADC, IMMEDIATE, 2)
-        instructions[0x65] = Instruction(Operation.ADC, ZERO_PAGE, 3)
-        instructions[0x75] = Instruction(Operation.ADC, ZERO_PAGE_X, 4)
-        instructions[0x61] = Instruction(Operation.ADC, INDIRECT_X, 6)
-        instructions[0x6D] = Instruction(Operation.ADC, ABSOLUTE, 4)
-        instructions[0x71] = Instruction(Operation.ADC, INDIRECT_Y, 5)
-        instructions[0x7D] = Instruction(Operation.ADC, ABSOLUTE_X, 4)
-        instructions[0x79] = Instruction(Operation.ADC, ABSOLUTE_Y, 4)
+        instructions[0x69] = Instruction(Operation.ADC, AddressingMode.IMMEDIATE, 2)
+        instructions[0x65] = Instruction(Operation.ADC, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x75] = Instruction(Operation.ADC, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0x61] = Instruction(Operation.ADC, AddressingMode.INDIRECT_X, 6)
+        instructions[0x6D] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE, 4)
+        instructions[0x71] = Instruction(Operation.ADC, AddressingMode.INDIRECT_Y, 5)
+        instructions[0x7D] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0x79] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE_Y, 4)
 
         // AND
-        instructions[0x29] = Instruction(Operation.AND, IMMEDIATE, 2)
-        instructions[0x25] = Instruction(Operation.AND, ZERO_PAGE, 3)
-        instructions[0x35] = Instruction(Operation.AND, ZERO_PAGE_X, 4)
-        instructions[0x21] = Instruction(Operation.AND, INDIRECT_X, 6)
-        instructions[0x2D] = Instruction(Operation.AND, ABSOLUTE, 4)
-        instructions[0x31] = Instruction(Operation.AND, INDIRECT_Y, 5)
-        instructions[0x3D] = Instruction(Operation.AND, ABSOLUTE_X, 4)
-        instructions[0x39] = Instruction(Operation.AND, ABSOLUTE_Y, 4)
+        instructions[0x29] = Instruction(Operation.AND, AddressingMode.IMMEDIATE, 2)
+        instructions[0x25] = Instruction(Operation.AND, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x35] = Instruction(Operation.AND, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0x21] = Instruction(Operation.AND, AddressingMode.INDIRECT_X, 6)
+        instructions[0x2D] = Instruction(Operation.AND, AddressingMode.ABSOLUTE, 4)
+        instructions[0x31] = Instruction(Operation.AND, AddressingMode.INDIRECT_Y, 5)
+        instructions[0x3D] = Instruction(Operation.AND, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0x39] = Instruction(Operation.AND, AddressingMode.ABSOLUTE_Y, 4)
 
         // ORA
-        instructions[0x09] = Instruction(Operation.ORA, IMMEDIATE, 2)
-        instructions[0x05] = Instruction(Operation.ORA, ZERO_PAGE, 3)
-        instructions[0x15] = Instruction(Operation.ORA, ZERO_PAGE_X, 4)
-        instructions[0x01] = Instruction(Operation.ORA, INDIRECT_X, 6)
-        instructions[0x0D] = Instruction(Operation.ORA, ABSOLUTE, 4)
-        instructions[0x11] = Instruction(Operation.ORA, INDIRECT_Y, 5)
-        instructions[0x1D] = Instruction(Operation.ORA, ABSOLUTE_X, 4)
-        instructions[0x19] = Instruction(Operation.ORA, ABSOLUTE_Y, 4)
+        instructions[0x09] = Instruction(Operation.ORA, AddressingMode.IMMEDIATE, 2)
+        instructions[0x05] = Instruction(Operation.ORA, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x15] = Instruction(Operation.ORA, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0x01] = Instruction(Operation.ORA, AddressingMode.INDIRECT_X, 6)
+        instructions[0x0D] = Instruction(Operation.ORA, AddressingMode.ABSOLUTE, 4)
+        instructions[0x11] = Instruction(Operation.ORA, AddressingMode.INDIRECT_Y, 5)
+        instructions[0x1D] = Instruction(Operation.ORA, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0x19] = Instruction(Operation.ORA, AddressingMode.ABSOLUTE_Y, 4)
 
         // EOR
-        instructions[0x49] = Instruction(Operation.EOR, IMMEDIATE, 2)
-        instructions[0x45] = Instruction(Operation.EOR, ZERO_PAGE, 3)
-        instructions[0x55] = Instruction(Operation.EOR, ZERO_PAGE_X, 4)
-        instructions[0x41] = Instruction(Operation.EOR, INDIRECT_X, 6)
-        instructions[0x4D] = Instruction(Operation.EOR, ABSOLUTE, 4)
-        instructions[0x51] = Instruction(Operation.EOR, INDIRECT_Y, 5)
-        instructions[0x5D] = Instruction(Operation.EOR, ABSOLUTE_X, 4)
-        instructions[0x59] = Instruction(Operation.EOR, ABSOLUTE_Y, 4)
+        instructions[0x49] = Instruction(Operation.EOR, AddressingMode.IMMEDIATE, 2)
+        instructions[0x45] = Instruction(Operation.EOR, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x55] = Instruction(Operation.EOR, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0x41] = Instruction(Operation.EOR, AddressingMode.INDIRECT_X, 6)
+        instructions[0x4D] = Instruction(Operation.EOR, AddressingMode.ABSOLUTE, 4)
+        instructions[0x51] = Instruction(Operation.EOR, AddressingMode.INDIRECT_Y, 5)
+        instructions[0x5D] = Instruction(Operation.EOR, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0x59] = Instruction(Operation.EOR, AddressingMode.ABSOLUTE_Y, 4)
 
         // LDA
-        instructions[0xA9] = Instruction(Operation.LDA, IMMEDIATE, 2)
-        instructions[0xA5] = Instruction(Operation.LDA, ZERO_PAGE, 3)
-        instructions[0xB5] = Instruction(Operation.LDA, ZERO_PAGE_X, 4)
-        instructions[0xA1] = Instruction(Operation.LDA, INDIRECT_X, 6)
-        instructions[0xAD] = Instruction(Operation.LDA, ABSOLUTE, 4)
-        instructions[0xB1] = Instruction(Operation.LDA, INDIRECT_Y, 5)
-        instructions[0xBD] = Instruction(Operation.LDA, ABSOLUTE_X, 4)
-        instructions[0xB9] = Instruction(Operation.LDA, ABSOLUTE_Y, 4)
+        instructions[0xA9] = Instruction(Operation.LDA, AddressingMode.IMMEDIATE, 2)
+        instructions[0xA5] = Instruction(Operation.LDA, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xB5] = Instruction(Operation.LDA, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0xA1] = Instruction(Operation.LDA, AddressingMode.INDIRECT_X, 6)
+        instructions[0xAD] = Instruction(Operation.LDA, AddressingMode.ABSOLUTE, 4)
+        instructions[0xB1] = Instruction(Operation.LDA, AddressingMode.INDIRECT_Y, 5)
+        instructions[0xBD] = Instruction(Operation.LDA, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0xB9] = Instruction(Operation.LDA, AddressingMode.ABSOLUTE_Y, 4)
 
         // CMP
-        instructions[0xC9] = Instruction(Operation.CMP, IMMEDIATE, 2)
-        instructions[0xC5] = Instruction(Operation.CMP, ZERO_PAGE, 3)
-        instructions[0xD5] = Instruction(Operation.CMP, ZERO_PAGE_X, 4)
-        instructions[0xC1] = Instruction(Operation.CMP, INDIRECT_X, 6)
-        instructions[0xCD] = Instruction(Operation.CMP, ABSOLUTE, 4)
-        instructions[0xD1] = Instruction(Operation.CMP, INDIRECT_Y, 5)
-        instructions[0xDD] = Instruction(Operation.CMP, ABSOLUTE_X, 4)
-        instructions[0xD9] = Instruction(Operation.CMP, ABSOLUTE_Y, 4)
+        instructions[0xC9] = Instruction(Operation.CMP, AddressingMode.IMMEDIATE, 2)
+        instructions[0xC5] = Instruction(Operation.CMP, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xD5] = Instruction(Operation.CMP, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0xC1] = Instruction(Operation.CMP, AddressingMode.INDIRECT_X, 6)
+        instructions[0xCD] = Instruction(Operation.CMP, AddressingMode.ABSOLUTE, 4)
+        instructions[0xD1] = Instruction(Operation.CMP, AddressingMode.INDIRECT_Y, 5)
+        instructions[0xDD] = Instruction(Operation.CMP, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0xD9] = Instruction(Operation.CMP, AddressingMode.ABSOLUTE_Y, 4)
 
         // SBC
-        instructions[0xE9] = Instruction(Operation.SBC, IMMEDIATE, 2)
-        instructions[0xE5] = Instruction(Operation.SBC, ZERO_PAGE, 3)
-        instructions[0xF5] = Instruction(Operation.SBC, ZERO_PAGE_X, 4)
-        instructions[0xE1] = Instruction(Operation.SBC, INDIRECT_X, 6)
-        instructions[0xED] = Instruction(Operation.SBC, ABSOLUTE, 4)
-        instructions[0xF1] = Instruction(Operation.SBC, INDIRECT_Y, 5)
-        instructions[0xFD] = Instruction(Operation.SBC, ABSOLUTE_X, 4)
-        instructions[0xF9] = Instruction(Operation.SBC, ABSOLUTE_Y, 4)
+        instructions[0xE9] = Instruction(Operation.SBC, AddressingMode.IMMEDIATE, 2)
+        instructions[0xE5] = Instruction(Operation.SBC, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xF5] = Instruction(Operation.SBC, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0xE1] = Instruction(Operation.SBC, AddressingMode.INDIRECT_X, 6)
+        instructions[0xED] = Instruction(Operation.SBC, AddressingMode.ABSOLUTE, 4)
+        instructions[0xF1] = Instruction(Operation.SBC, AddressingMode.INDIRECT_Y, 5)
+        instructions[0xFD] = Instruction(Operation.SBC, AddressingMode.ABSOLUTE_X, 4)
+        instructions[0xF9] = Instruction(Operation.SBC, AddressingMode.ABSOLUTE_Y, 4)
 
         // LDX
-        instructions[0xA2] = Instruction(Operation.LDX, IMMEDIATE, 2)
-        instructions[0xA6] = Instruction(Operation.LDX, ZERO_PAGE, 3)
-        instructions[0xB6] = Instruction(Operation.LDX, ZERO_PAGE_Y, 4)
-        instructions[0xAE] = Instruction(Operation.LDX, ABSOLUTE, 4)
-        instructions[0xBE] = Instruction(Operation.LDX, ABSOLUTE_Y, 4)
+        instructions[0xA2] = Instruction(Operation.LDX, AddressingMode.IMMEDIATE, 2)
+        instructions[0xA6] = Instruction(Operation.LDX, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xB6] = Instruction(Operation.LDX, AddressingMode.ZERO_PAGE_Y, 4)
+        instructions[0xAE] = Instruction(Operation.LDX, AddressingMode.ABSOLUTE, 4)
+        instructions[0xBE] = Instruction(Operation.LDX, AddressingMode.ABSOLUTE_Y, 4)
 
         // LDY
-        instructions[0xA0] = Instruction(Operation.LDY, IMMEDIATE, 2)
-        instructions[0xA4] = Instruction(Operation.LDY, ZERO_PAGE, 3)
-        instructions[0xB4] = Instruction(Operation.LDY, ZERO_PAGE_X, 4)
-        instructions[0xAC] = Instruction(Operation.LDY, ABSOLUTE, 4)
-        instructions[0xBC] = Instruction(Operation.LDY, ABSOLUTE_X, 4)
+        instructions[0xA0] = Instruction(Operation.LDY, AddressingMode.IMMEDIATE, 2)
+        instructions[0xA4] = Instruction(Operation.LDY, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xB4] = Instruction(Operation.LDY, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0xAC] = Instruction(Operation.LDY, AddressingMode.ABSOLUTE, 4)
+        instructions[0xBC] = Instruction(Operation.LDY, AddressingMode.ABSOLUTE_X, 4)
 
         // STA
-        instructions[0x85] = Instruction(Operation.STA, ZERO_PAGE, 3)
-        instructions[0x95] = Instruction(Operation.STA, ZERO_PAGE_X, 4)
-        instructions[0x8D] = Instruction(Operation.STA, ABSOLUTE, 4)
-        instructions[0x9D] = Instruction(Operation.STA, ABSOLUTE_X, 5)
-        instructions[0x99] = Instruction(Operation.STA, ABSOLUTE_Y, 5)
-        instructions[0x81] = Instruction(Operation.STA, INDIRECT_X, 6)
-        instructions[0x91] = Instruction(Operation.STA, INDIRECT_Y, 6)
+        instructions[0x85] = Instruction(Operation.STA, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x95] = Instruction(Operation.STA, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0x8D] = Instruction(Operation.STA, AddressingMode.ABSOLUTE, 4)
+        instructions[0x9D] = Instruction(Operation.STA, AddressingMode.ABSOLUTE_X, 5)
+        instructions[0x99] = Instruction(Operation.STA, AddressingMode.ABSOLUTE_Y, 5)
+        instructions[0x81] = Instruction(Operation.STA, AddressingMode.INDIRECT_X, 6)
+        instructions[0x91] = Instruction(Operation.STA, AddressingMode.INDIRECT_Y, 6)
 
         // STX
-        instructions[0x86] = Instruction(Operation.STX, ZERO_PAGE, 3)
-        instructions[0x96] = Instruction(Operation.STX, ZERO_PAGE_Y, 4)
-        instructions[0x8E] = Instruction(Operation.STX, ABSOLUTE, 4)
+        instructions[0x86] = Instruction(Operation.STX, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x96] = Instruction(Operation.STX, AddressingMode.ZERO_PAGE_Y, 4)
+        instructions[0x8E] = Instruction(Operation.STX, AddressingMode.ABSOLUTE, 4)
 
         // STY
-        instructions[0x84] = Instruction(Operation.STY, ZERO_PAGE, 3)
-        instructions[0x94] = Instruction(Operation.STY, ZERO_PAGE_X, 4)
-        instructions[0x8C] = Instruction(Operation.STY, ABSOLUTE, 4)
+        instructions[0x84] = Instruction(Operation.STY, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x94] = Instruction(Operation.STY, AddressingMode.ZERO_PAGE_X, 4)
+        instructions[0x8C] = Instruction(Operation.STY, AddressingMode.ABSOLUTE, 4)
 
-        instructions[0xAA] = Instruction(Operation.TAX, IMPLIED, 2)
-        instructions[0xA8] = Instruction(Operation.TAY, IMPLIED, 2)
-        instructions[0x8A] = Instruction(Operation.TXA, IMPLIED, 2)
-        instructions[0x98] = Instruction(Operation.TYA, IMPLIED, 2)
-        instructions[0xBA] = Instruction(Operation.TSX, IMPLIED, 2)
-        instructions[0x9A] = Instruction(Operation.TXS, IMPLIED, 2)
-        instructions[0xE8] = Instruction(Operation.INX, IMPLIED, 2)
-        instructions[0xC8] = Instruction(Operation.INY, IMPLIED, 2)
-        instructions[0xCA] = Instruction(Operation.DEX, IMPLIED, 2)
-        instructions[0x88] = Instruction(Operation.DEY, IMPLIED, 2)
+        instructions[0xAA] = Instruction(Operation.TAX, AddressingMode.IMPLIED, 2)
+        instructions[0xA8] = Instruction(Operation.TAY, AddressingMode.IMPLIED, 2)
+        instructions[0x8A] = Instruction(Operation.TXA, AddressingMode.IMPLIED, 2)
+        instructions[0x98] = Instruction(Operation.TYA, AddressingMode.IMPLIED, 2)
+        instructions[0xBA] = Instruction(Operation.TSX, AddressingMode.IMPLIED, 2)
+        instructions[0x9A] = Instruction(Operation.TXS, AddressingMode.IMPLIED, 2)
+        instructions[0xE8] = Instruction(Operation.INX, AddressingMode.IMPLIED, 2)
+        instructions[0xC8] = Instruction(Operation.INY, AddressingMode.IMPLIED, 2)
+        instructions[0xCA] = Instruction(Operation.DEX, AddressingMode.IMPLIED, 2)
+        instructions[0x88] = Instruction(Operation.DEY, AddressingMode.IMPLIED, 2)
 
         // CPX
-        instructions[0xE0] = Instruction(Operation.CPX, IMMEDIATE, 2)
-        instructions[0xE4] = Instruction(Operation.CPX, ZERO_PAGE, 3)
-        instructions[0xEC] = Instruction(Operation.CPX, ABSOLUTE, 4)
+        instructions[0xE0] = Instruction(Operation.CPX, AddressingMode.IMMEDIATE, 2)
+        instructions[0xE4] = Instruction(Operation.CPX, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xEC] = Instruction(Operation.CPX, AddressingMode.ABSOLUTE, 4)
 
         // CPY
-        instructions[0xC0] = Instruction(Operation.CPY, IMMEDIATE, 2)
-        instructions[0xC4] = Instruction(Operation.CPY, ZERO_PAGE, 3)
-        instructions[0xCC] = Instruction(Operation.CPY, ABSOLUTE, 4)
+        instructions[0xC0] = Instruction(Operation.CPY, AddressingMode.IMMEDIATE, 2)
+        instructions[0xC4] = Instruction(Operation.CPY, AddressingMode.ZERO_PAGE, 3)
+        instructions[0xCC] = Instruction(Operation.CPY, AddressingMode.ABSOLUTE, 4)
 
         // BIT
-        instructions[0x24] = Instruction(Operation.BIT, ZERO_PAGE, 3)
-        instructions[0x2C] = Instruction(Operation.BIT, ABSOLUTE, 4)
+        instructions[0x24] = Instruction(Operation.BIT, AddressingMode.ZERO_PAGE, 3)
+        instructions[0x2C] = Instruction(Operation.BIT, AddressingMode.ABSOLUTE, 4)
 
-        instructions[0x18] = Instruction(Operation.CLC, IMPLIED, 2)
-        instructions[0x38] = Instruction(Operation.SEC, IMPLIED, 2)
-        instructions[0x58] = Instruction(Operation.CLI, IMPLIED, 2)
-        instructions[0x78] = Instruction(Operation.SEI, IMPLIED, 2)
-        instructions[0xB8] = Instruction(Operation.CLV, IMPLIED, 2)
-        instructions[0xD8] = Instruction(Operation.CLD, IMPLIED, 2)
-        instructions[0xF8] = Instruction(Operation.SED, IMPLIED, 2)
+        instructions[0x18] = Instruction(Operation.CLC, AddressingMode.IMPLIED, 2)
+        instructions[0x38] = Instruction(Operation.SEC, AddressingMode.IMPLIED, 2)
+        instructions[0x58] = Instruction(Operation.CLI, AddressingMode.IMPLIED, 2)
+        instructions[0x78] = Instruction(Operation.SEI, AddressingMode.IMPLIED, 2)
+        instructions[0xB8] = Instruction(Operation.CLV, AddressingMode.IMPLIED, 2)
+        instructions[0xD8] = Instruction(Operation.CLD, AddressingMode.IMPLIED, 2)
+        instructions[0xF8] = Instruction(Operation.SED, AddressingMode.IMPLIED, 2)
 
         // INC
-        instructions[0xE6] = Instruction(Operation.INC, ZERO_PAGE, 5)
-        instructions[0xF6] = Instruction(Operation.INC, ZERO_PAGE_X, 6)
-        instructions[0xEE] = Instruction(Operation.INC, ABSOLUTE, 6)
-        instructions[0xFE] = Instruction(Operation.INC, ABSOLUTE_X, 7)
+        instructions[0xE6] = Instruction(Operation.INC, AddressingMode.ZERO_PAGE, 5)
+        instructions[0xF6] = Instruction(Operation.INC, AddressingMode.ZERO_PAGE_X, 6)
+        instructions[0xEE] = Instruction(Operation.INC, AddressingMode.ABSOLUTE, 6)
+        instructions[0xFE] = Instruction(Operation.INC, AddressingMode.ABSOLUTE_X, 7)
 
         // DEC
-        instructions[0xC6] = Instruction(Operation.DEC, ZERO_PAGE, 5)
-        instructions[0xD6] = Instruction(Operation.DEC, ZERO_PAGE_X, 6)
-        instructions[0xCE] = Instruction(Operation.DEC, ABSOLUTE, 6)
-        instructions[0xDE] = Instruction(Operation.DEC, ABSOLUTE_X, 7)
+        instructions[0xC6] = Instruction(Operation.DEC, AddressingMode.ZERO_PAGE, 5)
+        instructions[0xD6] = Instruction(Operation.DEC, AddressingMode.ZERO_PAGE_X, 6)
+        instructions[0xCE] = Instruction(Operation.DEC, AddressingMode.ABSOLUTE, 6)
+        instructions[0xDE] = Instruction(Operation.DEC, AddressingMode.ABSOLUTE_X, 7)
 
         // ASL
-        instructions[0x0A] = Instruction(Operation.ASL, ACCUMULATOR, 2)
-        instructions[0x06] = Instruction(Operation.ASL, ZERO_PAGE, 5)
-        instructions[0x16] = Instruction(Operation.ASL, ZERO_PAGE_X, 6)
-        instructions[0x0E] = Instruction(Operation.ASL, ABSOLUTE, 6)
-        instructions[0x1E] = Instruction(Operation.ASL, ABSOLUTE_X, 7)
+        instructions[0x0A] = Instruction(Operation.ASL, AddressingMode.ACCUMULATOR, 2)
+        instructions[0x06] = Instruction(Operation.ASL, AddressingMode.ZERO_PAGE, 5)
+        instructions[0x16] = Instruction(Operation.ASL, AddressingMode.ZERO_PAGE_X, 6)
+        instructions[0x0E] = Instruction(Operation.ASL, AddressingMode.ABSOLUTE, 6)
+        instructions[0x1E] = Instruction(Operation.ASL, AddressingMode.ABSOLUTE_X, 7)
 
         // LSR
-        instructions[0x4A] = Instruction(Operation.LSR, ACCUMULATOR, 2)
-        instructions[0x46] = Instruction(Operation.LSR, ZERO_PAGE, 5)
-        instructions[0x56] = Instruction(Operation.LSR, ZERO_PAGE_X, 6)
-        instructions[0x4E] = Instruction(Operation.LSR, ABSOLUTE, 6)
-        instructions[0x5E] = Instruction(Operation.LSR, ABSOLUTE_X, 7)
+        instructions[0x4A] = Instruction(Operation.LSR, AddressingMode.ACCUMULATOR, 2)
+        instructions[0x46] = Instruction(Operation.LSR, AddressingMode.ZERO_PAGE, 5)
+        instructions[0x56] = Instruction(Operation.LSR, AddressingMode.ZERO_PAGE_X, 6)
+        instructions[0x4E] = Instruction(Operation.LSR, AddressingMode.ABSOLUTE, 6)
+        instructions[0x5E] = Instruction(Operation.LSR, AddressingMode.ABSOLUTE_X, 7)
 
         // ROL
-        instructions[0x2A] = Instruction(Operation.ROL, ACCUMULATOR, 2)
-        instructions[0x26] = Instruction(Operation.ROL, ZERO_PAGE, 5)
-        instructions[0x36] = Instruction(Operation.ROL, ZERO_PAGE_X, 6)
-        instructions[0x2E] = Instruction(Operation.ROL, ABSOLUTE, 6)
-        instructions[0x3E] = Instruction(Operation.ROL, ABSOLUTE_X, 7)
+        instructions[0x2A] = Instruction(Operation.ROL, AddressingMode.ACCUMULATOR, 2)
+        instructions[0x26] = Instruction(Operation.ROL, AddressingMode.ZERO_PAGE, 5)
+        instructions[0x36] = Instruction(Operation.ROL, AddressingMode.ZERO_PAGE_X, 6)
+        instructions[0x2E] = Instruction(Operation.ROL, AddressingMode.ABSOLUTE, 6)
+        instructions[0x3E] = Instruction(Operation.ROL, AddressingMode.ABSOLUTE_X, 7)
 
         // ROR
-        instructions[0x6A] = Instruction(Operation.ROR, ACCUMULATOR, 2)
-        instructions[0x66] = Instruction(Operation.ROR, ZERO_PAGE, 5)
-        instructions[0x76] = Instruction(Operation.ROR, ZERO_PAGE_X, 6)
-        instructions[0x6E] = Instruction(Operation.ROR, ABSOLUTE, 6)
-        instructions[0x7E] = Instruction(Operation.ROR, ABSOLUTE_X, 7)
+        instructions[0x6A] = Instruction(Operation.ROR, AddressingMode.ACCUMULATOR, 2)
+        instructions[0x66] = Instruction(Operation.ROR, AddressingMode.ZERO_PAGE, 5)
+        instructions[0x76] = Instruction(Operation.ROR, AddressingMode.ZERO_PAGE_X, 6)
+        instructions[0x6E] = Instruction(Operation.ROR, AddressingMode.ABSOLUTE, 6)
+        instructions[0x7E] = Instruction(Operation.ROR, AddressingMode.ABSOLUTE_X, 7)
 
         // Branching
-        instructions[0x90] = Instruction(Operation.BCC, RELATIVE, 2)
-        instructions[0xB0] = Instruction(Operation.BCS, RELATIVE, 2)
+        instructions[0x90] = Instruction(Operation.BCC, AddressingMode.RELATIVE, 2)
+        instructions[0xB0] = Instruction(Operation.BCS, AddressingMode.RELATIVE, 2)
 
-        instructions[0xF0] = Instruction(Operation.BEQ, RELATIVE, 2)
-        instructions[0xD0] = Instruction(Operation.BNE, RELATIVE, 2)
+        instructions[0xF0] = Instruction(Operation.BEQ, AddressingMode.RELATIVE, 2)
+        instructions[0xD0] = Instruction(Operation.BNE, AddressingMode.RELATIVE, 2)
 
-        instructions[0x30] = Instruction(Operation.BMI, RELATIVE, 2)
-        instructions[0x10] = Instruction(Operation.BPL, RELATIVE, 2)
+        instructions[0x30] = Instruction(Operation.BMI, AddressingMode.RELATIVE, 2)
+        instructions[0x10] = Instruction(Operation.BPL, AddressingMode.RELATIVE, 2)
 
-        instructions[0x50] = Instruction(Operation.BVC, RELATIVE, 2)
-        instructions[0x70] = Instruction(Operation.BVS, RELATIVE, 2)
+        instructions[0x50] = Instruction(Operation.BVC, AddressingMode.RELATIVE, 2)
+        instructions[0x70] = Instruction(Operation.BVS, AddressingMode.RELATIVE, 2)
 
         // JMP
-        instructions[0x4C] = Instruction(Operation.JMP, ABSOLUTE, 3)
-        instructions[0x6C] = Instruction(Operation.JMP, INDIRECT, 5)
+        instructions[0x4C] = Instruction(Operation.JMP, AddressingMode.ABSOLUTE, 3)
+        instructions[0x6C] = Instruction(Operation.JMP, AddressingMode.INDIRECT, 5)
 
         // JSR
-        instructions[0x20] = Instruction(Operation.JSR, ABSOLUTE, 6)
+        instructions[0x20] = Instruction(Operation.JSR, AddressingMode.ABSOLUTE, 6)
 
         // RTS
-        instructions[0x60] = Instruction(Operation.RTS, IMPLIED, 6)
+        instructions[0x60] = Instruction(Operation.RTS, AddressingMode.IMPLIED, 6)
 
         // Stack
-        instructions[0x48] = Instruction(Operation.PHA, IMPLIED, 3)
-        instructions[0x68] = Instruction(Operation.PLA, IMPLIED, 4)
-        instructions[0x08] = Instruction(Operation.PHP, IMPLIED, 3)
-        instructions[0x28] = Instruction(Operation.PLP, IMPLIED, 4)
+        instructions[0x48] = Instruction(Operation.PHA, AddressingMode.IMPLIED, 3)
+        instructions[0x68] = Instruction(Operation.PLA, AddressingMode.IMPLIED, 4)
+        instructions[0x08] = Instruction(Operation.PHP, AddressingMode.IMPLIED, 3)
+        instructions[0x28] = Instruction(Operation.PLP, AddressingMode.IMPLIED, 4)
 
         // BRK
-        instructions[0x00] = Instruction(Operation.BRK, IMPLIED, 7)
+        instructions[0x00] = Instruction(Operation.BRK, AddressingMode.IMPLIED, 7)
 
         // RTI
-        instructions[0x40] = Instruction(Operation.RTI, IMPLIED, 6)
+        instructions[0x40] = Instruction(Operation.RTI, AddressingMode.IMPLIED, 6)
 
         //
-        instructions[0xEA] = Instruction(Operation.NOP, IMPLIED, 2)
+        instructions[0xEA] = Instruction(Operation.NOP, AddressingMode.IMPLIED, 2)
     }
 
     fun reset() {
@@ -236,7 +235,7 @@ class Cpu6502(
 
     fun step(): Int {
         val opCode = pcRead()
-        val instruction = instructions[opCode] ?: throw IllegalArgumentException("Instruction#$opCode not found")
+        val instruction = instructions[opCode]
         return execute(instruction)
     }
 
@@ -309,33 +308,33 @@ class Cpu6502(
     // region Addressing modes
     private fun readOperand(mode: AddressingMode): Int {
         return when (mode) {
-            IMMEDIATE -> pcRead()
+            AddressingMode.IMMEDIATE -> pcRead()
             else -> bus.read(resolveAddress(mode))
         }
     }
 
     private fun resolveAddress(mode: AddressingMode): Int {
         return when (mode) {
-            ZERO_PAGE -> {
+            AddressingMode.ZERO_PAGE -> {
                 pcRead()
             }
 
-            ZERO_PAGE_X -> {
+            AddressingMode.ZERO_PAGE_X -> {
                 (pcRead() + state.x).low8Bits()
             }
 
-            ZERO_PAGE_Y -> {
+            AddressingMode.ZERO_PAGE_Y -> {
                 (pcRead() + state.y).low8Bits()
             }
 
-            ABSOLUTE -> {
+            AddressingMode.ABSOLUTE -> {
                 val lo = pcRead()
                 val hi = pcRead()
 
                 lo or (hi shl 8)
             }
 
-            ABSOLUTE_X -> {
+            AddressingMode.ABSOLUTE_X -> {
                 val lo = pcRead()
                 val hi = pcRead()
 
@@ -344,7 +343,7 @@ class Cpu6502(
                 (baseAddress + state.x).low16Bits()
             }
 
-            ABSOLUTE_Y -> {
+            AddressingMode.ABSOLUTE_Y -> {
                 val lo = pcRead()
                 val hi = pcRead()
 
@@ -353,7 +352,7 @@ class Cpu6502(
                 (baseAddress + state.y).low16Bits()
             }
 
-            INDIRECT_X -> {
+            AddressingMode.INDIRECT_X -> {
                 val pointer = (pcRead() + state.x).low8Bits()
 
                 val lo = bus.read(pointer)
@@ -362,7 +361,7 @@ class Cpu6502(
                 lo or (hi shl 8)
             }
 
-            INDIRECT_Y -> {
+            AddressingMode.INDIRECT_Y -> {
                 val pointer = pcRead()
 
                 val lo = bus.read(pointer)
@@ -373,11 +372,11 @@ class Cpu6502(
                 (baseAddress + state.y).low16Bits()
             }
 
-            IMMEDIATE,
-            IMPLIED,
-            ACCUMULATOR,
-            RELATIVE,
-            INDIRECT -> throw IllegalArgumentException(
+            AddressingMode.IMMEDIATE,
+            AddressingMode.IMPLIED,
+            AddressingMode.ACCUMULATOR,
+            AddressingMode.RELATIVE,
+            AddressingMode.INDIRECT -> throw IllegalArgumentException(
                 "Addressing mode $mode cannot resolve a data address"
             )
         }
@@ -387,7 +386,7 @@ class Cpu6502(
     // However, for clarity and readability, I'm just keeping it as it is and then improve performance later on.
     private fun pageCrossingPenalty(mode: AddressingMode): Int {
         return when (mode) {
-            ABSOLUTE_X -> {
+            AddressingMode.ABSOLUTE_X -> {
                 val lo = bus.read(state.pc)
                 val hi = bus.read((state.pc + 1).low16Bits())
 
@@ -397,7 +396,7 @@ class Cpu6502(
                 if (baseAddress.pageBase() != address.pageBase()) 1 else 0
             }
 
-            ABSOLUTE_Y -> {
+            AddressingMode.ABSOLUTE_Y -> {
                 val lo = bus.read(state.pc)
                 val hi = bus.read((state.pc + 1).low16Bits())
 
@@ -407,7 +406,7 @@ class Cpu6502(
                 if (baseAddress.pageBase() != address.pageBase()) 1 else 0
             }
 
-            INDIRECT_Y -> {
+            AddressingMode.INDIRECT_Y -> {
                 val pointer = bus.read(state.pc)
 
                 val lo = bus.read(pointer)
@@ -633,7 +632,7 @@ class Cpu6502(
     }
 
     private fun asl(mode: AddressingMode) {
-        if (mode == ACCUMULATOR) {
+        if (mode == AddressingMode.ACCUMULATOR) {
             state.a = aslValue(state.a)
         } else {
             val address = resolveAddress(mode)
@@ -653,7 +652,7 @@ class Cpu6502(
     }
 
     private fun lsr(mode: AddressingMode) {
-        if (mode == ACCUMULATOR) {
+        if (mode == AddressingMode.ACCUMULATOR) {
             state.a = lsrValue(state.a)
         } else {
             val address = resolveAddress(mode)
@@ -673,7 +672,7 @@ class Cpu6502(
     }
 
     private fun rol(mode: AddressingMode) {
-        if (mode == ACCUMULATOR) {
+        if (mode == AddressingMode.ACCUMULATOR) {
             state.a = rolValue(state.a)
         } else {
             val address = resolveAddress(mode)
@@ -695,7 +694,7 @@ class Cpu6502(
     }
 
     private fun ror(mode: AddressingMode) {
-        if (mode == ACCUMULATOR) {
+        if (mode == AddressingMode.ACCUMULATOR) {
             state.a = rorValue(state.a)
         } else {
             val address = resolveAddress(mode)
@@ -733,14 +732,14 @@ class Cpu6502(
 
     private fun jmp(mode: AddressingMode) {
         state.pc = when (mode) {
-            ABSOLUTE -> {
+            AddressingMode.ABSOLUTE -> {
                 val lo = pcRead()
                 val hi = pcRead()
 
                 lo or (hi shl 8)
             }
 
-            INDIRECT -> {
+            AddressingMode.INDIRECT -> {
                 val lo = pcRead()
                 val hi = pcRead()
                 val pointer = lo or (hi shl 8)
