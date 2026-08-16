@@ -18,4 +18,5 @@ enum class Operation(val pageCrossingPenalty: Boolean,) {
     TAY(pageCrossingPenalty = false),
     TXA(pageCrossingPenalty = false),
     TYA(pageCrossingPenalty = false),
+    TSX(pageCrossingPenalty = false),
 }
