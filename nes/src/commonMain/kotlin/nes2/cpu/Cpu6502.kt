@@ -207,6 +207,18 @@ class Cpu6502(
         // JMP
         instructions[0x4C] = Instruction(Operation.JMP, ABSOLUTE, 3)
         instructions[0x6C] = Instruction(Operation.JMP, INDIRECT, 5)
+
+        // JSR
+        instructions[0x20] = Instruction(Operation.JSR, ABSOLUTE, 6)
+
+        // RTS
+        instructions[0x60] = Instruction(Operation.RTS, IMPLIED, 6)
+
+        // Stack
+        instructions[0x48] = Instruction(Operation.PHA, IMPLIED, 3)
+        instructions[0x68] = Instruction(Operation.PLA, IMPLIED, 4)
+        instructions[0x08] = Instruction(Operation.PHP, IMPLIED, 3)
+        instructions[0x28] = Instruction(Operation.PLP, IMPLIED, 4)
     }
 
     fun reset() {
@@ -428,6 +440,30 @@ class Cpu6502(
 
             Operation.JMP -> {
                 jmp(instruction.addressingMode)
+            }
+
+            Operation.JSR -> {
+                jsr()
+            }
+
+            Operation.RTS -> {
+                rts()
+            }
+
+            Operation.PHA -> {
+                pha()
+            }
+
+            Operation.PLA -> {
+                pla()
+            }
+
+            Operation.PHP -> {
+                php()
+            }
+
+            Operation.PLP -> {
+                plp()
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -894,6 +930,48 @@ class Cpu6502(
         }
     }
 
+    private fun jsr() {
+        val lo = pcRead()
+
+        // PC currently points at the high-byte operand.
+        // This is the return address the 6502 pushes.
+        val returnAddress = state.pc
+
+        val hi = pcRead()
+        val target = lo or (hi shl 8)
+
+        push(returnAddress ushr 8)
+        push(returnAddress)
+
+        state.pc = target
+    }
+
+    private fun rts() {
+        val lo = pull()
+        val hi = pull()
+
+        state.pc = ((lo or (hi shl 8)) + 1).low16Bits()
+    }
+
+    private fun pha() {
+        push(state.a)
+    }
+
+    private fun pla() {
+        state.a = pull()
+
+        state.z = state.a == 0
+        state.n = state.a.isNegative8Bit()
+    }
+
+    private fun php() {
+        push(state.status or 0x30)
+    }
+
+    private fun plp() {
+        state.status = (pull() and 0xEF) or 0x20
+    }
+
     // endregion
 
     // region utils
@@ -907,6 +985,16 @@ class Cpu6502(
         val value = pcRead()
 
         return if (value < 0x80) value else value - 0x100
+    }
+
+    private fun push(value: Int) {
+        bus.write(0x0100 or state.sp, value.low8Bits())
+        state.sp = (state.sp - 1).low8Bits()
+    }
+
+    private fun pull(): Int {
+        state.sp = (state.sp + 1).low8Bits()
+        return bus.read(0x0100 or state.sp)
     }
 
     // endregion

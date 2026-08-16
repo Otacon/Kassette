@@ -49,4 +49,10 @@ enum class Operation(val pageCrossingPenalty: Boolean) {
     BVC(pageCrossingPenalty = false),
     BVS(pageCrossingPenalty = false),
     JMP(pageCrossingPenalty = false),
+    JSR(pageCrossingPenalty = false),
+    RTS(pageCrossingPenalty = false),
+    PHA(pageCrossingPenalty = false),
+    PLA(pageCrossingPenalty = false),
+    PHP(pageCrossingPenalty = false),
+    PLP(pageCrossingPenalty = false),
 }
