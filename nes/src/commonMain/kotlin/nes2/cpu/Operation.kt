@@ -1,5 +1,5 @@
 package nes2.cpu
 
 enum class Operation {
-    ADC, AND
+    ADC, AND, ORA
 }

@@ -34,6 +34,16 @@ class Cpu6502(
         instructions[0x31] = Instruction(Operation.AND, INDIRECT_Y, 5)
         instructions[0x3D] = Instruction(Operation.AND, ABSOLUTE_X, 4)
         instructions[0x39] = Instruction(Operation.AND, ABSOLUTE_Y, 4)
+
+        // ORA
+        instructions[0x09] = Instruction(Operation.ORA, IMMEDIATE, 2)
+        instructions[0x05] = Instruction(Operation.ORA, ZERO_PAGE, 3)
+        instructions[0x15] = Instruction(Operation.ORA, ZERO_PAGE_X, 4)
+        instructions[0x01] = Instruction(Operation.ORA, INDIRECT_X, 6)
+        instructions[0x0D] = Instruction(Operation.ORA, ABSOLUTE, 4)
+        instructions[0x11] = Instruction(Operation.ORA, INDIRECT_Y, 5)
+        instructions[0x1D] = Instruction(Operation.ORA, ABSOLUTE_X, 4)
+        instructions[0x19] = Instruction(Operation.ORA, ABSOLUTE_Y, 4)
     }
 
     fun reset() {
@@ -59,6 +69,13 @@ class Cpu6502(
                 val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
                 val operand = readOperand(instruction.addressingMode)
                 and(operand)
+                instruction.baseCycles + pageCrossingPenalty
+            }
+
+            Operation.ORA -> {
+                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
+                val operand = readOperand(instruction.addressingMode)
+                ora(operand)
                 instruction.baseCycles + pageCrossingPenalty
             }
         }
@@ -191,6 +208,13 @@ class Cpu6502(
 
     private fun and(value: Int) {
         state.a = (state.a and value).low8Bits()
+
+        state.z = state.a == 0
+        state.n = state.a.isNegative8Bit()
+    }
+
+    private fun ora(value: Int) {
+        state.a = (state.a or value).low8Bits()
 
         state.z = state.a == 0
         state.n = state.a.isNegative8Bit()
