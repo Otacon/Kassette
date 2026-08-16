@@ -128,6 +128,16 @@ class Cpu6502(
         instructions[0xC8] = Instruction(Operation.INY, IMPLIED, 2)
         instructions[0xCA] = Instruction(Operation.DEX, IMPLIED, 2)
         instructions[0x88] = Instruction(Operation.DEY, IMPLIED, 2)
+
+        // CPX
+        instructions[0xE0] = Instruction(Operation.CPX, IMMEDIATE, 2)
+        instructions[0xE4] = Instruction(Operation.CPX, ZERO_PAGE, 3)
+        instructions[0xEC] = Instruction(Operation.CPX, ABSOLUTE, 4)
+
+        // CPY
+        instructions[0xC0] = Instruction(Operation.CPY, IMMEDIATE, 2)
+        instructions[0xC4] = Instruction(Operation.CPY, ZERO_PAGE, 3)
+        instructions[0xCC] = Instruction(Operation.CPY, ABSOLUTE, 4)
     }
 
     fun reset() {
@@ -241,6 +251,14 @@ class Cpu6502(
             }
             Operation.DEY -> {
                 dey()
+            }
+            Operation.CPX -> {
+                val operand = readOperand(instruction.addressingMode)
+                cpx(operand)
+            }
+            Operation.CPY -> {
+                val operand = readOperand(instruction.addressingMode)
+                cpy(operand)
             }
         }
         return instruction.baseCycles + cyclesPenalty
@@ -502,6 +520,22 @@ class Cpu6502(
         state.y = (state.y - 1).low8Bits()
         state.z = state.y == 0
         state.n = state.y.isNegative8Bit()
+    }
+
+    private fun cpx(value: Int) {
+        val result = (state.x - value).low8Bits()
+
+        state.c = state.x >= value
+        state.z = state.x == value
+        state.n = result.isNegative8Bit()
+    }
+
+    private fun cpy(value: Int) {
+        val result = (state.y - value).low8Bits()
+
+        state.c = state.y >= value
+        state.z = state.y == value
+        state.n = result.isNegative8Bit()
     }
 
     // endregion
