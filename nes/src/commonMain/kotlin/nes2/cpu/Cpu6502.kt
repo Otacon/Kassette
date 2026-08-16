@@ -35,37 +35,32 @@ class Cpu6502(
 
     private fun execute(instruction: Instruction) {
         when (instruction.operation) {
-            Operation.ADC -> adc(mode = instruction.addressingMode)
+            Operation.ADC -> when (instruction.addressingMode) {
+                AddressingMode.IMMEDIATE -> adcImmediate()
+                AddressingMode.ZERO_PAGE -> adcZeroPage()
+                AddressingMode.ZERO_PAGE_X -> TODO()
+
+
+                AddressingMode.ABSOLUTE -> TODO()
+                AddressingMode.ABSOLUTE_X -> TODO()
+                AddressingMode.ABSOLUTE_Y -> TODO()
+
+                AddressingMode.INDIRECT_X -> TODO()
+                AddressingMode.INDIRECT_Y -> TODO()
+
+                AddressingMode.ZERO_PAGE_Y,
+                AddressingMode.IMPLIED,
+                AddressingMode.ACCUMULATOR,
+                AddressingMode.RELATIVE,
+                AddressingMode.INDIRECT -> throw IllegalArgumentException("Addressing mode ${instruction.addressingMode} is not supported for ADC")
+            }
         }
     }
 
     /**
      * ADC
      */
-    private fun adc(mode: AddressingMode) {
-        when (mode) {
-
-            AddressingMode.IMMEDIATE -> adcImmediate()
-            AddressingMode.ZERO_PAGE -> TODO()
-            AddressingMode.ZERO_PAGE_X -> TODO()
-            AddressingMode.ZERO_PAGE_Y -> TODO()
-
-            AddressingMode.ABSOLUTE -> TODO()
-            AddressingMode.ABSOLUTE_X -> TODO()
-            AddressingMode.ABSOLUTE_Y -> TODO()
-
-            AddressingMode.INDIRECT_X -> TODO()
-            AddressingMode.INDIRECT_Y -> TODO()
-            AddressingMode.IMPLIED,
-            AddressingMode.ACCUMULATOR,
-            AddressingMode.RELATIVE,
-            AddressingMode.INDIRECT -> throw IllegalArgumentException("Addressing mode $mode is not supported for ADC")
-        }
-    }
-
-    private fun adcImmediate() {
-        val value = pcRead()
-
+    private fun adc(value: Int) {
         val a = state.a
         val carryIn = if (state.c) 1 else 0
         val sum = a + value + carryIn
@@ -74,9 +69,21 @@ class Cpu6502(
         state.c = sum > 0xFF
         state.v = ((a xor result) and (value xor result)).isNegative8Bit()
         state.z = result == 0
-        state.n = (result and 0x80) != 0
+        state.n = result.isNegative8Bit()
         state.a = result
     }
+
+    private fun adcImmediate() {
+        val value = pcRead()
+        adc(value)
+    }
+
+    private fun adcZeroPage() {
+        val address = pcRead()
+        val value = bus.read(address)
+        adc(value)
+    }
+
 
     private fun pcRead(): Int {
         val value = bus.read(state.pc)
