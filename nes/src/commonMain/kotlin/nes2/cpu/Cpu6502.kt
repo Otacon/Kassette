@@ -219,6 +219,11 @@ class Cpu6502(
         instructions[0x68] = Instruction(Operation.PLA, IMPLIED, 4)
         instructions[0x08] = Instruction(Operation.PHP, IMPLIED, 3)
         instructions[0x28] = Instruction(Operation.PLP, IMPLIED, 4)
+
+        // BRK
+        instructions[0x00] = Instruction(Operation.BRK, IMPLIED, 7)
+        // RTI
+        instructions[0x40] = Instruction(Operation.RTI, IMPLIED, 6)
     }
 
     fun reset() {
@@ -237,234 +242,61 @@ class Cpu6502(
         val pageCrossingPenalty = instruction.operation.pageCrossingPenalty
         var cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
         when (instruction.operation) {
-            Operation.ADC -> {
-                val operand = readOperand(instruction.addressingMode)
-                adc(operand)
-            }
-
-            Operation.AND -> {
-                val operand = readOperand(instruction.addressingMode)
-                and(operand)
-            }
-
-            Operation.ORA -> {
-                val operand = readOperand(instruction.addressingMode)
-                ora(operand)
-            }
-
-            Operation.EOR -> {
-                val operand = readOperand(instruction.addressingMode)
-                eor(operand)
-            }
-
-            Operation.LDA -> {
-                val operand = readOperand(instruction.addressingMode)
-                lda(operand)
-            }
-
-            Operation.CMP -> {
-                val operand = readOperand(instruction.addressingMode)
-                cmp(operand)
-            }
-
-            Operation.SBC -> {
-                val operand = readOperand(instruction.addressingMode)
-                sbc(operand)
-            }
-
-            Operation.LDX -> {
-                val operand = readOperand(instruction.addressingMode)
-                ldx(operand)
-            }
-
-            Operation.LDY -> {
-                val operand = readOperand(instruction.addressingMode)
-                ldy(operand)
-            }
-
-            Operation.STA -> {
-                val address = resolveAddress(instruction.addressingMode)
-                sta(address)
-            }
-
-            Operation.STX -> {
-                val address = resolveAddress(instruction.addressingMode)
-                stx(address)
-            }
-
-            Operation.STY -> {
-                val address = resolveAddress(instruction.addressingMode)
-                sty(address)
-            }
-
-            Operation.TAX -> {
-                tax()
-            }
-
-            Operation.TAY -> {
-                tay()
-            }
-
-            Operation.TXA -> {
-                txa()
-            }
-
-            Operation.TYA -> {
-                tya()
-            }
-
-            Operation.TSX -> {
-                tsx()
-            }
-
-            Operation.TXS -> {
-                txs()
-            }
-
-            Operation.INX -> {
-                inx()
-            }
-
-            Operation.INY -> {
-                iny()
-            }
-
-            Operation.DEX -> {
-                dex()
-            }
-
-            Operation.DEY -> {
-                dey()
-            }
-
-            Operation.CPX -> {
-                val operand = readOperand(instruction.addressingMode)
-                cpx(operand)
-            }
-
-            Operation.CPY -> {
-                val operand = readOperand(instruction.addressingMode)
-                cpy(operand)
-            }
-
-            Operation.BIT -> {
-                val operand = readOperand(instruction.addressingMode)
-                bit(operand)
-            }
-
-            Operation.CLC -> {
-                clc()
-            }
-
-            Operation.SEC -> {
-                sec()
-            }
-
-            Operation.CLI -> {
-                cli()
-            }
-
-            Operation.SEI -> {
-                sei()
-            }
-
-            Operation.CLV -> {
-                clv()
-            }
-
-            Operation.CLD -> {
-                cld()
-            }
-
-            Operation.SED -> {
-                sed()
-            }
-
-            Operation.INC -> {
-                val address = resolveAddress(instruction.addressingMode)
-                inc(address)
-            }
-
-            Operation.DEC -> {
-                val address = resolveAddress(instruction.addressingMode)
-                dec(address)
-            }
-
-            Operation.ASL -> {
-                asl(instruction.addressingMode)
-            }
-
-            Operation.LSR -> {
-                lsr(instruction.addressingMode)
-            }
-
-            Operation.ROL -> {
-                rol(instruction.addressingMode)
-            }
-
-            Operation.ROR -> {
-                ror(instruction.addressingMode)
-            }
-
-            Operation.BCC -> {
-                cyclesPenalty += branch(!state.c)
-            }
-
-            Operation.BCS -> {
-                cyclesPenalty += branch(state.c)
-            }
-
-            Operation.BEQ -> {
-                cyclesPenalty += branch(state.z)
-            }
-
-            Operation.BNE -> {
-                cyclesPenalty += branch(!state.z)
-            }
-
-            Operation.BMI -> {
-                cyclesPenalty += branch(state.n)
-            }
-
-            Operation.BPL -> {
-                cyclesPenalty += branch(!state.n)
-            }
-
-            Operation.BVC -> {
-                cyclesPenalty += branch(!state.v)
-            }
-
-            Operation.BVS -> {
-                cyclesPenalty += branch(state.v)
-            }
-
-            Operation.JMP -> {
-                jmp(instruction.addressingMode)
-            }
-
-            Operation.JSR -> {
-                jsr()
-            }
-
-            Operation.RTS -> {
-                rts()
-            }
-
-            Operation.PHA -> {
-                pha()
-            }
-
-            Operation.PLA -> {
-                pla()
-            }
-
-            Operation.PHP -> {
-                php()
-            }
-
-            Operation.PLP -> {
-                plp()
-            }
+            Operation.ADC -> adc(value = readOperand(instruction.addressingMode))
+            Operation.AND -> and(value = readOperand(instruction.addressingMode))
+            Operation.ORA -> ora(value = readOperand(instruction.addressingMode))
+            Operation.EOR -> eor(value = readOperand(instruction.addressingMode))
+            Operation.LDA -> lda(value = readOperand(instruction.addressingMode))
+            Operation.CMP -> cmp(value = readOperand(instruction.addressingMode))
+            Operation.SBC -> sbc(value = readOperand(instruction.addressingMode))
+            Operation.LDX -> ldx(value = readOperand(instruction.addressingMode))
+            Operation.LDY -> ldy(value = readOperand(instruction.addressingMode))
+            Operation.STA -> sta(address = resolveAddress(instruction.addressingMode))
+            Operation.STX -> stx(address = resolveAddress(instruction.addressingMode))
+            Operation.STY -> sty(address = resolveAddress(instruction.addressingMode))
+            Operation.TAX -> tax()
+            Operation.TAY -> tay()
+            Operation.TXA -> txa()
+            Operation.TYA -> tya()
+            Operation.TSX -> tsx()
+            Operation.TXS -> txs()
+            Operation.INX -> inx()
+            Operation.INY -> iny()
+            Operation.DEX -> dex()
+            Operation.DEY -> dey()
+            Operation.CPX -> cpx(value = readOperand(instruction.addressingMode))
+            Operation.CPY -> cpy(value = readOperand(instruction.addressingMode))
+            Operation.BIT -> bit(value = readOperand(instruction.addressingMode))
+            Operation.CLC -> clc()
+            Operation.SEC -> sec()
+            Operation.CLI -> cli()
+            Operation.SEI -> sei()
+            Operation.CLV -> clv()
+            Operation.CLD -> cld()
+            Operation.SED -> sed()
+            Operation.INC -> inc(address = resolveAddress(instruction.addressingMode))
+            Operation.DEC -> dec(address = resolveAddress(instruction.addressingMode))
+            Operation.ASL -> asl(mode = instruction.addressingMode)
+            Operation.LSR -> lsr(mode = instruction.addressingMode)
+            Operation.ROL -> rol(mode = instruction.addressingMode)
+            Operation.ROR -> ror(mode = instruction.addressingMode)
+            Operation.BCC -> cyclesPenalty += branch(!state.c)
+            Operation.BCS -> cyclesPenalty += branch(state.c)
+            Operation.BEQ -> cyclesPenalty += branch(state.z)
+            Operation.BNE -> cyclesPenalty += branch(!state.z)
+            Operation.BMI -> cyclesPenalty += branch(state.n)
+            Operation.BPL -> cyclesPenalty += branch(!state.n)
+            Operation.BVC -> cyclesPenalty += branch(!state.v)
+            Operation.BVS -> cyclesPenalty += branch(state.v)
+            Operation.JMP -> jmp(mode = instruction.addressingMode)
+            Operation.JSR -> jsr()
+            Operation.RTS -> rts()
+            Operation.PHA -> pha()
+            Operation.PLA -> pla()
+            Operation.PHP -> php()
+            Operation.PLP -> plp()
+            Operation.BRK -> brk()
+            Operation.RTI -> rti()
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -970,6 +802,33 @@ class Cpu6502(
 
     private fun plp() {
         state.status = (pull() and 0xEF) or 0x20
+    }
+
+    private fun brk() {
+        // BRK behaves as a 2-byte instruction.
+        state.pc = (state.pc + 1).low16Bits()
+
+        push(state.pc ushr 8)
+        push(state.pc)
+
+        // When pushed by BRK, B and U are both set.
+        push(state.status or 0x30)
+
+        state.i = true
+
+        val lo = bus.read(0xFFFE)
+        val hi = bus.read(0xFFFF)
+
+        state.pc = lo or (hi shl 8)
+    }
+
+    private fun rti() {
+        state.status = (pull() and 0xEF) or 0x20
+
+        val lo = pull()
+        val hi = pull()
+
+        state.pc = lo or (hi shl 8)
     }
 
     // endregion

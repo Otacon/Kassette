@@ -55,4 +55,6 @@ enum class Operation(val pageCrossingPenalty: Boolean) {
     PLA(pageCrossingPenalty = false),
     PHP(pageCrossingPenalty = false),
     PLP(pageCrossingPenalty = false),
+    BRK(pageCrossingPenalty = false),
+    RTI(pageCrossingPenalty = false),
 }
