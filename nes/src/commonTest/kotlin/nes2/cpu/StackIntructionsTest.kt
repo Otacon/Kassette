@@ -254,6 +254,44 @@ class StackInstructionsTest : FreeSpec({
         }
     }
 
+    "PLP clearing I delays IRQ by one instruction" {
+        val memory = IntArray(0x10_000)
+
+        val state = CpuState(
+            pc = 0x8000,
+            sp = 0xFC,
+            irqLine = true,
+            irqPollI = true,
+        ).also {
+            it.i = true
+        }
+
+        memory[0x8000] = 0x28 // PLP
+        memory[0x8001] = 0xEA // NOP
+
+        // Pull status with I clear.
+        memory[0x01FD] = 0x20
+
+        memory[0xFFFE] = 0x00
+        memory[0xFFFF] = 0x90
+
+        val cpu = Cpu6502(
+            bus = CpuBus(memory),
+            state = state,
+        )
+
+        cpu.step() shouldBe 4
+
+        state.i shouldBe false
+
+        // One instruction still executes.
+        cpu.step() shouldBe 2
+        state.pc shouldBe 0x8002
+
+        cpu.step() shouldBe 7
+        state.pc shouldBe 0x9000
+    }
+
     "PHA followed by PLA restores accumulator" {
         val memory = IntArray(0x10_000)
         val state = CpuState(

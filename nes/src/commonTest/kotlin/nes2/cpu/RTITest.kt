@@ -152,4 +152,42 @@ class RTITest : FreeSpec({
         state.pc shouldBe 0x8002
         state.sp shouldBe 0xFD
     }
+
+    "RTI clearing I allows IRQ immediately" {
+        val memory = IntArray(0x10_000)
+
+        val state = CpuState(
+            pc = 0x9000,
+            sp = 0xFA,
+            irqLine = true,
+            irqPollI = true,
+        ).also {
+            it.i = true
+        }
+
+        memory[0x9000] = 0x40 // RTI
+
+        // Restore status with I clear.
+        memory[0x01FB] = 0x20
+
+        // Return to $8000.
+        memory[0x01FC] = 0x00
+        memory[0x01FD] = 0x80
+
+        memory[0xFFFE] = 0x00
+        memory[0xFFFF] = 0xA0
+
+        val cpu = Cpu6502(
+            bus = CpuBus(memory),
+            state = state,
+        )
+
+        cpu.step() shouldBe 6
+        state.pc shouldBe 0x8000
+        state.i shouldBe false
+
+        // No normal instruction at $8000 executes.
+        cpu.step() shouldBe 7
+        state.pc shouldBe 0xA000
+    }
 })

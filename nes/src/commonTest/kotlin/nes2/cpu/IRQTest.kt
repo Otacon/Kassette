@@ -38,6 +38,7 @@ class IRQTest : FreeSpec({
             val state = CpuState(
                 pc = 0x8000,
                 sp = 0xFD,
+                irqPollI = false,
             ).also {
                 it.i = false
             }
@@ -64,6 +65,7 @@ class IRQTest : FreeSpec({
             val state = CpuState(
                 pc = 0x8000,
                 sp = 0xFD,
+                irqPollI = false,
             ).also {
                 it.i = false
                 it.c = true
@@ -83,12 +85,8 @@ class IRQTest : FreeSpec({
 
             val pushedStatus = memory[0x01FB]
 
-            // B clear
             (pushedStatus and 0x10) shouldBe 0
-
-            // U set
             (pushedStatus and 0x20) shouldBe 0x20
-
             (pushedStatus and 0x01) shouldBe 0x01
             (pushedStatus and 0x40) shouldBe 0x40
         }

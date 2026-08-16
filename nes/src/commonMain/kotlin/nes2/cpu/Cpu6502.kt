@@ -247,12 +247,26 @@ class Cpu6502(
             return nmi()
         }
 
-        if (state.irqLine && !state.i) {
+        if (state.irqLine && !state.irqPollI) {
             return irq()
         }
-        val opCode = pcRead()
-        val instruction = instructions[opCode]
-        return execute(instruction)
+
+        val opcode = pcRead()
+        val instruction = instructions[opcode]
+
+        val iBefore = state.i
+
+        val cycles = execute(instruction)
+
+        state.irqPollI = when (instruction.operation) {
+            Operation.CLI,
+            Operation.SEI,
+            Operation.PLP -> iBefore
+
+            else -> state.i
+        }
+
+        return cycles
     }
 
     // If performance is needed, use a plain INT and do all you need to do plainly without relying on
@@ -894,6 +908,7 @@ class Cpu6502(
         push((state.status and 0xEF) or 0x20)
 
         state.i = true
+        state.irqPollI = true
 
         val lo = bus.read(vector)
         val hi = bus.read((vector + 1).low16Bits())
