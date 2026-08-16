@@ -190,6 +190,19 @@ class Cpu6502(
         instructions[0x76] = Instruction(Operation.ROR, ZERO_PAGE_X, 6)
         instructions[0x6E] = Instruction(Operation.ROR, ABSOLUTE, 6)
         instructions[0x7E] = Instruction(Operation.ROR, ABSOLUTE_X, 7)
+
+        // Branching
+        instructions[0x90] = Instruction(Operation.BCC, RELATIVE, 2)
+        instructions[0xB0] = Instruction(Operation.BCS, RELATIVE, 2)
+
+        instructions[0xF0] = Instruction(Operation.BEQ, RELATIVE, 2)
+        instructions[0xD0] = Instruction(Operation.BNE, RELATIVE, 2)
+
+        instructions[0x30] = Instruction(Operation.BMI, RELATIVE, 2)
+        instructions[0x10] = Instruction(Operation.BPL, RELATIVE, 2)
+
+        instructions[0x50] = Instruction(Operation.BVC, RELATIVE, 2)
+        instructions[0x70] = Instruction(Operation.BVS, RELATIVE, 2)
     }
 
     fun reset() {
@@ -206,7 +219,7 @@ class Cpu6502(
     // data representation. It's ugly AF, but it is more performant.
     private fun execute(instruction: Instruction): Int {
         val pageCrossingPenalty = instruction.operation.pageCrossingPenalty
-        val cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
+        var cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
         when (instruction.operation) {
             Operation.ADC -> {
                 val operand = readOperand(instruction.addressingMode)
@@ -361,10 +374,53 @@ class Cpu6502(
                 dec(address)
             }
 
-            Operation.ASL -> asl(instruction.addressingMode)
-            Operation.LSR -> lsr(instruction.addressingMode)
-            Operation.ROL -> rol(instruction.addressingMode)
-            Operation.ROR -> ror(instruction.addressingMode)
+            Operation.ASL -> {
+                asl(instruction.addressingMode)
+            }
+
+            Operation.LSR -> {
+                lsr(instruction.addressingMode)
+            }
+
+            Operation.ROL -> {
+                rol(instruction.addressingMode)
+            }
+
+            Operation.ROR -> {
+                ror(instruction.addressingMode)
+            }
+
+            Operation.BCC -> {
+                cyclesPenalty += branch(!state.c)
+            }
+
+            Operation.BCS -> {
+                cyclesPenalty += branch(state.c)
+            }
+
+            Operation.BEQ -> {
+                cyclesPenalty += branch(state.z)
+            }
+
+            Operation.BNE -> {
+                cyclesPenalty += branch(!state.z)
+            }
+
+            Operation.BMI -> {
+                cyclesPenalty += branch(state.n)
+            }
+
+            Operation.BPL -> {
+                cyclesPenalty += branch(!state.n)
+            }
+
+            Operation.BVC -> {
+                cyclesPenalty += branch(!state.v)
+            }
+
+            Operation.BVS -> {
+                cyclesPenalty += branch(state.v)
+            }
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -779,6 +835,21 @@ class Cpu6502(
         return result
     }
 
+    private fun branch(condition: Boolean): Int {
+        val offset = readRelativeOffset()
+
+        if (!condition) {
+            return 0
+        }
+
+        val oldPc = state.pc
+        val newPc = (oldPc + offset).low16Bits()
+
+        state.pc = newPc
+
+        return if (oldPc.pageBase() != newPc.pageBase()) 2 else 1
+    }
+
     // endregion
 
     // region utils
@@ -786,6 +857,12 @@ class Cpu6502(
         val value = bus.read(state.pc)
         state.pc = (state.pc + 1).low16Bits()
         return value
+    }
+
+    private fun readRelativeOffset(): Int {
+        val value = pcRead()
+
+        return if (value < 0x80) value else value - 0x100
     }
 
     // endregion

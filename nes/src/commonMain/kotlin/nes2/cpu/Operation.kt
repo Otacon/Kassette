@@ -40,4 +40,12 @@ enum class Operation(val pageCrossingPenalty: Boolean,) {
     LSR(pageCrossingPenalty = false),
     ROL(pageCrossingPenalty = false),
     ROR(pageCrossingPenalty = false),
+    BCC(pageCrossingPenalty = false),
+    BCS(pageCrossingPenalty = false),
+    BEQ(pageCrossingPenalty = false),
+    BNE(pageCrossingPenalty = false),
+    BMI(pageCrossingPenalty = false),
+    BPL(pageCrossingPenalty = false),
+    BVC(pageCrossingPenalty = false),
+    BVS(pageCrossingPenalty = false),
 }
