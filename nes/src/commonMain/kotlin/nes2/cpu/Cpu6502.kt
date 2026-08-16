@@ -222,8 +222,12 @@ class Cpu6502(
 
         // BRK
         instructions[0x00] = Instruction(Operation.BRK, IMPLIED, 7)
+
         // RTI
         instructions[0x40] = Instruction(Operation.RTI, IMPLIED, 6)
+
+        //
+        instructions[0xEA] = Instruction(Operation.NOP, IMPLIED, 2)
     }
 
     fun reset() {
@@ -297,6 +301,7 @@ class Cpu6502(
             Operation.PLP -> plp()
             Operation.BRK -> brk()
             Operation.RTI -> rti()
+            Operation.NOP -> nop()
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -830,6 +835,8 @@ class Cpu6502(
 
         state.pc = lo or (hi shl 8)
     }
+
+    private fun nop() = Unit
 
     // endregion
 

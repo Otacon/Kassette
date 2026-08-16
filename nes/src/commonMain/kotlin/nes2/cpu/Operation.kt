@@ -1,6 +1,7 @@
 package nes2.cpu
 
 enum class Operation(val pageCrossingPenalty: Boolean) {
+    // Official Opcodes
     ADC(pageCrossingPenalty = true),
     AND(pageCrossingPenalty = true),
     ORA(pageCrossingPenalty = true),
@@ -10,7 +11,6 @@ enum class Operation(val pageCrossingPenalty: Boolean) {
     SBC(pageCrossingPenalty = true),
     LDX(pageCrossingPenalty = true),
     LDY(pageCrossingPenalty = true),
-
     STA(pageCrossingPenalty = false),
     STX(pageCrossingPenalty = false),
     STY(pageCrossingPenalty = false),
@@ -57,4 +57,6 @@ enum class Operation(val pageCrossingPenalty: Boolean) {
     PLP(pageCrossingPenalty = false),
     BRK(pageCrossingPenalty = false),
     RTI(pageCrossingPenalty = false),
+    NOP(pageCrossingPenalty = false),
+    // Unofficial Opcodes
 }
