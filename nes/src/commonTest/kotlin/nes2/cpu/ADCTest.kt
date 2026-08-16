@@ -135,6 +135,18 @@ class ADCTest : FreeSpec({
 
             memory[0x0050] = case.value
         }
+
+        testAdcMode(
+            name = "absolute",
+            instructionSize = 3,
+        ) { memory, state, case ->
+            memory[state.pc] = 0x6D
+
+            memory[state.pc + 1] = 0x34 // low byte
+            memory[state.pc + 2] = 0x12 // high byte
+
+            memory[0x1234] = case.value
+        }
     }
 })
 

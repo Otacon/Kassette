@@ -4,6 +4,7 @@ import nes.util.isNegative8Bit
 import nes.util.low16Bits
 import nes.util.low8Bits
 import nes2.CpuBus
+import nes2.cpu.AddressingMode.*
 
 class Cpu6502(
     private val bus: CpuBus,
@@ -13,14 +14,16 @@ class Cpu6502(
     private val instructions = arrayOfNulls<Instruction>(256)
 
     init {
-        instructions[0x61] = Instruction(Operation.ADC, AddressingMode.INDIRECT_X, 6)
-        instructions[0x69] = Instruction(Operation.ADC, AddressingMode.IMMEDIATE, 2)
-        instructions[0x65] = Instruction(Operation.ADC, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x6D] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE, 4)
-        instructions[0x71] = Instruction(Operation.ADC, AddressingMode.INDIRECT_Y, 5)
-        instructions[0x75] = Instruction(Operation.ADC, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x79] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE_Y, 4)
-        instructions[0x7D] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE_X, 4)
+
+        // ADC
+        instructions[0x69] = Instruction(Operation.ADC, IMMEDIATE, 2)
+        instructions[0x65] = Instruction(Operation.ADC, ZERO_PAGE, 3)
+        instructions[0x75] = Instruction(Operation.ADC, ZERO_PAGE_X, 4)
+        instructions[0x61] = Instruction(Operation.ADC, INDIRECT_X, 6)
+        instructions[0x6D] = Instruction(Operation.ADC, ABSOLUTE, 4)
+        instructions[0x71] = Instruction(Operation.ADC, INDIRECT_Y, 5)
+        instructions[0x79] = Instruction(Operation.ADC, ABSOLUTE_Y, 4)
+        instructions[0x7D] = Instruction(Operation.ADC, ABSOLUTE_X, 4)
     }
 
     fun reset() {
@@ -35,31 +38,45 @@ class Cpu6502(
 
     private fun execute(instruction: Instruction) {
         when (instruction.operation) {
-            Operation.ADC -> when (instruction.addressingMode) {
-                AddressingMode.IMMEDIATE -> adcImmediate()
-                AddressingMode.ZERO_PAGE -> adcZeroPage()
-                AddressingMode.ZERO_PAGE_X -> adcZeroPageX()
-
-
-                AddressingMode.ABSOLUTE -> TODO()
-                AddressingMode.ABSOLUTE_X -> TODO()
-                AddressingMode.ABSOLUTE_Y -> TODO()
-
-                AddressingMode.INDIRECT_X -> TODO()
-                AddressingMode.INDIRECT_Y -> TODO()
-
-                AddressingMode.ZERO_PAGE_Y,
-                AddressingMode.IMPLIED,
-                AddressingMode.ACCUMULATOR,
-                AddressingMode.RELATIVE,
-                AddressingMode.INDIRECT -> throw IllegalArgumentException("Addressing mode ${instruction.addressingMode} is not supported for ADC")
+            Operation.ADC -> {
+                val operand = readOperand(instruction.addressingMode)
+                adc(operand)
             }
         }
     }
 
-    /**
-     * ADC
-     */
+    private fun readOperand(mode: AddressingMode): Int {
+        return when (mode) {
+            IMMEDIATE -> pcRead()
+            ZERO_PAGE -> {
+                val address = pcRead()
+                bus.read(address)
+            }
+
+            ZERO_PAGE_X -> {
+                val address = (pcRead() + state.x).low8Bits()
+                bus.read(address)
+            }
+
+            ABSOLUTE -> {
+                val lo = pcRead()
+                val hi = pcRead()
+                val address = lo or (hi shl 8)
+                bus.read(address)
+            }
+
+            IMPLIED -> TODO()
+            ACCUMULATOR -> TODO()
+            ZERO_PAGE_Y -> TODO()
+            RELATIVE -> TODO()
+            ABSOLUTE_X -> TODO()
+            ABSOLUTE_Y -> TODO()
+            INDIRECT -> TODO()
+            INDIRECT_X -> TODO()
+            INDIRECT_Y -> TODO()
+        }
+    }
+
     private fun adc(value: Int) {
         val a = state.a
         val carryIn = if (state.c) 1 else 0
@@ -71,24 +88,6 @@ class Cpu6502(
         state.z = result == 0
         state.n = result.isNegative8Bit()
         state.a = result
-    }
-
-    private fun adcImmediate() {
-        val value = pcRead()
-        adc(value)
-    }
-
-    private fun adcZeroPage() {
-        val address = pcRead()
-        val value = bus.read(address)
-        adc(value)
-    }
-
-    private fun adcZeroPageX() {
-        val address = pcRead()
-        val effectiveAddress = (address + state.x).low8Bits()
-        val value = bus.read(effectiveAddress)
-        adc(value)
     }
 
     private fun pcRead(): Int {
