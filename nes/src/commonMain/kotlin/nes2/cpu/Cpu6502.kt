@@ -85,6 +85,13 @@ class Cpu6502(
         instructions[0xFD] = Instruction(Operation.SBC, ABSOLUTE_X, 4)
         instructions[0xF9] = Instruction(Operation.SBC, ABSOLUTE_Y, 4)
 
+        // LDX
+        instructions[0xA2] = Instruction(Operation.LDX, IMMEDIATE, 2)
+        instructions[0xA6] = Instruction(Operation.LDX, ZERO_PAGE, 3)
+        instructions[0xB6] = Instruction(Operation.LDX, ZERO_PAGE_Y, 4)
+        instructions[0xAE] = Instruction(Operation.LDX, ABSOLUTE, 4)
+        instructions[0xBE] = Instruction(Operation.LDX, ABSOLUTE_Y, 4)
+
     }
 
     fun reset() {
@@ -109,6 +116,7 @@ class Cpu6502(
             Operation.LDA -> lda(operand)
             Operation.CMP -> cmp(operand)
             Operation.SBC -> sbc(operand)
+            Operation.LDX -> ldx(operand)
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -175,7 +183,10 @@ class Cpu6502(
 
             IMPLIED -> TODO()
             ACCUMULATOR -> TODO()
-            ZERO_PAGE_Y -> TODO()
+            ZERO_PAGE_Y -> {
+                val address = (pcRead() + state.y).low8Bits()
+                bus.read(address)
+            }
             RELATIVE -> TODO()
             INDIRECT -> TODO()
         }
@@ -260,6 +271,13 @@ class Cpu6502(
         state.a = value.low8Bits()
         state.z = state.a == 0
         state.n = state.a.isNegative8Bit()
+    }
+
+    private fun ldx(value: Int) {
+        state.x = value.low8Bits()
+
+        state.z = state.x == 0
+        state.n = state.x.isNegative8Bit()
     }
 
     private fun cmp(value: Int) {

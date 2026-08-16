@@ -8,4 +8,5 @@ enum class Operation(val supportsPageCrossingPenalty: Boolean,) {
     LDA(supportsPageCrossingPenalty = true),
     CMP(supportsPageCrossingPenalty = true),
     SBC(supportsPageCrossingPenalty = true),
+    LDX(supportsPageCrossingPenalty = true),
 }
