@@ -9,4 +9,5 @@ enum class Operation(val supportsPageCrossingPenalty: Boolean,) {
     CMP(supportsPageCrossingPenalty = true),
     SBC(supportsPageCrossingPenalty = true),
     LDX(supportsPageCrossingPenalty = true),
+    LDY(supportsPageCrossingPenalty = true),
 }

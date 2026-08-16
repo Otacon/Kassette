@@ -92,6 +92,13 @@ class Cpu6502(
         instructions[0xAE] = Instruction(Operation.LDX, ABSOLUTE, 4)
         instructions[0xBE] = Instruction(Operation.LDX, ABSOLUTE_Y, 4)
 
+        // LDY
+        instructions[0xA0] = Instruction(Operation.LDY, IMMEDIATE, 2)
+        instructions[0xA4] = Instruction(Operation.LDY, ZERO_PAGE, 3)
+        instructions[0xB4] = Instruction(Operation.LDY, ZERO_PAGE_X, 4)
+        instructions[0xAC] = Instruction(Operation.LDY, ABSOLUTE, 4)
+        instructions[0xBC] = Instruction(Operation.LDY, ABSOLUTE_X, 4)
+
     }
 
     fun reset() {
@@ -117,6 +124,7 @@ class Cpu6502(
             Operation.CMP -> cmp(operand)
             Operation.SBC -> sbc(operand)
             Operation.LDX -> ldx(operand)
+            Operation.LDY -> ldy(operand)
         }
         return instruction.baseCycles + cyclesPenalty
     }
@@ -187,6 +195,7 @@ class Cpu6502(
                 val address = (pcRead() + state.y).low8Bits()
                 bus.read(address)
             }
+
             RELATIVE -> TODO()
             INDIRECT -> TODO()
         }
@@ -241,7 +250,6 @@ class Cpu6502(
         val carryIn = if (state.c) 1 else 0
         val sum = a + value + carryIn
         val result = sum.low8Bits()
-
         state.c = sum > 0xFF
         state.v = ((a xor result) and (value xor result)).isNegative8Bit()
         state.z = result == 0
@@ -275,7 +283,6 @@ class Cpu6502(
 
     private fun ldx(value: Int) {
         state.x = value.low8Bits()
-
         state.z = state.x == 0
         state.n = state.x.isNegative8Bit()
     }
@@ -297,6 +304,12 @@ class Cpu6502(
         state.z = result == 0
         state.n = result.isNegative8Bit()
         state.a = result
+    }
+
+    private fun ldy(value: Int) {
+        state.y = value.low8Bits()
+        state.z = state.y == 0
+        state.n = state.y.isNegative8Bit()
     }
 
     // endregion
