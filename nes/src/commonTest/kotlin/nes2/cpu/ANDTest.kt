@@ -5,96 +5,89 @@ import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
 import io.kotest.matchers.shouldBe
 import nes2.CpuBus
 
-class ADCTest : FreeSpec({
+class ANDTest : FreeSpec({
 
     val cases = listOf(
-        AdcCase(
-            name = "simple addition",
+        AndCase(
+            name = "simple AND",
             cpuState = CpuState(
                 pc = 0x8000,
-                a = 0x10,
+                a = 0b1111_0000,
             ),
-            value = 0x20,
-            expectedA = 0x30,
-            expectedC = false,
-            expectedV = false,
+            value = 0b1010_1010,
+            expectedA = 0b1010_0000,
             expectedZ = false,
-            expectedN = false,
+            expectedN = true,
         ),
-        AdcCase(
-            name = "includes carry in",
+        AndCase(
+            name = "sets zero when result is zero",
             cpuState = CpuState(
                 pc = 0x8000,
-                a = 0x10,
+                a = 0b1111_0000,
+            ),
+            value = 0b0000_1111,
+            expectedA = 0x00,
+            expectedZ = true,
+            expectedN = false,
+        ),
+        AndCase(
+            name = "clears zero when result is non zero",
+            cpuState = CpuState(
+                pc = 0x8000,
+                a = 0x0F,
             ).also {
-                it.c = true
+                it.z = true
             },
-            value = 0x20,
-            expectedA = 0x31,
-            expectedC = false,
-            expectedV = false,
+            value = 0x03,
+            expectedA = 0x03,
             expectedZ = false,
             expectedN = false,
         ),
-        AdcCase(
-            name = "sets carry and zero",
+        AndCase(
+            name = "sets negative when bit 7 is set",
             cpuState = CpuState(
                 pc = 0x8000,
                 a = 0xFF,
             ),
-            value = 0x01,
-            expectedA = 0x00,
-            expectedC = true,
-            expectedV = false,
-            expectedZ = true,
-            expectedN = false,
-        ),
-        AdcCase(
-            name = "sets negative",
-            cpuState = CpuState(
-                pc = 0x8000,
-                a = 0x00,
-            ),
             value = 0x80,
             expectedA = 0x80,
-            expectedC = false,
-            expectedV = false,
             expectedZ = false,
             expectedN = true,
         ),
-        AdcCase(
-            name = "sets overflow when positive plus positive becomes negative",
+        AndCase(
+            name = "clears negative when bit 7 is not set",
             cpuState = CpuState(
                 pc = 0x8000,
-                a = 0x50,
-            ),
-            value = 0x50,
-            expectedA = 0xA0,
-            expectedC = false,
-            expectedV = true,
+                a = 0xFF,
+            ).also {
+                it.n = true
+            },
+            value = 0x7F,
+            expectedA = 0x7F,
             expectedZ = false,
-            expectedN = true,
+            expectedN = false,
         ),
-        AdcCase(
-            name = "sets overflow when negative plus negative becomes positive",
+        AndCase(
+            name = "does not modify carry or overflow",
             cpuState = CpuState(
                 pc = 0x8000,
-                a = 0xD0,
-            ),
-            value = 0x90,
-            expectedA = 0x60,
-            expectedC = true,
-            expectedV = true,
+                a = 0xFF,
+            ).also {
+                it.c = true
+                it.v = true
+            },
+            value = 0x0F,
+            expectedA = 0x0F,
             expectedZ = false,
             expectedN = false,
         ),
     )
 
-    suspend fun FreeSpecContainerScope.testAdcMode(
+    suspend fun FreeSpecContainerScope.testAndMode(
         name: String,
         instructionSize: Int,
         expectedCycles: Int,
-        setup: (memory: IntArray, state: CpuState, case: AdcCase) -> Unit,
+        setup: (memory: IntArray, state: CpuState, case: AndCase) -> Unit,
     ) {
         name - {
             cases.forEach { case ->
@@ -104,19 +97,24 @@ class ADCTest : FreeSpec({
 
                     setup(memory, state, case)
 
+                    val initialCarry = state.c
+                    val initialOverflow = state.v
+                    val initialPc = state.pc
+
                     val cpu = Cpu6502(
                         bus = CpuBus(memory = memory),
                         state = state,
                     )
 
-                    val initialPc = state.pc
                     val cycles = cpu.step()
 
                     state.a shouldBe case.expectedA
-                    state.c shouldBe case.expectedC
-                    state.v shouldBe case.expectedV
                     state.z shouldBe case.expectedZ
                     state.n shouldBe case.expectedN
+
+                    // AND must leave C and V unchanged.
+                    state.c shouldBe initialCarry
+                    state.v shouldBe initialOverflow
 
                     state.pc shouldBe initialPc + instructionSize
                     cycles shouldBe expectedCycles
@@ -125,61 +123,61 @@ class ADCTest : FreeSpec({
         }
     }
 
-    "ADC" - {
+    "AND" - {
 
-        testAdcMode(
+        testAndMode(
             name = "immediate",
             instructionSize = 2,
             expectedCycles = 2,
         ) { memory, state, case ->
-            memory[state.pc] = 0x69
+            memory[state.pc] = 0x29
             memory[state.pc + 1] = case.value
         }
 
-        testAdcMode(
+        testAndMode(
             name = "zero page",
             instructionSize = 2,
             expectedCycles = 3,
         ) { memory, state, case ->
-            memory[state.pc] = 0x65
+            memory[state.pc] = 0x25
             memory[state.pc + 1] = 0x42
 
             memory[0x0042] = case.value
         }
 
-        testAdcMode(
+        testAndMode(
             name = "zero page X",
             instructionSize = 2,
             expectedCycles = 4,
         ) { memory, state, case ->
             state.x = 0x10
 
-            memory[state.pc] = 0x75
+            memory[state.pc] = 0x35
             memory[state.pc + 1] = 0x40
 
             memory[0x0050] = case.value
         }
 
-        testAdcMode(
+        testAndMode(
             name = "absolute",
             instructionSize = 3,
             expectedCycles = 4,
         ) { memory, state, case ->
-            memory[state.pc] = 0x6D
+            memory[state.pc] = 0x2D
             memory[state.pc + 1] = 0x34
             memory[state.pc + 2] = 0x12
 
             memory[0x1234] = case.value
         }
 
-        testAdcMode(
+        testAndMode(
             name = "absolute X",
             instructionSize = 3,
             expectedCycles = 4,
         ) { memory, state, case ->
             state.x = 0x01
 
-            memory[state.pc] = 0x7D
+            memory[state.pc] = 0x3D
             memory[state.pc + 1] = 0x34
             memory[state.pc + 2] = 0x12
 
@@ -192,35 +190,37 @@ class ADCTest : FreeSpec({
 
             val state = CpuState(
                 pc = 0x8000,
-                a = 0x10,
+                a = 0xF0,
                 x = 0x01,
             )
 
-            memory[state.pc] = 0x7D
+            memory[state.pc] = 0x3D
             memory[state.pc + 1] = 0xFF
             memory[state.pc + 2] = 0x12
 
             // $12FF + X($01) = $1300
-            memory[0x1300] = 0x20
+            memory[0x1300] = 0xAA
 
             val cycles = Cpu6502(
                 bus = CpuBus(memory = memory),
                 state = state,
             ).step()
 
-            state.a shouldBe 0x30
+            state.a shouldBe 0xA0
+            state.z shouldBe false
+            state.n shouldBe true
             state.pc shouldBe 0x8003
             cycles shouldBe 5
         }
 
-        testAdcMode(
+        testAndMode(
             name = "absolute Y",
             instructionSize = 3,
             expectedCycles = 4,
         ) { memory, state, case ->
             state.y = 0x01
 
-            memory[state.pc] = 0x79
+            memory[state.pc] = 0x39
             memory[state.pc + 1] = 0x34
             memory[state.pc + 2] = 0x12
 
@@ -233,35 +233,37 @@ class ADCTest : FreeSpec({
 
             val state = CpuState(
                 pc = 0x8000,
-                a = 0x10,
+                a = 0xF0,
                 y = 0x01,
             )
 
-            memory[state.pc] = 0x79
+            memory[state.pc] = 0x39
             memory[state.pc + 1] = 0xFF
             memory[state.pc + 2] = 0x12
 
             // $12FF + Y($01) = $1300
-            memory[0x1300] = 0x20
+            memory[0x1300] = 0xAA
 
             val cycles = Cpu6502(
                 bus = CpuBus(memory = memory),
                 state = state,
             ).step()
 
-            state.a shouldBe 0x30
+            state.a shouldBe 0xA0
+            state.z shouldBe false
+            state.n shouldBe true
             state.pc shouldBe 0x8003
             cycles shouldBe 5
         }
 
-        testAdcMode(
+        testAndMode(
             name = "indirect X",
             instructionSize = 2,
             expectedCycles = 6,
         ) { memory, state, case ->
             state.x = 0x04
 
-            memory[state.pc] = 0x61
+            memory[state.pc] = 0x21
             memory[state.pc + 1] = 0x20
 
             // ($20 + X) = $24
@@ -272,14 +274,14 @@ class ADCTest : FreeSpec({
             memory[0x1234] = case.value
         }
 
-        testAdcMode(
+        testAndMode(
             name = "indirect Y",
             instructionSize = 2,
             expectedCycles = 5,
         ) { memory, state, case ->
             state.y = 0x01
 
-            memory[state.pc] = 0x71
+            memory[state.pc] = 0x31
             memory[state.pc + 1] = 0x20
 
             // Pointer at $20/$21 -> $1234
@@ -295,11 +297,11 @@ class ADCTest : FreeSpec({
 
             val state = CpuState(
                 pc = 0x8000,
-                a = 0x10,
+                a = 0xF0,
                 y = 0x01,
             )
 
-            memory[state.pc] = 0x71
+            memory[state.pc] = 0x31
             memory[state.pc + 1] = 0x20
 
             // Pointer at $20/$21 -> $12FF
@@ -307,27 +309,27 @@ class ADCTest : FreeSpec({
             memory[0x0021] = 0x12
 
             // $12FF + Y($01) = $1300
-            memory[0x1300] = 0x20
+            memory[0x1300] = 0xAA
 
             val cycles = Cpu6502(
                 bus = CpuBus(memory = memory),
                 state = state,
             ).step()
 
-            state.a shouldBe 0x30
+            state.a shouldBe 0xA0
+            state.z shouldBe false
+            state.n shouldBe true
             state.pc shouldBe 0x8002
             cycles shouldBe 6
         }
     }
 })
 
-private data class AdcCase(
+private data class AndCase(
     val name: String,
     val cpuState: CpuState,
     val value: Int,
     val expectedA: Int,
-    val expectedC: Boolean,
-    val expectedV: Boolean,
     val expectedZ: Boolean,
     val expectedN: Boolean,
 )
