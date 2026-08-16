@@ -75,6 +75,16 @@ class Cpu6502(
         instructions[0xDD] = Instruction(Operation.CMP, ABSOLUTE_X, 4)
         instructions[0xD9] = Instruction(Operation.CMP, ABSOLUTE_Y, 4)
 
+        // SBC
+        instructions[0xE9] = Instruction(Operation.SBC, IMMEDIATE, 2)
+        instructions[0xE5] = Instruction(Operation.SBC, ZERO_PAGE, 3)
+        instructions[0xF5] = Instruction(Operation.SBC, ZERO_PAGE_X, 4)
+        instructions[0xE1] = Instruction(Operation.SBC, INDIRECT_X, 6)
+        instructions[0xED] = Instruction(Operation.SBC, ABSOLUTE, 4)
+        instructions[0xF1] = Instruction(Operation.SBC, INDIRECT_Y, 5)
+        instructions[0xFD] = Instruction(Operation.SBC, ABSOLUTE_X, 4)
+        instructions[0xF9] = Instruction(Operation.SBC, ABSOLUTE_Y, 4)
+
     }
 
     fun reset() {
@@ -128,6 +138,13 @@ class Cpu6502(
                 val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
                 val operand = readOperand(instruction.addressingMode)
                 cmp(operand)
+                instruction.baseCycles + pageCrossingPenalty
+            }
+
+            Operation.SBC -> {
+                val pageCrossingPenalty = pageCrossingPenalty(instruction.addressingMode)
+                val operand = readOperand(instruction.addressingMode)
+                sbc(operand)
                 instruction.baseCycles + pageCrossingPenalty
             }
         }
@@ -287,6 +304,18 @@ class Cpu6502(
         state.c = state.a >= value
         state.z = state.a == value
         state.n = result.isNegative8Bit()
+    }
+
+    private fun sbc(value: Int) {
+        val a = state.a
+        val borrow = if (state.c) 0 else 1
+        val difference = a - value - borrow
+        val result = difference.low8Bits()
+        state.c = difference >= 0
+        state.v = ((a xor value) and (a xor result)).isNegative8Bit()
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+        state.a = result
     }
 
     // endregion
