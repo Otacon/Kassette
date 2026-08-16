@@ -7,6 +7,8 @@ data class CpuState(
     var y: Int = 0,
     var sp: Int = 0,
     var status: Int = 0,
+    var irqLine: Boolean = false,
+    var nmiPending: Boolean = false,
 ) {
 
     var c: Boolean

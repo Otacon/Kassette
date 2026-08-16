@@ -233,7 +233,23 @@ class Cpu6502(
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
     }
 
+    fun setIrqLine(active: Boolean) {
+        state.irqLine = active
+    }
+
+    fun requestNmi() {
+        state.nmiPending = true
+    }
+
     fun step(): Int {
+        if (state.nmiPending) {
+            state.nmiPending = false
+            return nmi()
+        }
+
+        if (state.irqLine && !state.i) {
+            return irq()
+        }
         val opCode = pcRead()
         val instruction = instructions[opCode]
         return execute(instruction)
@@ -837,6 +853,14 @@ class Cpu6502(
 
     private fun nop() = Unit
 
+    private fun irq(): Int {
+        return interrupt(0xFFFE)
+    }
+
+    private fun nmi(): Int {
+        return interrupt(0xFFFA)
+    }
+
     // endregion
 
     // region utils
@@ -860,6 +884,23 @@ class Cpu6502(
     private fun pull(): Int {
         state.sp = (state.sp + 1).low8Bits()
         return bus.read(0x0100 or state.sp)
+    }
+
+    private fun interrupt(vector: Int): Int {
+        push(state.pc ushr 8)
+        push(state.pc)
+
+        // Hardware interrupts push B=0 and U=1.
+        push((state.status and 0xEF) or 0x20)
+
+        state.i = true
+
+        val lo = bus.read(vector)
+        val hi = bus.read((vector + 1).low16Bits())
+
+        state.pc = lo or (hi shl 8)
+
+        return 7
     }
 
     // endregion
