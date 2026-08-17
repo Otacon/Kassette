@@ -15,7 +15,8 @@ class FakePpu(
         registers[address - 0x2000] = value and 0xFF
     }
 
-    override fun writeOamDma(page: Int) {
-        oamDmaPage = page and 0xFF
+    override fun writeOamData(value: Int) {
+        TODO("Not yet implemented")
     }
+
 }

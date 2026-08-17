@@ -11,17 +11,19 @@ class CpuBusNesTest : FreeSpec({
     lateinit var ppu: FakePpu
     lateinit var cartridgeSocket: CartridgeSocket
     lateinit var bus: CpuBusNes
+    lateinit var dma: FakeOamDma
 
     beforeTest {
         ram = IntArray(0x800)
         ppuRegisters = IntArray(8)
         ppu = FakePpu(registers = ppuRegisters)
         cartridgeSocket = CartridgeSocket()
-
+        dma = FakeOamDma()
         bus = CpuBusNes(
             ram = ram,
             ppu = ppu,
             cartridge = cartridgeSocket,
+            dma = dma,
         )
     }
 
@@ -96,9 +98,9 @@ class CpuBusNesTest : FreeSpec({
         bus.read(0x4000) shouldBe 0
     }
 
-    "writes OAM DMA page to PPU" {
+    "starts OAM DMA with written page" {
         bus.write(0x4014, 0x02)
 
-        ppu.oamDmaPage shouldBe 0x02
+        dma.page shouldBe 0x02
     }
 })

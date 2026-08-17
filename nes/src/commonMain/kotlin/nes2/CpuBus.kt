@@ -12,6 +12,7 @@ class CpuBusNes(
     private val ram: IntArray,
     private val cartridge: CartridgeSocket,
     private val ppu: Ppu,
+    private val dma: OamDma,
 ) : CpuBus {
 
     override fun read(address: Int): Int {
@@ -31,7 +32,8 @@ class CpuBusNes(
                 PPU_REGISTERS_START + (address and PPU_REGISTER_MASK),
                 value
             )
-            OAM_DMA -> ppu.writeOamDma(value)
+
+            OAM_DMA -> dma.start(value)
         }
     }
 
