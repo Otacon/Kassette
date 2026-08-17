@@ -2,6 +2,7 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes2.FakeBus
 
 class INYTest : FreeSpec({
 

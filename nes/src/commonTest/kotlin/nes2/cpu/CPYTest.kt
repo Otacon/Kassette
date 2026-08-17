@@ -3,6 +3,7 @@ package nes2.cpu
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
 import io.kotest.matchers.shouldBe
+import nes2.FakeBus
 
 class CPYTest : FreeSpec({
 

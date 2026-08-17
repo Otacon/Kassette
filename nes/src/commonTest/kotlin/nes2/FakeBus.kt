@@ -1,6 +1,4 @@
-package nes2.cpu
-
-import nes2.CpuBus
+package nes2
 
 class FakeBus(
     private val memory: IntArray,
