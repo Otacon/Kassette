@@ -12,6 +12,7 @@ class Cpu6502(
 ) {
 
     private val instructions = Array(256) { Instruction(Operation.NOP, AddressingMode.IMPLIED, 2) }
+    private var pageCrossed = false
 
     init {
         // ADC
@@ -267,21 +268,22 @@ class Cpu6502(
     // If performance is needed, use a plain INT and do all you need to do plainly without relying on
     // data representation. It's ugly AF, but it is more performant.
     private fun execute(instruction: Instruction): Int {
-        val pageCrossingPenalty = instruction.operation.pageCrossingPenalty
-        var cyclesPenalty = if (pageCrossingPenalty) pageCrossingPenalty(instruction.addressingMode) else 0
+        pageCrossed = false
+        var cyclesPenalty = 0
+        val pageCrossPenalty = instruction.operation.pageCrossingPenalty
         when (instruction.operation) {
-            Operation.ADC -> adc(value = readOperand(instruction.addressingMode))
-            Operation.AND -> and(value = readOperand(instruction.addressingMode))
-            Operation.ORA -> ora(value = readOperand(instruction.addressingMode))
-            Operation.EOR -> eor(value = readOperand(instruction.addressingMode))
-            Operation.LDA -> lda(value = readOperand(instruction.addressingMode))
-            Operation.CMP -> cmp(value = readOperand(instruction.addressingMode))
-            Operation.SBC -> sbc(value = readOperand(instruction.addressingMode))
-            Operation.LDX -> ldx(value = readOperand(instruction.addressingMode))
-            Operation.LDY -> ldy(value = readOperand(instruction.addressingMode))
-            Operation.STA -> sta(address = resolveAddress(instruction.addressingMode))
-            Operation.STX -> stx(address = resolveAddress(instruction.addressingMode))
-            Operation.STY -> sty(address = resolveAddress(instruction.addressingMode))
+            Operation.ADC -> adc(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.AND -> and(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.ORA -> ora(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.EOR -> eor(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.LDA -> lda(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.CMP -> cmp(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.SBC -> sbc(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.LDX -> ldx(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.LDY -> ldy(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.STA -> sta(address = resolveAddress(instruction.addressingMode, pageCrossPenalty))
+            Operation.STX -> stx(address = resolveAddress(instruction.addressingMode, pageCrossPenalty))
+            Operation.STY -> sty(address = resolveAddress(instruction.addressingMode, pageCrossPenalty))
             Operation.TAX -> tax()
             Operation.TAY -> tay()
             Operation.TXA -> txa()
@@ -292,9 +294,9 @@ class Cpu6502(
             Operation.INY -> iny()
             Operation.DEX -> dex()
             Operation.DEY -> dey()
-            Operation.CPX -> cpx(value = readOperand(instruction.addressingMode))
-            Operation.CPY -> cpy(value = readOperand(instruction.addressingMode))
-            Operation.BIT -> bit(value = readOperand(instruction.addressingMode))
+            Operation.CPX -> cpx(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.CPY -> cpy(value = readOperand(instruction.addressingMode, pageCrossPenalty))
+            Operation.BIT -> bit(value = readOperand(instruction.addressingMode, pageCrossPenalty))
             Operation.CLC -> clc()
             Operation.SEC -> sec()
             Operation.CLI -> cli()
@@ -302,8 +304,8 @@ class Cpu6502(
             Operation.CLV -> clv()
             Operation.CLD -> cld()
             Operation.SED -> sed()
-            Operation.INC -> inc(address = resolveAddress(instruction.addressingMode))
-            Operation.DEC -> dec(address = resolveAddress(instruction.addressingMode))
+            Operation.INC -> inc(address = resolveAddress(instruction.addressingMode, pageCrossPenalty))
+            Operation.DEC -> dec(address = resolveAddress(instruction.addressingMode, pageCrossPenalty))
             Operation.ASL -> asl(mode = instruction.addressingMode)
             Operation.LSR -> lsr(mode = instruction.addressingMode)
             Operation.ROL -> rol(mode = instruction.addressingMode)
@@ -327,18 +329,23 @@ class Cpu6502(
             Operation.RTI -> rti()
             Operation.NOP -> nop()
         }
-        return instruction.baseCycles + cyclesPenalty
-    }
 
-    // region Addressing modes
-    private fun readOperand(mode: AddressingMode): Int {
-        return when (mode) {
-            AddressingMode.IMMEDIATE -> pcRead()
-            else -> bus.read(resolveAddress(mode))
+        return if (pageCrossed) {
+            instruction.baseCycles + cyclesPenalty + 1
+        } else {
+            instruction.baseCycles + cyclesPenalty
         }
     }
 
-    private fun resolveAddress(mode: AddressingMode): Int {
+    // region Addressing modes
+    private fun readOperand(mode: AddressingMode, pageCrossPenalty: Boolean): Int {
+        return when (mode) {
+            AddressingMode.IMMEDIATE -> pcRead()
+            else -> bus.read(resolveAddress(mode, pageCrossPenalty))
+        }
+    }
+
+    private fun resolveAddress(mode: AddressingMode, pageCrossPenalty: Boolean): Int {
         return when (mode) {
             AddressingMode.ZERO_PAGE -> {
                 pcRead()
@@ -364,8 +371,13 @@ class Cpu6502(
                 val hi = pcRead()
 
                 val baseAddress = lo or (hi shl 8)
+                val address = (baseAddress + state.x).low16Bits()
 
-                (baseAddress + state.x).low16Bits()
+                if (pageCrossPenalty) {
+                    pageCrossed = (baseAddress xor address) and 0xFF00 != 0
+                }
+
+                address
             }
 
             AddressingMode.ABSOLUTE_Y -> {
@@ -373,8 +385,13 @@ class Cpu6502(
                 val hi = pcRead()
 
                 val baseAddress = lo or (hi shl 8)
+                val address = (baseAddress + state.y).low16Bits()
 
-                (baseAddress + state.y).low16Bits()
+                if (pageCrossPenalty) {
+                    pageCrossed = (baseAddress xor address) and 0xFF00 != 0
+                }
+
+                address
             }
 
             AddressingMode.INDIRECT_X -> {
@@ -393,8 +410,13 @@ class Cpu6502(
                 val hi = bus.read((pointer + 1).low8Bits())
 
                 val baseAddress = lo or (hi shl 8)
+                val address = (baseAddress + state.y).low16Bits()
 
-                (baseAddress + state.y).low16Bits()
+                if (pageCrossPenalty) {
+                    pageCrossed = (baseAddress xor address) and 0xFF00 != 0
+                }
+
+                address
             }
 
             AddressingMode.IMMEDIATE,
@@ -404,46 +426,6 @@ class Cpu6502(
             AddressingMode.INDIRECT -> throw IllegalArgumentException(
                 "Addressing mode $mode cannot resolve a data address"
             )
-        }
-    }
-
-    // This function can be collapsed with the one above and not perform the same operation twice.
-    // However, for clarity and readability, I'm just keeping it as it is and then improve performance later on.
-    private fun pageCrossingPenalty(mode: AddressingMode): Int {
-        return when (mode) {
-            AddressingMode.ABSOLUTE_X -> {
-                val lo = bus.read(state.pc)
-                val hi = bus.read((state.pc + 1).low16Bits())
-
-                val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.x).low16Bits()
-
-                if (baseAddress.pageBase() != address.pageBase()) 1 else 0
-            }
-
-            AddressingMode.ABSOLUTE_Y -> {
-                val lo = bus.read(state.pc)
-                val hi = bus.read((state.pc + 1).low16Bits())
-
-                val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.y).low16Bits()
-
-                if (baseAddress.pageBase() != address.pageBase()) 1 else 0
-            }
-
-            AddressingMode.INDIRECT_Y -> {
-                val pointer = bus.read(state.pc)
-
-                val lo = bus.read(pointer)
-                val hi = bus.read((pointer + 1).low8Bits())
-
-                val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.y).low16Bits()
-
-                if (baseAddress.pageBase() != address.pageBase()) 1 else 0
-            }
-
-            else -> 0
         }
     }
 
@@ -660,7 +642,7 @@ class Cpu6502(
         if (mode == AddressingMode.ACCUMULATOR) {
             state.a = aslValue(state.a)
         } else {
-            val address = resolveAddress(mode)
+            val address = resolveAddress(mode, false)
             bus.write(address, aslValue(bus.read(address)))
         }
     }
@@ -680,7 +662,7 @@ class Cpu6502(
         if (mode == AddressingMode.ACCUMULATOR) {
             state.a = lsrValue(state.a)
         } else {
-            val address = resolveAddress(mode)
+            val address = resolveAddress(mode, false)
             bus.write(address, lsrValue(bus.read(address)))
         }
     }
@@ -700,7 +682,7 @@ class Cpu6502(
         if (mode == AddressingMode.ACCUMULATOR) {
             state.a = rolValue(state.a)
         } else {
-            val address = resolveAddress(mode)
+            val address = resolveAddress(mode, false)
             bus.write(address, rolValue(bus.read(address)))
         }
     }
@@ -722,7 +704,7 @@ class Cpu6502(
         if (mode == AddressingMode.ACCUMULATOR) {
             state.a = rorValue(state.a)
         } else {
-            val address = resolveAddress(mode)
+            val address = resolveAddress(mode, false)
             bus.write(address, rorValue(bus.read(address)))
         }
     }
