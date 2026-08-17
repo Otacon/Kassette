@@ -225,7 +225,7 @@ class Cpu6502(
         // RTI
         instructions[0x40] = Instruction(Operation.RTI, AddressingMode.IMPLIED, 6)
 
-        //
+        // NOP
         instructions[0xEA] = Instruction(Operation.NOP, AddressingMode.IMPLIED, 2)
     }
 
@@ -255,14 +255,9 @@ class Cpu6502(
         val instruction = instructions[opcode]
 
         val iBefore = state.i
-
         val cycles = execute(instruction)
-
         state.irqPollI = when (instruction.operation) {
-            Operation.CLI,
-            Operation.SEI,
-            Operation.PLP -> iBefore
-
+            Operation.CLI, Operation.SEI, Operation.PLP -> iBefore
             else -> state.i
         }
 
