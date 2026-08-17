@@ -3,7 +3,6 @@ package nes2.cpu
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class EORTest : FreeSpec({
 
@@ -102,7 +101,7 @@ class EORTest : FreeSpec({
                     val initialPc = state.pc
 
                     val cpu = Cpu6502(
-                        bus = CpuBus(memory = memory),
+                        bus = FakeBus(memory = memory),
                         state = state,
                     )
 
@@ -200,7 +199,7 @@ class EORTest : FreeSpec({
             memory[0x1300] = 0x0F
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -241,7 +240,7 @@ class EORTest : FreeSpec({
             memory[0x1300] = 0x0F
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -302,7 +301,7 @@ class EORTest : FreeSpec({
             memory[0x1300] = 0x0F
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 

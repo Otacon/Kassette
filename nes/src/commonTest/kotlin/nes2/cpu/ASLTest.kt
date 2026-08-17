@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class ASLTest : FreeSpec({
 
@@ -18,7 +17,7 @@ class ASLTest : FreeSpec({
             memory[state.pc] = 0x0A
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -40,7 +39,7 @@ class ASLTest : FreeSpec({
             memory[state.pc] = 0x0A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -60,7 +59,7 @@ class ASLTest : FreeSpec({
             memory[state.pc] = 0x0A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -78,7 +77,7 @@ class ASLTest : FreeSpec({
             memory[0x0020] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -96,7 +95,7 @@ class ASLTest : FreeSpec({
             memory[0x0030] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -114,7 +113,7 @@ class ASLTest : FreeSpec({
             memory[0x1234] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -132,7 +131,7 @@ class ASLTest : FreeSpec({
             memory[0x1235] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 

@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class TXATest : FreeSpec({
 
@@ -19,7 +18,7 @@ class TXATest : FreeSpec({
             memory[state.pc] = 0x8A
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -42,7 +41,7 @@ class TXATest : FreeSpec({
             memory[state.pc] = 0x8A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -61,7 +60,7 @@ class TXATest : FreeSpec({
             memory[state.pc] = 0x8A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -83,7 +82,7 @@ class TXATest : FreeSpec({
             memory[state.pc] = 0x8A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 

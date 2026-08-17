@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class IRQTest : FreeSpec({
 
@@ -21,7 +20,7 @@ class IRQTest : FreeSpec({
             memory[0xFFFF] = 0x12
 
             val cpu = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             )
 
@@ -47,7 +46,7 @@ class IRQTest : FreeSpec({
             memory[0xFFFF] = 0x12
 
             val cpu = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             )
 
@@ -76,7 +75,7 @@ class IRQTest : FreeSpec({
             memory[0xFFFF] = 0x12
 
             val cpu = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             )
 
@@ -104,7 +103,7 @@ class IRQTest : FreeSpec({
             memory[0xFFFF] = 0x12
 
             val cpu = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             )
 
@@ -130,7 +129,7 @@ class IRQTest : FreeSpec({
             memory[0xFFFF] = 0x12
 
             val cpu = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             )
 

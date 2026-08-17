@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class INCTest : FreeSpec({
 
@@ -17,7 +16,7 @@ class INCTest : FreeSpec({
             memory[0x0020] = 0x41
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -40,7 +39,7 @@ class INCTest : FreeSpec({
             memory[0x0030] = 0x41
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -61,7 +60,7 @@ class INCTest : FreeSpec({
             memory[0x0001] = 0x10
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -78,7 +77,7 @@ class INCTest : FreeSpec({
             memory[0x1234] = 0x41
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -100,7 +99,7 @@ class INCTest : FreeSpec({
             memory[0x1235] = 0x41
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -117,7 +116,7 @@ class INCTest : FreeSpec({
             memory[0x0020] = 0xFF
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -135,7 +134,7 @@ class INCTest : FreeSpec({
             memory[0x0020] = 0x7F
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -156,7 +155,7 @@ class INCTest : FreeSpec({
             memory[0x0020] = 0x10
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 

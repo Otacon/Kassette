@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class ROLTest : FreeSpec({
 
@@ -20,7 +19,7 @@ class ROLTest : FreeSpec({
             memory[state.pc] = 0x2A
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -42,7 +41,7 @@ class ROLTest : FreeSpec({
             memory[state.pc] = 0x2A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -62,7 +61,7 @@ class ROLTest : FreeSpec({
             memory[state.pc] = 0x2A
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -80,7 +79,7 @@ class ROLTest : FreeSpec({
             memory[0x0020] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -97,7 +96,7 @@ class ROLTest : FreeSpec({
             memory[0x0030] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -115,7 +114,7 @@ class ROLTest : FreeSpec({
             memory[0x1234] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -133,7 +132,7 @@ class ROLTest : FreeSpec({
             memory[0x1235] = 0x21
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 

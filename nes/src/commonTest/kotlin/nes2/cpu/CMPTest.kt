@@ -3,7 +3,6 @@ package nes2.cpu
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class CMPTest : FreeSpec({
 
@@ -97,7 +96,7 @@ class CMPTest : FreeSpec({
                     val initialPc = state.pc
 
                     val cpu = Cpu6502(
-                        bus = CpuBus(memory = memory),
+                        bus = FakeBus(memory = memory),
                         state = state,
                     )
 
@@ -196,7 +195,7 @@ class CMPTest : FreeSpec({
             memory[0x1300] = 0x20
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -239,7 +238,7 @@ class CMPTest : FreeSpec({
             memory[0x1300] = 0x20
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -302,7 +301,7 @@ class CMPTest : FreeSpec({
             memory[0x1300] = 0x20
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 

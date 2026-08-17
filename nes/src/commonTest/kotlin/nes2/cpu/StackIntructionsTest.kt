@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class StackInstructionsTest : FreeSpec({
 
@@ -19,7 +18,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x48
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -43,7 +42,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x48
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -69,7 +68,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x48
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -96,7 +95,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x01FD] = 0x42
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -121,7 +120,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x01FD] = 0x00
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -141,7 +140,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x01FD] = 0x80
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -170,7 +169,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x08
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -212,7 +211,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x01FD] = 0b1110_1101
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -242,7 +241,7 @@ class StackInstructionsTest : FreeSpec({
             memory[0x01FD] = 0x10
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -276,7 +275,7 @@ class StackInstructionsTest : FreeSpec({
         memory[0xFFFF] = 0x90
 
         val cpu = Cpu6502(
-            bus = CpuBus(memory),
+            bus = FakeBus(memory),
             state = state,
         )
 
@@ -304,7 +303,7 @@ class StackInstructionsTest : FreeSpec({
         memory[0x8001] = 0x68 // PLA
 
         val cpu = Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         )
 

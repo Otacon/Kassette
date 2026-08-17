@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class BranchTest : FreeSpec({
 
@@ -21,7 +20,7 @@ class BranchTest : FreeSpec({
             memory[0x8001] = 0x05
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -41,7 +40,7 @@ class BranchTest : FreeSpec({
             memory[0x8001] = 0x05
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -63,7 +62,7 @@ class BranchTest : FreeSpec({
             memory[0x8006] = 0xFC // -4
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -85,7 +84,7 @@ class BranchTest : FreeSpec({
             memory[0x80FE] = 0x02
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -107,7 +106,7 @@ class BranchTest : FreeSpec({
             memory[0x8101] = 0xFC // -4
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -130,7 +129,7 @@ class BranchTest : FreeSpec({
             memory[0x8001] = 0x02
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -148,7 +147,7 @@ class BranchTest : FreeSpec({
             memory[0x8001] = 0x02
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -167,7 +166,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 
@@ -184,7 +183,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 
@@ -201,7 +200,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 
@@ -218,7 +217,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 
@@ -235,7 +234,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 
@@ -252,7 +251,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 
@@ -269,7 +268,7 @@ class BranchTest : FreeSpec({
         memory[0x8001] = 0x02
 
         Cpu6502(
-            bus = CpuBus(memory = memory),
+            bus = FakeBus(memory = memory),
             state = state,
         ).step()
 

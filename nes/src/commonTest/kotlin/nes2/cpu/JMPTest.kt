@@ -2,7 +2,6 @@ package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import nes2.CpuBus
 
 class JMPTest : FreeSpec({
 
@@ -19,7 +18,7 @@ class JMPTest : FreeSpec({
             memory[0x8002] = 0x12
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -43,7 +42,7 @@ class JMPTest : FreeSpec({
             memory[0x2001] = 0x12
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -76,7 +75,7 @@ class JMPTest : FreeSpec({
             memory[0x1300] = 0xAB
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -95,7 +94,7 @@ class JMPTest : FreeSpec({
             memory[0x8002] = 0x00
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -114,7 +113,7 @@ class JMPTest : FreeSpec({
             memory[0x8002] = 0xFF
 
             val cycles = Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
@@ -144,7 +143,7 @@ class JMPTest : FreeSpec({
             memory[0x8002] = 0x12
 
             Cpu6502(
-                bus = CpuBus(memory = memory),
+                bus = FakeBus(memory = memory),
                 state = state,
             ).step()
 
