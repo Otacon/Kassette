@@ -12,6 +12,8 @@ class CpuBusNesTest : FreeSpec({
     lateinit var cartridgeSocket: CartridgeSocket
     lateinit var bus: CpuBusNes
     lateinit var dma: FakeOamDma
+    lateinit var controller1: FakeController
+    lateinit var controller2: FakeController
 
     beforeTest {
         ram = IntArray(0x800)
@@ -19,11 +21,15 @@ class CpuBusNesTest : FreeSpec({
         ppu = FakePpu(registers = ppuRegisters)
         cartridgeSocket = CartridgeSocket()
         dma = FakeOamDma()
+        controller1 = FakeController()
+        controller2 = FakeController()
         bus = CpuBusNes(
             ram = ram,
             ppu = ppu,
             cartridge = cartridgeSocket,
             dma = dma,
+            controller1 = controller1,
+            controller2 = controller2
         )
     }
 
@@ -102,5 +108,24 @@ class CpuBusNesTest : FreeSpec({
         bus.write(0x4014, 0x02)
 
         dma.page shouldBe 0x02
+    }
+
+    "reads controller 1 from 0x4016" {
+        controller1.value = 0x01
+
+        bus.read(0x4016) shouldBe 0x01
+    }
+
+    "reads controller 2 from 0x4017" {
+        controller2.value = 0x01
+
+        bus.read(0x4017) shouldBe 0x01
+    }
+
+    "writing to 0x4016 strobes both controllers" {
+        bus.write(0x4016, 0x01)
+
+        controller1.lastWrittenValue shouldBe 0x01
+        controller2.lastWrittenValue shouldBe 0x01
     }
 })

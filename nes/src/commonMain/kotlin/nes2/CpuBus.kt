@@ -13,6 +13,8 @@ class CpuBusNes(
     private val cartridge: CartridgeSocket,
     private val ppu: Ppu,
     private val dma: OamDma,
+    private val controller1: ControllerPort,
+    private val controller2: ControllerPort,
 ) : CpuBus {
 
     override fun read(address: Int): Int {
@@ -20,6 +22,8 @@ class CpuBusNes(
             in CPU_RAM_START..CPU_RAM_END -> ram[address and CPU_RAM_MASK].low8Bits()
             in CARTRIDGE_START..CPU_ADDRESS_MAX -> cartridge.cpuRead(address)
             in PPU_REGISTERS_START..PPU_REGISTERS_END -> ppu.cpuReadRegister(PPU_REGISTERS_START + (address and PPU_REGISTER_MASK))
+            CONTROLLER_1 -> controller1.read()
+            CONTROLLER_2 -> controller2.read()
             else -> 0
         }
     }
@@ -32,6 +36,11 @@ class CpuBusNes(
                 PPU_REGISTERS_START + (address and PPU_REGISTER_MASK),
                 value
             )
+
+            CONTROLLER_STROBE -> {
+                controller1.write(value)
+                controller2.write(value)
+            }
 
             OAM_DMA -> dma.start(value)
         }
@@ -47,6 +56,10 @@ class CpuBusNes(
         private const val PPU_REGISTER_MASK = 0x0007
 
         private const val OAM_DMA = 0x4014
+
+        private const val CONTROLLER_1 = 0x4016
+        private const val CONTROLLER_2 = 0x4017
+        private const val CONTROLLER_STROBE = 0x4016
 
         private const val CARTRIDGE_START = 0x4020
         private const val CPU_ADDRESS_MAX = 0xFFFF
