@@ -31,6 +31,7 @@ class CpuBusNes(
                 PPU_REGISTERS_START + (address and PPU_REGISTER_MASK),
                 value
             )
+            OAM_DMA -> ppu.writeOamDma(value)
         }
     }
 
@@ -39,9 +40,11 @@ class CpuBusNes(
         private const val CPU_RAM_END = 0x1FFF
         private const val CPU_RAM_MASK = 0x07FF
 
-        const val PPU_REGISTERS_START = 0x2000
-        const val PPU_REGISTERS_END = 0x3FFF
-        const val PPU_REGISTER_MASK = 0x0007
+        private const val PPU_REGISTERS_START = 0x2000
+        private const val PPU_REGISTERS_END = 0x3FFF
+        private const val PPU_REGISTER_MASK = 0x0007
+
+        private const val OAM_DMA = 0x4014
 
         private const val CARTRIDGE_START = 0x4020
         private const val CPU_ADDRESS_MAX = 0xFFFF

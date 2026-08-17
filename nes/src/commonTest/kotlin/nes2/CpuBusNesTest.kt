@@ -95,4 +95,10 @@ class CpuBusNesTest : FreeSpec({
     "unmapped addresses read open bus" {
         bus.read(0x4000) shouldBe 0
     }
+
+    "writes OAM DMA page to PPU" {
+        bus.write(0x4014, 0x02)
+
+        ppu.oamDmaPage shouldBe 0x02
+    }
 })
