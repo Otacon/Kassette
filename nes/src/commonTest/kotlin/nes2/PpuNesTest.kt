@@ -89,6 +89,14 @@ class PpuNesTest : FreeSpec({
         state.writeToggle shouldBe false
     }
 
+    "reading PPUSTATUS resets PPUADDR write sequence" {
+        ppu.cpuWriteRegister(0x2006, 0x23)
+
+        ppu.cpuReadRegister(0x2002)
+
+        state.writeToggle shouldBe false
+    }
+
     "first PPUSCROLL write sets coarse X" {
         ppu.cpuWriteRegister(0x2005, 0b10101_000)
 
@@ -129,5 +137,45 @@ class PpuNesTest : FreeSpec({
         ppu.cpuWriteRegister(0x2005, 0x34)
 
         state.writeToggle shouldBe false
+    }
+
+    "first PPUADDR write sets high address byte" {
+        ppu.cpuWriteRegister(0x2006, 0x23)
+
+        state.t shouldBe 0x2300
+    }
+
+    "first PPUADDR write sets write toggle" {
+        ppu.cpuWriteRegister(0x2006, 0x23)
+
+        state.writeToggle shouldBe true
+    }
+
+    "second PPUADDR write sets low address byte" {
+        ppu.cpuWriteRegister(0x2006, 0x23)
+        ppu.cpuWriteRegister(0x2006, 0x45)
+
+        state.t shouldBe 0x2345
+    }
+
+    "second PPUADDR write copies temporary address to current VRAM address" {
+        ppu.cpuWriteRegister(0x2006, 0x23)
+        ppu.cpuWriteRegister(0x2006, 0x45)
+
+        state.v shouldBe 0x2345
+    }
+
+    "second PPUADDR write clears write toggle" {
+        ppu.cpuWriteRegister(0x2006, 0x23)
+        ppu.cpuWriteRegister(0x2006, 0x45)
+
+        state.writeToggle shouldBe false
+    }
+
+    "PPUADDR ignores upper two bits of first write" {
+        ppu.cpuWriteRegister(0x2006, 0xFF)
+        ppu.cpuWriteRegister(0x2006, 0x42)
+
+        state.v shouldBe 0x3F42
     }
 })
