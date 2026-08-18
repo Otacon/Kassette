@@ -206,13 +206,6 @@ class PpuNesTest : FreeSpec({
         ppuBus.memory[0x2345] shouldBe 0xAB
     }
 
-    "PPUDATA reads from current VRAM address" {
-        state.v = 0x2345
-        ppuBus.memory[0x2345] = 0xAB
-
-        ppu.cpuReadRegister(0x2007) shouldBe 0xAB
-    }
-
     "PPUDATA increments VRAM address by 1 by default after write" {
         state.v = 0x2000
 
@@ -244,5 +237,51 @@ class PpuNesTest : FreeSpec({
         ppu.cpuWriteRegister(0x2007, 0xAB)
 
         state.v shouldBe 0x0000
+    }
+
+    "PPUDATA reads are buffered outside palette space" {
+        state.v = 0x2000
+        state.dataBuffer = 0x11
+        ppuBus.memory[0x2000] = 0x42
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0x11
+        state.dataBuffer shouldBe 0x42
+    }
+
+    "PPUDATA returns buffered value on subsequent read" {
+        state.v = 0x2000
+        ppuBus.memory[0x2000] = 0x42
+        ppuBus.memory[0x2001] = 0xAB
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0x00
+        ppu.cpuReadRegister(0x2007) shouldBe 0x42
+
+        state.dataBuffer shouldBe 0xAB
+    }
+
+    "PPUDATA palette reads are not buffered" {
+        state.v = 0x3F00
+        state.dataBuffer = 0x11
+        ppuBus.memory[0x3F00] = 0x42
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0x42
+    }
+
+    "PPUDATA palette read increments VRAM address" {
+        state.v = 0x3F00
+        ppuBus.memory[0x3F00] = 0x42
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v shouldBe 0x3F01
+    }
+
+    "PPUDATA reads from current VRAM address into buffer" {
+        state.v = 0x2345
+        state.dataBuffer = 0x11
+        ppuBus.memory[0x2345] = 0xAB
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0x11
+        state.dataBuffer shouldBe 0xAB
     }
 })

@@ -91,9 +91,17 @@ class PpuNes(
     }
 
     private fun readData(): Int {
-        val value = ppuBus.read(state.v)
+        val address = state.v
+        val value = ppuBus.read(address)
+        val result = if (address < 0x3F00) {
+            val buffered = state.dataBuffer
+            state.dataBuffer = value
+            buffered
+        } else {
+            value
+        }
         incrementVramAddress()
-        return value
+        return result
     }
 
     private fun writeData(value: Int) {

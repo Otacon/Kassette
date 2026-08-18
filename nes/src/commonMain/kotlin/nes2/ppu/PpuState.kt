@@ -12,4 +12,6 @@ data class PpuState(
     var fineX: Int = 0,
 
     var writeToggle: Boolean = false,
+
+    var dataBuffer: Int = 0
 )
