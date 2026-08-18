@@ -1,6 +1,7 @@
 package nes2.ppu
 
 import nes.util.low8Bits
+import nes2.ppuBus.PpuBus
 
 interface Ppu {
     fun cpuReadRegister(address: Int): Int
@@ -10,29 +11,32 @@ interface Ppu {
 
 class PpuNes(
     private val state: PpuState = PpuState(),
+    private val ppuBus: PpuBus,
 ) : Ppu {
 
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {
             0x2002 -> readStatus()
             0x2004 -> state.oam[state.oamAddress]
+            0x2007 -> readData()
             else -> 0
         }
     }
 
     override fun cpuWriteRegister(address: Int, value: Int) {
         when (address) {
-            0x2000 -> state.control = value and 0xFF
-            0x2003 -> state.oamAddress = value and 0xFF
+            0x2000 -> state.control = value.low8Bits()
+            0x2003 -> state.oamAddress = value.low8Bits()
             0x2004 -> writeOamData(value)
             0x2005 -> writeScroll(value)
             0x2006 -> writeAddress(value)
+            0x2007 -> writeData(value)
         }
     }
 
     override fun writeOamData(value: Int) {
-        state.oam[state.oamAddress] = value and 0xFF
-        state.oamAddress = (state.oamAddress + 1) and 0xFF
+        state.oam[state.oamAddress] = value.low8Bits()
+        state.oamAddress = (state.oamAddress + 1).low8Bits()
     }
 
     private fun readStatus(): Int {
@@ -84,6 +88,22 @@ class PpuNes(
             state.v = state.t
             state.writeToggle = false
         }
+    }
+
+    private fun readData(): Int {
+        val value = ppuBus.read(state.v)
+        incrementVramAddress()
+        return value
+    }
+
+    private fun writeData(value: Int) {
+        ppuBus.write(state.v, value)
+        incrementVramAddress()
+    }
+
+    private fun incrementVramAddress() {
+        val increment = if (state.control and 0x04 == 0) 1 else 32
+        state.v = (state.v + increment) and 0x3FFF
     }
 
     private companion object {

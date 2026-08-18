@@ -2,6 +2,7 @@ package nes2
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes2.fakes.FakePpuBus
 import nes2.ppu.PpuNes
 import nes2.ppu.PpuState
 
@@ -9,10 +10,12 @@ class PpuNesTest : FreeSpec({
 
     lateinit var ppu: PpuNes
     lateinit var state: PpuState
+    lateinit var ppuBus: FakePpuBus
 
     beforeTest {
         state = PpuState()
-        ppu = PpuNes(state)
+        ppuBus = FakePpuBus()
+        ppu = PpuNes(state, ppuBus = ppuBus)
     }
 
     "can write PPUCTRL" {
@@ -49,6 +52,22 @@ class PpuNesTest : FreeSpec({
         ppu.cpuWriteRegister(0x2004, 0xAB)
 
         state.oamAddress shouldBe 0x00
+    }
+
+    "can read OAM data" {
+        state.oamAddress = 0x42
+        state.oam[0x42] = 0xAB
+
+        ppu.cpuReadRegister(0x2004) shouldBe 0xAB
+    }
+
+    "reading OAM data does not increment OAM address" {
+        state.oamAddress = 0x42
+        state.oam[0x42] = 0xAB
+
+        ppu.cpuReadRegister(0x2004)
+
+        state.oamAddress shouldBe 0x42
     }
 
     "can read PPUSTATUS" {
@@ -177,5 +196,53 @@ class PpuNesTest : FreeSpec({
         ppu.cpuWriteRegister(0x2006, 0x42)
 
         state.v shouldBe 0x3F42
+    }
+
+    "PPUDATA writes to current VRAM address" {
+        state.v = 0x2345
+
+        ppu.cpuWriteRegister(0x2007, 0xAB)
+
+        ppuBus.memory[0x2345] shouldBe 0xAB
+    }
+
+    "PPUDATA reads from current VRAM address" {
+        state.v = 0x2345
+        ppuBus.memory[0x2345] = 0xAB
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0xAB
+    }
+
+    "PPUDATA increments VRAM address by 1 by default after write" {
+        state.v = 0x2000
+
+        ppu.cpuWriteRegister(0x2007, 0xAB)
+
+        state.v shouldBe 0x2001
+    }
+
+    "PPUDATA increments VRAM address by 1 by default after read" {
+        state.v = 0x2000
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v shouldBe 0x2001
+    }
+
+    "PPUDATA increments VRAM address by 32 when PPUCTRL bit 2 is set" {
+        state.control = 0x04
+        state.v = 0x2000
+
+        ppu.cpuWriteRegister(0x2007, 0xAB)
+
+        state.v shouldBe 0x2020
+    }
+
+    "PPUDATA VRAM address wraps at 0x3FFF" {
+        state.v = 0x3FFF
+
+        ppu.cpuWriteRegister(0x2007, 0xAB)
+
+        state.v shouldBe 0x0000
     }
 })

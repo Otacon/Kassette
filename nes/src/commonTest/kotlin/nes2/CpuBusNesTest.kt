@@ -3,6 +3,8 @@ package nes2
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import nes.cartridge.CartridgeSocket
+import nes2.fakes.FakeController
+import nes2.fakes.FakePpu
 
 class CpuBusNesTest : FreeSpec({
 
