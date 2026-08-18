@@ -382,4 +382,42 @@ class PpuNesTest : FreeSpec({
         state.dot shouldBe 0
         state.scanline shouldBe 1
     }
+
+    "VBlank starts at scanline 241 dot 1" {
+        state.scanline = 241
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x80
+    }
+
+    "VBlank does not start at scanline 241 dot 0" {
+        state.scanline = 241
+        state.dot = 0
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x00
+    }
+
+    "VBlank is cleared at pre-render scanline dot 1" {
+        state.status = 0x80
+        state.scanline = 261
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x00
+    }
+
+    "clearing VBlank preserves other status flags" {
+        state.status = 0xE0
+        state.scanline = 261
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status shouldBe 0x60
+    }
 })

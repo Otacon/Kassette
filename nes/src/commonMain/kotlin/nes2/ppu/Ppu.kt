@@ -42,6 +42,21 @@ class PpuNes(
     }
 
     override fun tick() {
+        updateStatusFlags()
+        advanceTiming()
+    }
+
+    private fun updateStatusFlags() {
+        if (state.scanline == 241 && state.dot == 1) {
+            state.status = state.status or VBLANK_FLAG
+        }
+
+        if (state.scanline == 261 && state.dot == 1) {
+            state.status = state.status and VBLANK_FLAG.inv()
+        }
+    }
+
+    private fun advanceTiming() {
         state.dot++
 
         if (state.dot >= DOTS_PER_SCANLINE) {
