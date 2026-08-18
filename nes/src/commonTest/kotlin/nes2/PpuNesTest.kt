@@ -80,4 +80,54 @@ class PpuNesTest : FreeSpec({
 
         state.writeToggle shouldBe false
     }
+
+    "reading PPUSTATUS resets PPUSCROLL write sequence" {
+        ppu.cpuWriteRegister(0x2005, 0x12)
+
+        ppu.cpuReadRegister(0x2002)
+
+        state.writeToggle shouldBe false
+    }
+
+    "first PPUSCROLL write sets coarse X" {
+        ppu.cpuWriteRegister(0x2005, 0b10101_000)
+
+        state.t and 0x001F shouldBe 0b10101
+    }
+
+    "first PPUSCROLL write sets fine X" {
+        ppu.cpuWriteRegister(0x2005, 0b00000_101)
+
+        state.fineX shouldBe 0b101
+    }
+
+    "first PPUSCROLL write sets write toggle" {
+        ppu.cpuWriteRegister(0x2005, 0x42)
+
+        state.writeToggle shouldBe true
+    }
+
+    "second PPUSCROLL write sets coarse Y" {
+        ppu.cpuWriteRegister(0x2005, 0x00)
+
+        ppu.cpuWriteRegister(0x2005, 0b10110_000)
+
+        (state.t shr 5) and 0x1F shouldBe 0b10110
+    }
+
+    "second PPUSCROLL write sets fine Y" {
+        ppu.cpuWriteRegister(0x2005, 0x00)
+
+        ppu.cpuWriteRegister(0x2005, 0b00000_110)
+
+        (state.t shr 12) and 0x07 shouldBe 0b110
+    }
+
+    "second PPUSCROLL write clears write toggle" {
+        ppu.cpuWriteRegister(0x2005, 0x12)
+
+        ppu.cpuWriteRegister(0x2005, 0x34)
+
+        state.writeToggle shouldBe false
+    }
 })
