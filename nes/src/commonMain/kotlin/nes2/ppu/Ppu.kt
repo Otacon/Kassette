@@ -25,7 +25,7 @@ class PpuNes(
 
     override fun cpuWriteRegister(address: Int, value: Int) {
         when (address) {
-            0x2000 -> state.control = value.low8Bits()
+            0x2000 -> writeControl(value)
             0x2003 -> state.oamAddress = value.low8Bits()
             0x2004 -> writeOamData(value)
             0x2005 -> writeScroll(value)
@@ -37,6 +37,18 @@ class PpuNes(
     override fun writeOamData(value: Int) {
         state.oam[state.oamAddress] = value.low8Bits()
         state.oamAddress = (state.oamAddress + 1).low8Bits()
+    }
+
+    private fun writeControl(value: Int) {
+        val control = value.low8Bits()
+        val nametable = control and 0x03
+
+        // PPUCTRL bits 0-1 become nametable bits 10-11 in t.
+        val tWithoutNametable = state.t and 0x73FF
+        val nametableBits = nametable shl 10
+
+        state.control = control
+        state.t = tWithoutNametable or nametableBits
     }
 
     private fun readStatus(): Int {
@@ -98,6 +110,9 @@ class PpuNes(
             state.dataBuffer = value
             buffered
         } else {
+            // Palette reads are immediate, but still refresh the internal buffer
+            // from the mirrored nametable address underneath.
+            state.dataBuffer = ppuBus.read(address - 0x1000)
             value
         }
         incrementVramAddress()

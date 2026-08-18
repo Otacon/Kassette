@@ -284,4 +284,54 @@ class PpuNesTest : FreeSpec({
         ppu.cpuReadRegister(0x2007) shouldBe 0x11
         state.dataBuffer shouldBe 0xAB
     }
+
+    "PPUDATA palette reads refresh data buffer from mirrored nametable address" {
+        state.v = 0x3F00
+        state.dataBuffer = 0x11
+
+        ppuBus.memory[0x3F00] = 0x42
+        ppuBus.memory[0x2F00] = 0xAB
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0x42
+        state.dataBuffer shouldBe 0xAB
+    }
+
+    "PPUDATA palette buffer refresh uses address minus 0x1000" {
+        state.v = 0x3F12
+
+        ppuBus.memory[0x3F12] = 0x55
+        ppuBus.memory[0x2F12] = 0xAA
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.dataBuffer shouldBe 0xAA
+    }
+
+    "PPUCTRL sets nametable bits in temporary VRAM address" {
+        ppu.cpuWriteRegister(0x2000, 0x03)
+
+        (state.t shr 10) and 0x03 shouldBe 0x03
+    }
+
+    "PPUCTRL can select each nametable" {
+        ppu.cpuWriteRegister(0x2000, 0x00)
+        (state.t shr 10) and 0x03 shouldBe 0
+
+        ppu.cpuWriteRegister(0x2000, 0x01)
+        (state.t shr 10) and 0x03 shouldBe 1
+
+        ppu.cpuWriteRegister(0x2000, 0x02)
+        (state.t shr 10) and 0x03 shouldBe 2
+
+        ppu.cpuWriteRegister(0x2000, 0x03)
+        (state.t shr 10) and 0x03 shouldBe 3
+    }
+
+    "PPUCTRL preserves other temporary VRAM address bits" {
+        state.t = 0x7123
+
+        ppu.cpuWriteRegister(0x2000, 0x02)
+
+        state.t shouldBe 0x7923
+    }
 })
