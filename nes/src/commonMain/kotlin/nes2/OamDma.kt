@@ -1,5 +1,7 @@
 package nes2
 
+import nes2.ppu.Ppu
+
 interface OamDma {
     val page: Int
     val active: Boolean
@@ -7,7 +9,9 @@ interface OamDma {
     fun stop()
 }
 
-class OamDmaNes : OamDma {
+class OamDmaNes(
+    private val ppu: Ppu,
+) : OamDma {
     override var active = false
         private set
 

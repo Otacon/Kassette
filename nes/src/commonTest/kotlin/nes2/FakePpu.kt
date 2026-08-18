@@ -1,5 +1,7 @@
 package nes2
 
+import nes2.ppu.Ppu
+
 class FakePpu(
     private val registers: IntArray = IntArray(8),
 ) : Ppu {
