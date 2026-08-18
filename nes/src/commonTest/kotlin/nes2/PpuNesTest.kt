@@ -334,4 +334,16 @@ class PpuNesTest : FreeSpec({
 
         state.t shouldBe 0x7923
     }
+
+    "can write PPUMASK" {
+        ppu.cpuWriteRegister(0x2001, 0x1E)
+
+        state.mask shouldBe 0x1E
+    }
+
+    "PPUMASK only stores low 8 bits" {
+        ppu.cpuWriteRegister(0x2001, 0x1234)
+
+        state.mask shouldBe 0x34
+    }
 })

@@ -26,6 +26,7 @@ class PpuNes(
     override fun cpuWriteRegister(address: Int, value: Int) {
         when (address) {
             0x2000 -> writeControl(value)
+            0x2001 -> state.mask = value.low8Bits()
             0x2003 -> state.oamAddress = value.low8Bits()
             0x2004 -> writeOamData(value)
             0x2005 -> writeScroll(value)
