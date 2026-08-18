@@ -346,4 +346,40 @@ class PpuNesTest : FreeSpec({
 
         state.mask shouldBe 0x34
     }
+
+    "tick advances PPU dot" {
+        ppu.tick()
+
+        state.dot shouldBe 1
+    }
+
+    "PPU advances to next scanline after 341 dots" {
+        repeat(341) {
+            ppu.tick()
+        }
+
+        state.dot shouldBe 0
+        state.scanline shouldBe 1
+    }
+
+    "PPU wraps to first scanline after a complete frame" {
+        repeat(341 * 262) {
+            ppu.tick()
+        }
+
+        state.dot shouldBe 0
+        state.scanline shouldBe 0
+    }
+
+    "PPU stays on current scanline until final dot" {
+        repeat(340) { ppu.tick() }
+
+        state.dot shouldBe 340
+        state.scanline shouldBe 0
+
+        ppu.tick()
+
+        state.dot shouldBe 0
+        state.scanline shouldBe 1
+    }
 })

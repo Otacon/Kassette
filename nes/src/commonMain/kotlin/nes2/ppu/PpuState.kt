@@ -4,6 +4,8 @@ data class PpuState(
     var control: Int = 0,
     var mask: Int = 0,
     var status: Int = 0,
+    var dot: Int = 0,
+    var scanline: Int = 0,
 
     var oamAddress: Int = 0,
     val oam: IntArray = IntArray(256),

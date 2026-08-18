@@ -7,6 +7,7 @@ interface Ppu {
     fun cpuReadRegister(address: Int): Int
     fun cpuWriteRegister(address: Int, value: Int)
     fun writeOamData(value: Int)
+    fun tick()
 }
 
 class PpuNes(
@@ -38,6 +39,19 @@ class PpuNes(
     override fun writeOamData(value: Int) {
         state.oam[state.oamAddress] = value.low8Bits()
         state.oamAddress = (state.oamAddress + 1).low8Bits()
+    }
+
+    override fun tick() {
+        state.dot++
+
+        if (state.dot >= DOTS_PER_SCANLINE) {
+            state.dot = 0
+            state.scanline++
+
+            if (state.scanline >= SCANLINES_PER_FRAME) {
+                state.scanline = 0
+            }
+        }
     }
 
     private fun writeControl(value: Int) {
@@ -132,5 +146,7 @@ class PpuNes(
 
     private companion object {
         const val VBLANK_FLAG = 0x80
+        const val DOTS_PER_SCANLINE = 341
+        const val SCANLINES_PER_FRAME = 262
     }
 }

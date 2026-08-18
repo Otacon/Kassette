@@ -21,4 +21,8 @@ class FakePpu(
         TODO("Not yet implemented")
     }
 
+    override fun tick() {
+        TODO("Not yet implemented")
+    }
+
 }
