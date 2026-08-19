@@ -1595,12 +1595,15 @@ class PpuNesTest : FreeSpec({
         state.scanline = 10
         state.dot = 65
         state.mask = 0x10
+
+        state.spriteCount = 8
         state.secondaryOamIndex = 32
 
         state.oam[0] = 10
 
         ppu.tick()
 
+        state.spriteCount shouldBe 8
         state.secondaryOamIndex shouldBe 32
     }
 
@@ -1613,6 +1616,74 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         state.spriteEvaluationIndex shouldBe 4
+    }
+
+    "sprite evaluation increments selected sprite count" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.spriteCount shouldBe 1
+    }
+
+    "out-of-range sprite does not increment selected sprite count" {
+        state.scanline = 20
+        state.dot = 65
+        state.mask = 0x10
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.spriteCount shouldBe 0
+    }
+
+    "sprite zero is marked when selected" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.spriteEvaluationIndex = 0
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.spriteZeroSelected shouldBe true
+    }
+
+    "non-zero sprite does not mark sprite zero as selected" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.spriteEvaluationIndex = 4
+
+        val offset = 4 * 4
+        state.oam[offset] = 10
+
+        ppu.tick()
+
+        state.spriteZeroSelected shouldBe false
+    }
+
+    "sprite evaluation selects at most eight sprites" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.spriteCount = 8
+        state.secondaryOamIndex = 32
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.spriteCount shouldBe 8
+        state.secondaryOamIndex shouldBe 32
     }
 
 })

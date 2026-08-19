@@ -24,6 +24,8 @@ data class PpuState(
     var secondaryOamIndex: Int = 0,
 
     var spriteEvaluationIndex: Int = 0,
+    var spriteCount: Int = 0,
+    var spriteZeroSelected: Boolean = false,
 
     var v: Int = 0,
     var t: Int = 0,
