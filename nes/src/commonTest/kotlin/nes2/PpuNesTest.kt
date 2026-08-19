@@ -531,6 +531,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 1
         state.v = 0x0123
+        state.mask = 0x08
 
         ppuBus.memory[0x2123] = 0x42
 
@@ -543,6 +544,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 3
         state.v = 0x0000
+        state.mask = 0x08
 
         ppuBus.memory[0x23C0] = 0xAB
 
@@ -556,6 +558,7 @@ class PpuNesTest : FreeSpec({
         state.dot = 5
         state.nametableByte = 0x02
         state.v = 0x0000
+        state.mask = 0x08
 
         // tile 2 starts at $0020
         ppuBus.memory[0x0020] = 0xAA
@@ -570,6 +573,7 @@ class PpuNesTest : FreeSpec({
         state.dot = 5
         state.control = 0x10
         state.nametableByte = 0x02
+        state.mask = 0x08
 
         ppuBus.memory[0x1020] = 0xAA
 
@@ -583,6 +587,7 @@ class PpuNesTest : FreeSpec({
         state.dot = 7
         state.nametableByte = 0x02
         state.v = 0x0000
+        state.mask = 0x08
 
         // tile 2 = $0020, high plane = +8
         ppuBus.memory[0x0028] = 0x55
@@ -608,6 +613,7 @@ class PpuNesTest : FreeSpec({
         state.control = 0x10
         state.nametableByte = 0x02
         state.v = 0x0000
+        state.mask = 0x08
 
         ppuBus.memory[0x1020] = 0xAA
 
@@ -622,6 +628,7 @@ class PpuNesTest : FreeSpec({
         state.control = 0x10
         state.nametableByte = 0x02
         state.v = 0x0000
+        state.mask = 0x08
 
         ppuBus.memory[0x1028] = 0x55
 
@@ -634,6 +641,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 8
         state.v = 0x0005
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -644,6 +652,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 8
         state.v = 0x001F
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -654,6 +663,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 8
         state.v = 0x001F
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -664,6 +674,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 8
         state.v = 0x041F
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -674,6 +685,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 8
         state.v = 0x7125
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -684,6 +696,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 0
         state.dot = 256
         state.v = 0x0000
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -693,6 +706,7 @@ class PpuNesTest : FreeSpec({
     "vertical scroll increments coarse Y when fine Y wraps" {
         state.scanline = 0
         state.dot = 256
+        state.mask = 0x08
 
         // fine Y = 7, coarse Y = 5
         state.v = (7 shl 12) or (5 shl 5)
@@ -706,6 +720,7 @@ class PpuNesTest : FreeSpec({
     "coarse Y 29 wraps to 0 and switches vertical nametable" {
         state.scanline = 0
         state.dot = 256
+        state.mask = 0x08
 
         state.v = (7 shl 12) or (29 shl 5)
 
@@ -719,6 +734,7 @@ class PpuNesTest : FreeSpec({
     "coarse Y 29 toggles vertical nametable" {
         state.scanline = 0
         state.dot = 256
+        state.mask = 0x08
 
         state.v = 0x0800 or (7 shl 12) or (29 shl 5)
 
@@ -730,6 +746,7 @@ class PpuNesTest : FreeSpec({
     "coarse Y 31 wraps to 0 without switching vertical nametable" {
         state.scanline = 0
         state.dot = 256
+        state.mask = 0x08
 
         state.v = 0x0800 or (7 shl 12) or (31 shl 5)
 
@@ -742,6 +759,7 @@ class PpuNesTest : FreeSpec({
     "dot 257 copies coarse X from temporary VRAM address" {
         state.scanline = 0
         state.dot = 257
+        state.mask = 0x08
 
         state.v = 0x0000
         state.t = 0x0015
@@ -754,6 +772,7 @@ class PpuNesTest : FreeSpec({
     "dot 257 copies horizontal nametable from temporary VRAM address" {
         state.scanline = 0
         state.dot = 257
+        state.mask = 0x08
 
         state.v = 0x0000
         state.t = 0x0400
@@ -766,6 +785,7 @@ class PpuNesTest : FreeSpec({
     "dot 257 can clear horizontal scroll bits" {
         state.scanline = 0
         state.dot = 257
+        state.mask = 0x08
 
         state.v = 0x041F
         state.t = 0x0000
@@ -778,6 +798,7 @@ class PpuNesTest : FreeSpec({
     "dot 257 preserves vertical scroll bits" {
         state.scanline = 0
         state.dot = 257
+        state.mask = 0x08
 
         state.v = 0x7380
         state.t = 0x0415
@@ -790,6 +811,7 @@ class PpuNesTest : FreeSpec({
     "pre-render scanline copies coarse Y from temporary VRAM address" {
         state.scanline = 261
         state.dot = 280
+        state.mask = 0x08
 
         state.v = 0x0000
         state.t = 5 shl 5
@@ -802,6 +824,7 @@ class PpuNesTest : FreeSpec({
     "pre-render scanline copies fine Y from temporary VRAM address" {
         state.scanline = 261
         state.dot = 280
+        state.mask = 0x08
 
         state.v = 0x0000
         state.t = 6 shl 12
@@ -814,6 +837,7 @@ class PpuNesTest : FreeSpec({
     "pre-render scanline copies vertical nametable from temporary VRAM address" {
         state.scanline = 261
         state.dot = 280
+        state.mask = 0x08
 
         state.v = 0x0000
         state.t = 0x0800
@@ -839,6 +863,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 261
         state.dot = 304
         state.t = 0x7380
+        state.mask = 0x08
 
         ppu.tick()
 
@@ -848,6 +873,7 @@ class PpuNesTest : FreeSpec({
     "dot 8 loads low pattern byte into shift register" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         state.patternLowByte = 0xAB
 
@@ -859,6 +885,7 @@ class PpuNesTest : FreeSpec({
     "dot 8 loads high pattern byte into shift register" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         state.patternHighByte = 0xCD
 
@@ -870,6 +897,7 @@ class PpuNesTest : FreeSpec({
     "dot 8 shifts existing pattern data before loading new tile data" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         state.patternLowShift = 0xAB00
         state.patternLowByte = 0x42
@@ -894,6 +922,7 @@ class PpuNesTest : FreeSpec({
     "attribute palette 1 loads low attribute shift bits" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         // top-left quadrant = palette 1
         state.attributeByte = 0b00000001
@@ -908,6 +937,7 @@ class PpuNesTest : FreeSpec({
     "attribute palette 2 loads high attribute shift bits" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         // top-left quadrant = palette 2
         state.attributeByte = 0b00000010
@@ -922,6 +952,7 @@ class PpuNesTest : FreeSpec({
     "attribute palette 3 loads both attribute shift bits" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         // top-left quadrant = palette 3
         state.attributeByte = 0b00000011
@@ -936,6 +967,7 @@ class PpuNesTest : FreeSpec({
     "attribute palette is selected from current tile quadrant" {
         state.scanline = 0
         state.dot = 8
+        state.mask = 0x08
 
         // top-right quadrant = palette 3
         state.attributeByte = 0b00001100
@@ -952,6 +984,7 @@ class PpuNesTest : FreeSpec({
     "background pattern shift registers shift left" {
         state.scanline = 0
         state.dot = 1
+        state.mask = 0x08
 
         state.patternLowShift = 0x1234
         state.patternHighShift = 0x5678
@@ -965,6 +998,7 @@ class PpuNesTest : FreeSpec({
     "background attribute shift registers shift left" {
         state.scanline = 0
         state.dot = 1
+        state.mask = 0x08
 
         state.attributeLowShift = 0x1234
         state.attributeHighShift = 0x5678
@@ -978,6 +1012,7 @@ class PpuNesTest : FreeSpec({
     "background shift registers stay 16 bit" {
         state.scanline = 0
         state.dot = 1
+        state.mask = 0x08
 
         state.patternLowShift = 0x8001
 
@@ -1288,6 +1323,68 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         frameBuffer.writtenPixels.single().color shouldBe 0x12
+    }
+
+    "background pipeline does not shift when rendering is disabled" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x00
+
+        state.patternLowShift = 0x1234
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x1234
+    }
+
+    "background pipeline shifts when background rendering is enabled" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x08
+
+        state.patternLowShift = 0x1234
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x2468
+    }
+
+    "background pipeline runs when only sprite rendering is enabled" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x10
+
+        state.patternLowShift = 0x1234
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x2468
+    }
+
+    "horizontal scroll is not copied when rendering is disabled" {
+        state.scanline = 0
+        state.dot = 257
+        state.mask = 0x00
+
+        state.v = 0x0000
+        state.t = 0x0415
+
+        ppu.tick()
+
+        state.v shouldBe 0x0000
+    }
+
+    "horizontal scroll is copied when rendering is enabled" {
+        state.scanline = 0
+        state.dot = 257
+        state.mask = 0x08
+
+        state.v = 0x0000
+        state.t = 0x0415
+
+        ppu.tick()
+
+        state.v and 0x041F shouldBe 0x0415
     }
 
 })

@@ -46,9 +46,12 @@ class PpuNes(
     override fun tick() {
         updateStatusFlags()
         renderPixel()
-        shiftBackgroundRegisters()
-        fetchBackground()
-        updateScroll()
+        val isRenderingEnabled = state.mask and 0x18 != 0
+        if (isRenderingEnabled) {
+            shiftBackgroundRegisters()
+            fetchBackground()
+            updateScroll()
+        }
         advanceTiming()
     }
 
