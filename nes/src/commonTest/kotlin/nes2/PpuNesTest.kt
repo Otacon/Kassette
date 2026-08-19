@@ -1519,4 +1519,15 @@ class PpuNesTest : FreeSpec({
         state.secondaryOam[0] shouldBe 0x42
     }
 
+    "sprite evaluation advances to next sprite" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+        state.spriteEvaluationIndex = 3
+
+        ppu.tick()
+
+        state.spriteEvaluationIndex shouldBe 4
+    }
+
 })

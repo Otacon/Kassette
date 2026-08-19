@@ -22,6 +22,8 @@ data class PpuState(
     val oam: IntArray = IntArray(256),
     val secondaryOam: IntArray = IntArray(32) { 0xFF },
 
+    var spriteEvaluationIndex: Int = 0,
+
     var v: Int = 0,
     var t: Int = 0,
     var fineX: Int = 0,

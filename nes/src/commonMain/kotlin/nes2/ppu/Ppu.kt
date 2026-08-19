@@ -65,6 +65,12 @@ class PpuNes(
     private val isSpriteEnabled: Boolean
         get() = state.mask and 0x10 != 0
 
+    private val isSpriteEvaluationDot: Boolean
+        get() {
+            val dot = state.dot
+            return isRenderingScanline && dot >= 65 && dot <= 256
+        }
+
     private val isRenderingEnabled: Boolean
         get() = state.mask and 0x18 != 0
 
@@ -108,6 +114,7 @@ class PpuNes(
         renderPixel()
         if (isRenderingEnabled) {
             clearSecondaryOam()
+            evaluateSprites()
             shiftBackgroundRegisters()
             fetchBackground()
             updateScroll()
@@ -392,6 +399,27 @@ class PpuNes(
                 state.oddFrame = !state.oddFrame
             }
         }
+    }
+
+    private fun evaluateSprites() {
+        if (!isSpriteEvaluationDot) {
+            return
+        }
+
+        val spriteIndex = state.spriteEvaluationIndex
+        val oamOffset = spriteIndex * 4
+
+        val spriteY = state.oam[oamOffset]
+        val spriteHeight = 8 // 8x16 comes later
+
+        val row = state.scanline - spriteY
+        val isInRange = row >= 0 && row < spriteHeight
+
+        if (isInRange) {
+            // We'll copy the sprite into secondary OAM next.
+        }
+
+        state.spriteEvaluationIndex++
     }
 
     private fun writeControl(value: Int) {
