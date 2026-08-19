@@ -44,6 +44,12 @@ class PpuNes(
             return isVisibleDot || (dot >= 321 && dot <= 336)
         }
 
+    private val isSecondaryOamClearDot: Boolean
+        get() {
+            val dot = state.dot
+            return isRenderingScanline && dot >= 1 && dot <= 64 && dot % 2 == 1
+        }
+
     private val isBackgroundShiftDot: Boolean
         get() = isRenderingScanline && isShiftDot
 
@@ -101,6 +107,7 @@ class PpuNes(
         updateStatusFlags()
         renderPixel()
         if (isRenderingEnabled) {
+            clearSecondaryOam()
             shiftBackgroundRegisters()
             fetchBackground()
             updateScroll()
@@ -170,6 +177,16 @@ class PpuNes(
         val palette = attributeLow or (attributeHigh shl 1)
 
         return pattern or (palette shl 2)
+    }
+
+    private fun clearSecondaryOam() {
+        if (!isSecondaryOamClearDot) {
+            return
+        }
+
+        val index = (state.dot - 1) / 2
+
+        state.secondaryOam[index] = 0xFF
     }
 
     private fun shiftBackgroundRegisters() {

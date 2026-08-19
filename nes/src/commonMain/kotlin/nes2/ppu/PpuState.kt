@@ -20,6 +20,7 @@ data class PpuState(
 
     var oamAddress: Int = 0,
     val oam: IntArray = IntArray(256),
+    val secondaryOam: IntArray = IntArray(32) { 0xFF },
 
     var v: Int = 0,
     var t: Int = 0,

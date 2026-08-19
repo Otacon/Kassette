@@ -1459,4 +1459,64 @@ class PpuNesTest : FreeSpec({
         (state.v shr 12) and 0x07 shouldBe 1
     }
 
+    "secondary OAM clear starts at dot 1" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x08
+
+        state.secondaryOam[0] = 0x42
+
+        ppu.tick()
+
+        state.secondaryOam[0] shouldBe 0xFF
+    }
+
+    "secondary OAM clear advances every two dots" {
+        state.scanline = 0
+        state.dot = 3
+        state.mask = 0x08
+
+        state.secondaryOam[1] = 0x42
+
+        ppu.tick()
+
+        state.secondaryOam[1] shouldBe 0xFF
+    }
+
+    "secondary OAM clear reaches last byte" {
+        state.scanline = 0
+        state.dot = 63
+        state.mask = 0x08
+
+        state.secondaryOam[31] = 0x42
+
+        ppu.tick()
+
+        state.secondaryOam[31] shouldBe 0xFF
+    }
+
+    "secondary OAM is not cleared after dot 64" {
+        state.scanline = 0
+        state.dot = 65
+        state.mask = 0x08
+
+        state.secondaryOam[0] = 0x42
+
+        ppu.tick()
+
+        state.secondaryOam[0] shouldBe 0x42
+    }
+
+    "secondary OAM is not cleared when rendering is disabled" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x00
+
+        state.secondaryOam[0] = 0x42
+
+        ppu.tick()
+
+        state.secondaryOam[0] shouldBe 0x42
+    }
+
 })
