@@ -523,4 +523,322 @@ class PpuNesTest : FreeSpec({
         state.status shouldBe 0x00
     }
 
+    "background fetch reads nametable byte at dot 1" {
+        state.scanline = 0
+        state.dot = 1
+        state.v = 0x0123
+
+        ppuBus.memory[0x2123] = 0x42
+
+        ppu.tick()
+
+        state.nametableByte shouldBe 0x42
+    }
+
+    "background fetch reads attribute byte at dot 3" {
+        state.scanline = 0
+        state.dot = 3
+        state.v = 0x0000
+
+        ppuBus.memory[0x23C0] = 0xAB
+
+        ppu.tick()
+
+        state.attributeByte shouldBe 0xAB
+    }
+
+    "background fetch reads low pattern byte at dot 5" {
+        state.scanline = 0
+        state.dot = 5
+        state.nametableByte = 0x02
+        state.v = 0x0000
+
+        // tile 2 starts at $0020
+        ppuBus.memory[0x0020] = 0xAA
+
+        ppu.tick()
+
+        state.patternLowByte shouldBe 0xAA
+    }
+
+    "background pattern fetch can use pattern table 1" {
+        state.scanline = 0
+        state.dot = 5
+        state.control = 0x10
+        state.nametableByte = 0x02
+
+        ppuBus.memory[0x1020] = 0xAA
+
+        ppu.tick()
+
+        state.patternLowByte shouldBe 0xAA
+    }
+
+    "background fetch reads high pattern byte at dot 7" {
+        state.scanline = 0
+        state.dot = 7
+        state.nametableByte = 0x02
+        state.v = 0x0000
+
+        // tile 2 = $0020, high plane = +8
+        ppuBus.memory[0x0028] = 0x55
+
+        ppu.tick()
+
+        state.patternHighByte shouldBe 0x55
+    }
+
+    "background fetch does not happen outside fetch dots" {
+        state.scanline = 0
+        state.dot = 257
+        state.nametableByte = 0x11
+
+        ppu.tick()
+
+        state.nametableByte shouldBe 0x11
+    }
+
+    "background low pattern fetch uses pattern table 1 when PPUCTRL bit 4 is set" {
+        state.scanline = 0
+        state.dot = 5
+        state.control = 0x10
+        state.nametableByte = 0x02
+        state.v = 0x0000
+
+        ppuBus.memory[0x1020] = 0xAA
+
+        ppu.tick()
+
+        state.patternLowByte shouldBe 0xAA
+    }
+
+    "background high pattern fetch uses pattern table 1 when PPUCTRL bit 4 is set" {
+        state.scanline = 0
+        state.dot = 7
+        state.control = 0x10
+        state.nametableByte = 0x02
+        state.v = 0x0000
+
+        ppuBus.memory[0x1028] = 0x55
+
+        ppu.tick()
+
+        state.patternHighByte shouldBe 0x55
+    }
+
+    "background fetch increments coarse X at dot 8" {
+        state.scanline = 0
+        state.dot = 8
+        state.v = 0x0005
+
+        ppu.tick()
+
+        state.v and 0x001F shouldBe 0x06
+    }
+
+    "coarse X wraps from 31 to 0" {
+        state.scanline = 0
+        state.dot = 8
+        state.v = 0x001F
+
+        ppu.tick()
+
+        state.v and 0x001F shouldBe 0x00
+    }
+
+    "coarse X wrap switches horizontal nametable" {
+        state.scanline = 0
+        state.dot = 8
+        state.v = 0x001F
+
+        ppu.tick()
+
+        state.v and 0x0400 shouldBe 0x0400
+    }
+
+    "coarse X wrap toggles horizontal nametable" {
+        state.scanline = 0
+        state.dot = 8
+        state.v = 0x041F
+
+        ppu.tick()
+
+        state.v and 0x0400 shouldBe 0x0000
+    }
+
+    "incrementing coarse X preserves other VRAM address bits" {
+        state.scanline = 0
+        state.dot = 8
+        state.v = 0x7125
+
+        ppu.tick()
+
+        state.v shouldBe 0x7126
+    }
+
+    "vertical scroll increments fine Y at dot 256" {
+        state.scanline = 0
+        state.dot = 256
+        state.v = 0x0000
+
+        ppu.tick()
+
+        (state.v shr 12) and 0x07 shouldBe 1
+    }
+
+    "vertical scroll increments coarse Y when fine Y wraps" {
+        state.scanline = 0
+        state.dot = 256
+
+        // fine Y = 7, coarse Y = 5
+        state.v = (7 shl 12) or (5 shl 5)
+
+        ppu.tick()
+
+        (state.v shr 12) and 0x07 shouldBe 0
+        (state.v shr 5) and 0x1F shouldBe 6
+    }
+
+    "coarse Y 29 wraps to 0 and switches vertical nametable" {
+        state.scanline = 0
+        state.dot = 256
+
+        state.v = (7 shl 12) or (29 shl 5)
+
+        ppu.tick()
+
+        (state.v shr 12) and 0x07 shouldBe 0
+        (state.v shr 5) and 0x1F shouldBe 0
+        state.v and 0x0800 shouldBe 0x0800
+    }
+
+    "coarse Y 29 toggles vertical nametable" {
+        state.scanline = 0
+        state.dot = 256
+
+        state.v = 0x0800 or (7 shl 12) or (29 shl 5)
+
+        ppu.tick()
+
+        state.v and 0x0800 shouldBe 0x0000
+    }
+
+    "coarse Y 31 wraps to 0 without switching vertical nametable" {
+        state.scanline = 0
+        state.dot = 256
+
+        state.v = 0x0800 or (7 shl 12) or (31 shl 5)
+
+        ppu.tick()
+
+        (state.v shr 5) and 0x1F shouldBe 0
+        state.v and 0x0800 shouldBe 0x0800
+    }
+
+    "dot 257 copies coarse X from temporary VRAM address" {
+        state.scanline = 0
+        state.dot = 257
+
+        state.v = 0x0000
+        state.t = 0x0015
+
+        ppu.tick()
+
+        state.v and 0x001F shouldBe 0x15
+    }
+
+    "dot 257 copies horizontal nametable from temporary VRAM address" {
+        state.scanline = 0
+        state.dot = 257
+
+        state.v = 0x0000
+        state.t = 0x0400
+
+        ppu.tick()
+
+        state.v and 0x0400 shouldBe 0x0400
+    }
+
+    "dot 257 can clear horizontal scroll bits" {
+        state.scanline = 0
+        state.dot = 257
+
+        state.v = 0x041F
+        state.t = 0x0000
+
+        ppu.tick()
+
+        state.v and 0x041F shouldBe 0x0000
+    }
+
+    "dot 257 preserves vertical scroll bits" {
+        state.scanline = 0
+        state.dot = 257
+
+        state.v = 0x7380
+        state.t = 0x0415
+
+        ppu.tick()
+
+        state.v and 0x7BE0 shouldBe 0x7380
+    }
+
+    "pre-render scanline copies coarse Y from temporary VRAM address" {
+        state.scanline = 261
+        state.dot = 280
+
+        state.v = 0x0000
+        state.t = 5 shl 5
+
+        ppu.tick()
+
+        (state.v shr 5) and 0x1F shouldBe 5
+    }
+
+    "pre-render scanline copies fine Y from temporary VRAM address" {
+        state.scanline = 261
+        state.dot = 280
+
+        state.v = 0x0000
+        state.t = 6 shl 12
+
+        ppu.tick()
+
+        (state.v shr 12) and 0x07 shouldBe 6
+    }
+
+    "pre-render scanline copies vertical nametable from temporary VRAM address" {
+        state.scanline = 261
+        state.dot = 280
+
+        state.v = 0x0000
+        state.t = 0x0800
+
+        ppu.tick()
+
+        state.v and 0x0800 shouldBe 0x0800
+    }
+
+    "vertical scroll copy preserves horizontal scroll bits" {
+        state.scanline = 261
+        state.dot = 280
+
+        state.v = 0x0415
+        state.t = 0x7380
+
+        ppu.tick()
+
+        state.v and 0x041F shouldBe 0x0415
+    }
+
+    "vertical scroll is copied through pre-render dots 280 to 304" {
+        state.scanline = 261
+        state.dot = 304
+        state.t = 0x7380
+
+        ppu.tick()
+
+        state.v and 0x7BE0 shouldBe 0x7380
+    }
+
 })

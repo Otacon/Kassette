@@ -7,6 +7,11 @@ data class PpuState(
     var dot: Int = 0,
     var scanline: Int = 0,
 
+    var nametableByte: Int = 0,
+    var attributeByte: Int = 0,
+    var patternLowByte: Int = 0,
+    var patternHighByte: Int = 0,
+
     var oamAddress: Int = 0,
     val oam: IntArray = IntArray(256),
 

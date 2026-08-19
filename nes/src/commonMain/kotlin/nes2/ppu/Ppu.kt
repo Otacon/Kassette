@@ -44,7 +44,144 @@ class PpuNes(
 
     override fun tick() {
         updateStatusFlags()
+        fetchBackground()
+        updateScroll()
         advanceTiming()
+    }
+
+    private fun fetchBackground() {
+        if (!isBackgroundFetchDot()) {
+            return
+        }
+
+        when ((state.dot - 1) % 8) {
+            0 -> fetchNametableByte()
+            2 -> fetchAttributeByte()
+            4 -> fetchPatternLowByte()
+            6 -> fetchPatternHighByte()
+            7 -> {
+                incrementCoarseX()
+                if (state.dot == 256) {
+                    incrementVerticalScroll()
+                }
+            }
+        }
+    }
+
+    private fun isBackgroundFetchDot(): Boolean {
+        // TODO verify performance or memory allocation of these ranges.
+        val isRenderingScanline = state.scanline in 0..239 || state.scanline == 261
+
+        val isFetchDot = state.dot in 1..256 || state.dot in 321..336
+
+        return isRenderingScanline && isFetchDot
+    }
+
+    private fun fetchNametableByte() {
+        val address = 0x2000 or (state.v and 0x0FFF)
+
+        state.nametableByte = ppuBus.read(address)
+    }
+
+    private fun fetchAttributeByte() {
+        val nametable = state.v and 0x0C00
+        val coarseY = (state.v shr 4) and 0x38
+        val coarseX = (state.v shr 2) and 0x07
+
+        val address = 0x23C0 or nametable or coarseY or coarseX
+
+        state.attributeByte = ppuBus.read(address)
+    }
+
+    private fun fetchPatternLowByte() {
+        val patternTable =
+            if (state.control and 0x10 == 0) 0x0000
+            else 0x1000
+
+        val tile = state.nametableByte
+        val fineY = (state.v shr 12) and 0x07
+
+        val address = patternTable + (tile * 16) + fineY
+
+        state.patternLowByte = ppuBus.read(address)
+    }
+
+    private fun fetchPatternHighByte() {
+        val patternTable = if (state.control and 0x10 == 0) {
+            0x0000
+        } else {
+            0x1000
+        }
+
+        val tile = state.nametableByte
+        val fineY = (state.v shr 12) and 0x07
+
+        val address = patternTable + (tile * 16) + fineY + 8
+
+        state.patternHighByte = ppuBus.read(address)
+    }
+
+    private fun incrementCoarseX() {
+        val coarseX = state.v and 0x001F
+
+        if (coarseX == 31) {
+            // Wrap coarse X back to 0.
+            state.v = state.v and 0x7FE0
+
+            // Move to the horizontally adjacent nametable.
+            state.v = state.v xor 0x0400
+        } else {
+            state.v++
+        }
+    }
+
+    private fun incrementVerticalScroll() {
+        val fineY = (state.v shr 12) and 0x07
+
+        if (fineY < 7) {
+            // Still inside the same tile row.
+            state.v += 0x1000
+            return
+        }
+
+        // Fine Y wraps back to 0.
+        state.v = state.v and 0x0FFF
+
+        val coarseY = (state.v shr 5) and 0x1F
+
+        when (coarseY) {
+            // Move from the bottom of one nametable to the top
+            // of the vertically adjacent nametable.
+            29 -> {
+                state.v = state.v and 0x7C1F
+                state.v = state.v xor 0x0800
+            }
+            // Coarse Y 30/31 are outside the normal visible nametable area.
+            // 31 wraps to 0 without switching nametable.
+            31 -> {
+                state.v = state.v and 0x7C1F
+            }
+
+            else -> {
+                state.v += 0x20
+            }
+        }
+    }
+
+    private fun updateScroll() {
+        if (state.dot == 257) {
+            val horizontalBits = state.t and 0x041F
+            val vWithoutHorizontalBits = state.v and 0x7BE0
+
+            state.v = vWithoutHorizontalBits or horizontalBits
+        }
+
+        if (state.scanline == 261 && state.dot in 280..304) {
+            val verticalBits = state.t and 0x7BE0
+            val vWithoutVerticalBits = state.v and 0x041F
+
+            state.v = vWithoutVerticalBits or verticalBits
+        }
     }
 
     private fun updateStatusFlags() {
