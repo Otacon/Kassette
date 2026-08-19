@@ -453,20 +453,24 @@ class PpuNes(
         val row = state.scanline - spriteY
         val isInRange = row >= 0 && row < spriteHeight
 
-        if (isInRange && state.evaluatedSpriteCount < 8) {
-            val secondaryOffset = state.evaluatedSpriteCount * 4
+        if (isInRange) {
+            if (state.evaluatedSpriteCount < 8) {
+                val secondaryOffset = state.evaluatedSpriteCount * 4
 
-            state.secondaryOam[secondaryOffset] = state.oam[oamOffset]
-            state.secondaryOam[secondaryOffset + 1] = state.oam[oamOffset + 1]
-            state.secondaryOam[secondaryOffset + 2] = state.oam[oamOffset + 2]
-            state.secondaryOam[secondaryOffset + 3] = state.oam[oamOffset + 3]
+                state.secondaryOam[secondaryOffset] = state.oam[oamOffset]
+                state.secondaryOam[secondaryOffset + 1] = state.oam[oamOffset + 1]
+                state.secondaryOam[secondaryOffset + 2] = state.oam[oamOffset + 2]
+                state.secondaryOam[secondaryOffset + 3] = state.oam[oamOffset + 3]
 
-            if (spriteIndex == 0) {
-                state.evaluatedSpriteZeroSelected = true
+                if (spriteIndex == 0) {
+                    state.evaluatedSpriteZeroSelected = true
+                }
+
+                state.evaluatedSpriteCount++
+                state.secondaryOamIndex += 4
+            } else {
+                state.status = state.status or SPRITE_OVERFLOW_FLAG
             }
-
-            state.evaluatedSpriteCount++
-            state.secondaryOamIndex += 4
         }
 
         state.spriteEvaluationIndex++

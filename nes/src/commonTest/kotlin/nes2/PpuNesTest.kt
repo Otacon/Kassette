@@ -2695,4 +2695,84 @@ class PpuNesTest : FreeSpec({
         state.spriteZeroSelected shouldBe false
     }
 
+    "sprite overflow is set when ninth sprite is in range" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.evaluatedSpriteCount = 8
+        state.secondaryOamIndex = 32
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.status and 0x20 shouldBe 0x20
+    }
+
+    "sprite overflow is not set when ninth sprite is out of range" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.evaluatedSpriteCount = 8
+        state.secondaryOamIndex = 32
+
+        state.oam[0] = 20
+
+        ppu.tick()
+
+        state.status and 0x20 shouldBe 0x00
+    }
+
+    "ninth sprite is not copied to secondary OAM" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.evaluatedSpriteCount = 8
+        state.secondaryOamIndex = 32
+
+        state.oam[0] = 10
+        state.oam[1] = 0x42
+        state.oam[2] = 0x03
+        state.oam[3] = 0x80
+
+        val secondaryOamBefore = state.secondaryOam.copyOf()
+
+        ppu.tick()
+
+        state.secondaryOam.toList() shouldBe secondaryOamBefore.toList()
+        state.evaluatedSpriteCount shouldBe 8
+        state.secondaryOamIndex shouldBe 32
+    }
+
+    "sprite overflow remains set after later sprite evaluation" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.status = state.status or 0x20
+
+        state.evaluatedSpriteCount = 8
+        state.spriteEvaluationIndex = 1
+
+        // Out of range.
+        state.oam[4] = 20
+
+        ppu.tick()
+
+        state.status and 0x20 shouldBe 0x20
+    }
+
+    "sprite overflow is cleared at pre-render dot 1" {
+        state.scanline = 261
+        state.dot = 1
+        state.status = state.status or 0x20
+
+        ppu.tick()
+
+        state.status and 0x20 shouldBe 0x00
+    }
+
 })
