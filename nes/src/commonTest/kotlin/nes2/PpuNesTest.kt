@@ -2944,4 +2944,46 @@ class PpuNesTest : FreeSpec({
         state.spritePatternLow[0] shouldBe 0xEE
     }
 
+    "8x16 sprite row 7 uses top tile" {
+        state.scanline = 7
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+        state.secondaryOam[2] = 0x00
+
+        // Table $1000, top tile $02, row 7.
+        // $1000 + ($02 * 16) + 7 = $1027
+        ppuBus.memory[0x1027] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xAA
+    }
+
+    "8x16 sprite row 8 uses bottom tile" {
+        state.scanline = 8
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+        state.secondaryOam[2] = 0x00
+
+        // Table $1000, bottom tile $03, row 0.
+        // $1000 + ($03 * 16) = $1030
+        ppuBus.memory[0x1030] = 0xBB
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xBB
+    }
+
 })
