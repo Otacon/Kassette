@@ -71,6 +71,9 @@ class PpuNes(
             return isRenderingScanline && dot >= 65 && dot <= 256
         }
 
+    private val isSpriteEnabledInLeftmostPixels: Boolean
+        get() = state.mask and 0x04 != 0
+
     private val isSpriteFetchDot: Boolean
         get() {
             val dot = state.dot
@@ -149,26 +152,46 @@ class PpuNes(
             return
         }
 
-        val scanline = state.scanline
-        val dot = state.dot
-        val x = dot - 1
-        val y = scanline
+        val x = state.dot - 1
+        val y = state.scanline
 
         val backgroundVisible = isBackgroundEnabled && (x >= 8 || isBackgroundEnabledInLeftmostPixels)
-
+        val spriteVisible = isSpriteEnabled && (x >= 8 || isSpriteEnabledInLeftmostPixels)
         val backgroundPixel = if (backgroundVisible) {
             getBackgroundPixel()
         } else {
             0
         }
 
-        val pattern = backgroundPixel and 0x03
-        val palette = (backgroundPixel shr 2) and 0x03
-
-        val paletteAddress = if (pattern == 0) {
-            0x3F00
+        val spritePixel = if (spriteVisible) {
+            getSpritePixel()
         } else {
-            0x3F00 + (palette shl 2) + pattern
+            0
+        }
+
+        val backgroundPattern = backgroundPixel and 0x03
+        val backgroundPalette = (backgroundPixel shr 2) and 0x03
+
+        val spritePattern = spritePixel and 0x03
+        val spritePalette = (spritePixel shr 2) and 0x03
+        val spriteBehindBackground = spritePixel and 0x10 != 0
+        val spriteIndex = spritePixel shr 5
+
+        val backgroundOpaque = backgroundPattern != 0
+        val spriteOpaque = spritePattern != 0
+
+        val spriteZeroHit = backgroundOpaque && spriteOpaque && state.spriteZeroSelected && spriteIndex == 0 && x != 255
+
+        if (spriteZeroHit) {
+            state.status = state.status or SPRITE_ZERO_HIT_FLAG
+        }
+
+        val paletteAddress = when {
+            !backgroundOpaque && !spriteOpaque -> 0x3F00
+            !backgroundOpaque -> 0x3F10 + (spritePalette shl 2) + spritePattern
+            !spriteOpaque -> 0x3F00 + (backgroundPalette shl 2) + backgroundPattern
+            spriteBehindBackground -> 0x3F00 + (backgroundPalette shl 2) + backgroundPattern
+            else -> 0x3F10 + (spritePalette shl 2) + spritePattern
         }
 
         val color = ppuBus.read(paletteAddress)
@@ -529,6 +552,42 @@ class PpuNes(
 
             spriteIndex++
         }
+    }
+
+    private fun getSpritePixel(): Int {
+        var spriteIndex = 0
+
+        while (spriteIndex < state.spriteCount) {
+            if (state.spriteXCounter[spriteIndex] == 0) {
+                val patternLow = if (state.spritePatternLow[spriteIndex] and 0x80 != 0) {
+                    1
+                } else {
+                    0
+                }
+
+                val patternHigh = if (state.spritePatternHigh[spriteIndex] and 0x80 != 0) {
+                    1
+                } else {
+                    0
+                }
+
+                val pattern = patternLow or (patternHigh shl 1)
+
+                if (pattern != 0) {
+                    val attributesOffset = spriteIndex * 4 + 2
+                    val attributes = state.secondaryOam[attributesOffset]
+
+                    val palette = attributes and 0x03
+                    val priority = (attributes shr 5) and 0x01
+
+                    return pattern or (palette shl 2) or (priority shl 4) or (spriteIndex shl 5)
+                }
+            }
+
+            spriteIndex++
+        }
+
+        return 0
     }
 
     private fun getSpritePatternAddress(

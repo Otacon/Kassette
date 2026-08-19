@@ -2182,4 +2182,503 @@ class PpuNesTest : FreeSpec({
         state.spritePatternLow[0] shouldBe 0b10000000
     }
 
+    "transparent background and transparent sprite use universal background color" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        ppuBus.memory[0x3F00] = 0x2A
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x2A
+    }
+
+    "opaque background is rendered when sprite is transparent" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        // Background pattern 1, palette 0.
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x00
+        state.spritePatternHigh[0] = 0x00
+
+        ppuBus.memory[0x3F01] = 0x11
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x11
+    }
+
+    "opaque sprite is rendered when background is transparent" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+
+        // Sprite pattern 1.
+        state.spritePatternLow[0] = 0x80
+        state.spritePatternHigh[0] = 0x00
+
+        // Sprite palette 0.
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x3F11] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x22
+    }
+
+    "sprite in front wins over opaque background" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        // Background pattern 1.
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+
+        // Sprite pattern 2.
+        state.spritePatternLow[0] = 0x00
+        state.spritePatternHigh[0] = 0x80
+
+        // Priority bit clear -> sprite in front.
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x3F01] = 0x11
+        ppuBus.memory[0x3F12] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x22
+    }
+
+    "sprite behind background loses to opaque background" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        // Background pattern 1.
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+
+        // Sprite pattern 2.
+        state.spritePatternLow[0] = 0x00
+        state.spritePatternHigh[0] = 0x80
+
+        // Bit 5 -> behind background.
+        state.secondaryOam[2] = 0x20
+
+        ppuBus.memory[0x3F01] = 0x11
+        ppuBus.memory[0x3F12] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x11
+    }
+
+    "sprite priority does not hide sprite behind transparent background" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+
+        state.spritePatternLow[0] = 0x80
+        state.spritePatternHigh[0] = 0x00
+
+        // Behind-background flag is set, but background is transparent.
+        state.secondaryOam[2] = 0x20
+
+        ppuBus.memory[0x3F11] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x22
+    }
+
+    "sprite palette selects sprite palette RAM entry" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+
+        // Pattern 3.
+        state.spritePatternLow[0] = 0x80
+        state.spritePatternHigh[0] = 0x80
+
+        // Palette 2.
+        state.secondaryOam[2] = 0x02
+
+        // $3F10 + palette 2 * 4 + pattern 3
+        // = $3F1B
+        ppuBus.memory[0x3F1B] = 0x33
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x33
+    }
+
+    "sprite is ignored when sprite rendering is disabled" {
+        state.scanline = 0
+        state.dot = 9
+
+        // Background only.
+        state.mask = 0x08
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppuBus.memory[0x3F01] = 0x11
+        ppuBus.memory[0x3F11] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x11
+    }
+
+    "transparent sprite does not affect background pixel" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x18
+
+        // Background pattern 1.
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x00
+        state.spritePatternHigh[0] = 0x00
+
+        ppuBus.memory[0x3F01] = 0x11
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x11
+    }
+
+    "sprite pattern low bit selects sprite palette color" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x10
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+        state.spritePatternHigh[0] = 0x00
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x3F11] = 0x21
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x21
+    }
+
+    "sprite pattern high bit selects sprite palette color" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x10
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x00
+        state.spritePatternHigh[0] = 0x80
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x3F12] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x22
+    }
+
+    "sprite pattern combines both pattern bits" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x10
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+        state.spritePatternHigh[0] = 0x80
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x3F13] = 0x23
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x23
+    }
+
+    "transparent first sprite allows following sprite to render" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x10
+        state.spriteCount = 2
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x00
+        state.spritePatternHigh[0] = 0x00
+
+        state.spriteXCounter[1] = 0
+        state.spritePatternLow[1] = 0x80
+        state.spritePatternHigh[1] = 0x00
+        state.secondaryOam[6] = 0x00
+
+        ppuBus.memory[0x3F11] = 0x31
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x31
+    }
+
+    "first opaque sprite has priority over later sprites" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x10
+        state.spriteCount = 2
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+        state.secondaryOam[2] = 0x00
+
+        state.spriteXCounter[1] = 0
+        state.spritePatternHigh[1] = 0x80
+        state.secondaryOam[6] = 0x00
+
+        ppuBus.memory[0x3F11] = 0x11
+        ppuBus.memory[0x3F12] = 0x22
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x11
+    }
+
+    "sprite attributes select sprite palette" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x10
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+
+        // Pattern 1.
+        state.spritePatternLow[0] = 0x80
+
+        // Palette 3.
+        state.secondaryOam[2] = 0x03
+
+        // $3F10 + (3 * 4) + 1 = $3F1D
+        ppuBus.memory[0x3F1D] = 0x2A
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x2A
+    }
+
+    "sprite is hidden in leftmost 8 pixels by default" {
+        state.scanline = 0
+        state.dot = 1
+
+        // Sprite rendering enabled, leftmost sprite rendering disabled.
+        state.mask = 0x10
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppuBus.memory[0x3F00] = 0x10
+        ppuBus.memory[0x3F11] = 0x20
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x10
+    }
+
+    "sprite can render in leftmost 8 pixels when enabled" {
+        state.scanline = 0
+        state.dot = 1
+
+        // Sprite rendering + sprite left-edge rendering.
+        state.mask = 0x14
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+        state.spritePatternHigh[0] = 0x00
+
+        // No palette offset, no priority, no flipping.
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x3F11] = 0x20
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x20
+    }
+
+    "sprite zero hit is set when sprite zero overlaps opaque background" {
+        state.scanline = 10
+        state.dot = 20
+        state.mask = 0x18
+
+        // Opaque background.
+        state.patternLowShift = 0x8000
+
+        // Opaque sprite 0.
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x40
+    }
+
+    "sprite zero hit is not set when background is transparent" {
+        state.scanline = 10
+        state.dot = 20
+        state.mask = 0x18
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x00
+    }
+
+    "sprite zero hit is not set when sprite zero is transparent" {
+        state.scanline = 10
+        state.dot = 20
+        state.mask = 0x18
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x00
+    }
+
+    "sprite zero hit is not set for non-zero sprite" {
+        state.scanline = 10
+        state.dot = 20
+        state.mask = 0x18
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = false
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x00
+    }
+
+    "sprite zero hit is not set at x 255" {
+        state.scanline = 10
+        state.dot = 256
+        state.mask = 0x18
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x00
+    }
+
+    "sprite zero hit respects background left-edge masking" {
+        state.scanline = 0
+        state.dot = 1
+
+        // Background + sprite enabled, sprite left-edge enabled,
+        // background left-edge disabled.
+        state.mask = 0x1C
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x00
+    }
+
+    "sprite zero hit respects sprite left-edge masking" {
+        state.scanline = 0
+        state.dot = 1
+
+        // Background + sprite enabled, background left-edge enabled,
+        // sprite left-edge disabled.
+        state.mask = 0x1A
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x00
+    }
+
+    "sprite zero hit can occur in leftmost 8 pixels when both are enabled" {
+        state.scanline = 0
+        state.dot = 1
+
+        // Background + sprite + both left-edge enables.
+        state.mask = 0x1E
+
+        state.patternLowShift = 0x8000
+
+        state.spriteCount = 1
+        state.spriteZeroSelected = true
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0x40
+    }
+
 })
