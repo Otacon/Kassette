@@ -2681,4 +2681,18 @@ class PpuNesTest : FreeSpec({
         state.status and 0x40 shouldBe 0x40
     }
 
+    "pre-render sprite fetch does not promote stale evaluated sprites" {
+        state.scanline = 261
+        state.dot = 257
+        state.mask = 0x10
+
+        state.evaluatedSpriteCount = 3
+        state.evaluatedSpriteZeroSelected = true
+
+        ppu.tick()
+
+        state.spriteCount shouldBe 0
+        state.spriteZeroSelected shouldBe false
+    }
+
 })
