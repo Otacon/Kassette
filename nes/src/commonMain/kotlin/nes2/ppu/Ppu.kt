@@ -17,6 +17,57 @@ class PpuNes(
     private val frameBuffer: FrameBuffer,
 ) : Ppu {
 
+    private val isRenderingScanline: Boolean
+        get() = isVisibleScanline || state.scanline == 261
+
+    private val isVisibleScanline: Boolean
+        get() {
+            val scanline = state.scanline
+            return scanline >= 0 && scanline <= 239
+        }
+
+    private val isVisibleDot: Boolean
+        get() {
+            val dot = state.dot
+            return dot >= 1 && dot <= 256
+        }
+
+    private val isShiftDot: Boolean
+        get() {
+            val dot = state.dot
+            return isVisibleDot || (dot >= 321 && dot <= 336)
+        }
+
+    private val isFetchDot: Boolean
+        get() {
+            val dot = state.dot
+            return isVisibleDot || (dot >= 321 && dot <= 336)
+        }
+
+    private val isBackgroundShiftDot: Boolean
+        get() = isRenderingScanline && isShiftDot
+
+    private val isBackgroundFetchDot: Boolean
+        get() = isRenderingScanline && isFetchDot
+
+    private val isBackgroundEnabled: Boolean
+        get() = state.mask and 0x08 != 0
+
+    private val isBackgroundEnabledInLeftmostPixels: Boolean
+        get() = state.mask and 0x02 != 0
+
+    private val isSpriteEnabled: Boolean
+        get() = state.mask and 0x10 != 0
+
+    private val isRenderingEnabled: Boolean
+        get() = state.mask and 0x18 != 0
+
+    private val isExtraNametableFetchDot: Boolean
+        get() {
+            val dot = state.dot
+            return isRenderingScanline && (dot == 337 || dot == 339)
+        }
+
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {
             0x2002 -> readStatus()
@@ -46,7 +97,6 @@ class PpuNes(
     override fun tick() {
         updateStatusFlags()
         renderPixel()
-        val isRenderingEnabled = state.mask and 0x18 != 0
         if (isRenderingEnabled) {
             shiftBackgroundRegisters()
             fetchBackground()
@@ -83,7 +133,7 @@ class PpuNes(
         val x = dot - 1
         val y = scanline
 
-        val backgroundVisible = isBackgroundEnabled() && (x >= 8 || isBackgroundEnabledInLeftmostPixels())
+        val backgroundVisible = isBackgroundEnabled && (x >= 8 || isBackgroundEnabledInLeftmostPixels)
 
         val backgroundPixel = if (backgroundVisible) {
             getBackgroundPixel()
@@ -124,7 +174,7 @@ class PpuNes(
     }
 
     private fun shiftBackgroundRegisters() {
-        if (!isBackgroundShiftDot()) {
+        if (!isBackgroundShiftDot) {
             return
         }
 
@@ -136,51 +186,29 @@ class PpuNes(
     }
 
     private fun fetchBackground() {
-        if (!isBackgroundFetchDot()) {
+        if (isBackgroundFetchDot) {
+            when ((state.dot - 1) % 8) {
+                0 -> fetchNametableByte()
+                2 -> fetchAttributeByte()
+                4 -> fetchPatternLowByte()
+                6 -> fetchPatternHighByte()
+
+                7 -> {
+                    loadBackgroundShiftRegisters()
+                    incrementCoarseX()
+
+                    if (state.dot == 256) {
+                        incrementVerticalScroll()
+                    }
+                }
+            }
+
             return
         }
 
-        when ((state.dot - 1) % 8) {
-            0 -> fetchNametableByte()
-            2 -> fetchAttributeByte()
-            4 -> fetchPatternLowByte()
-            6 -> fetchPatternHighByte()
-            7 -> {
-                loadBackgroundShiftRegisters()
-                incrementCoarseX()
-                if (state.dot == 256) {
-                    incrementVerticalScroll()
-                }
-            }
+        if (isExtraNametableFetchDot) {
+            fetchNametableByte()
         }
-    }
-
-    private fun isBackgroundShiftDot(): Boolean {
-        val scanline = state.scanline
-        val dot = state.dot
-
-        val isRenderingScanline = (scanline >= 0 && scanline <= 239) || scanline == 261
-        val isShiftDot = (dot >= 1 && dot <= 256) || (dot >= 321 && dot <= 336)
-
-        return isRenderingScanline && isShiftDot
-    }
-
-    private fun isBackgroundFetchDot(): Boolean {
-        val scanline = state.scanline
-        val dot = state.dot
-
-        val isRenderingScanline = (scanline >= 0 && scanline <= 239) || scanline == 261
-        val isFetchDot = (dot >= 1 && dot <= 256) || (dot >= 321 && dot <= 336)
-
-        return isRenderingScanline && isFetchDot
-    }
-
-    private fun isBackgroundEnabled(): Boolean {
-        return state.mask and 0x08 != 0
-    }
-
-    private fun isBackgroundEnabledInLeftmostPixels(): Boolean {
-        return state.mask and 0x02 != 0
     }
 
     private fun fetchNametableByte() {

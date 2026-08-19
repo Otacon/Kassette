@@ -530,8 +530,8 @@ class PpuNesTest : FreeSpec({
     "background fetch reads nametable byte at dot 1" {
         state.scanline = 0
         state.dot = 1
-        state.v = 0x0123
         state.mask = 0x08
+        state.v = 0x0123
 
         ppuBus.memory[0x2123] = 0x42
 
@@ -543,8 +543,8 @@ class PpuNesTest : FreeSpec({
     "background fetch reads attribute byte at dot 3" {
         state.scanline = 0
         state.dot = 3
-        state.v = 0x0000
         state.mask = 0x08
+        state.v = 0x0000
 
         ppuBus.memory[0x23C0] = 0xAB
 
@@ -556,16 +556,29 @@ class PpuNesTest : FreeSpec({
     "background fetch reads low pattern byte at dot 5" {
         state.scanline = 0
         state.dot = 5
+        state.mask = 0x08
         state.nametableByte = 0x02
         state.v = 0x0000
-        state.mask = 0x08
 
-        // tile 2 starts at $0020
         ppuBus.memory[0x0020] = 0xAA
 
         ppu.tick()
 
         state.patternLowByte shouldBe 0xAA
+    }
+
+    "background fetch reads high pattern byte at dot 7" {
+        state.scanline = 0
+        state.dot = 7
+        state.mask = 0x08
+        state.nametableByte = 0x02
+        state.v = 0x0000
+
+        ppuBus.memory[0x0028] = 0x55
+
+        ppu.tick()
+
+        state.patternHighByte shouldBe 0x55
     }
 
     "background pattern fetch can use pattern table 1" {
@@ -580,21 +593,6 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         state.patternLowByte shouldBe 0xAA
-    }
-
-    "background fetch reads high pattern byte at dot 7" {
-        state.scanline = 0
-        state.dot = 7
-        state.nametableByte = 0x02
-        state.v = 0x0000
-        state.mask = 0x08
-
-        // tile 2 = $0020, high plane = +8
-        ppuBus.memory[0x0028] = 0x55
-
-        ppu.tick()
-
-        state.patternHighByte shouldBe 0x55
     }
 
     "background fetch does not happen outside fetch dots" {
@@ -640,8 +638,8 @@ class PpuNesTest : FreeSpec({
     "background fetch increments coarse X at dot 8" {
         state.scanline = 0
         state.dot = 8
-        state.v = 0x0005
         state.mask = 0x08
+        state.v = 0x0005
 
         ppu.tick()
 
@@ -1434,6 +1432,31 @@ class PpuNesTest : FreeSpec({
         state.scanline shouldBe 0
         state.dot shouldBe 0
         state.oddFrame shouldBe true
+    }
+
+    "background fetch loads shift registers at dot 8" {
+        state.scanline = 0
+        state.dot = 8
+        state.mask = 0x08
+
+        state.patternLowByte = 0x12
+        state.patternHighByte = 0x34
+
+        ppu.tick()
+
+        state.patternLowShift and 0x00FF shouldBe 0x12
+        state.patternHighShift and 0x00FF shouldBe 0x34
+    }
+
+    "background fetch increments vertical scroll at dot 256" {
+        state.scanline = 0
+        state.dot = 256
+        state.mask = 0x08
+        state.v = 0x0000
+
+        ppu.tick()
+
+        (state.v shr 12) and 0x07 shouldBe 1
     }
 
 })
