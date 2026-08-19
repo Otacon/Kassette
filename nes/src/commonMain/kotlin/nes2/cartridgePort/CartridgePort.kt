@@ -8,6 +8,8 @@ import nes.cartridge.Mirroring
 
 interface CartridgePort {
 
+    val mirroring: Mirroring
+
     fun ppuRead(address: Int): Int
 
     fun ppuWrite(address: Int, value: Int)
@@ -17,7 +19,7 @@ class CartridgePortNes : CartridgePort {
     private var cartridge: Cartridge? = null
     private var mapper: Mapper? = null
 
-    var mirroring: Mirroring? = null
+    override var mirroring: Mirroring = Mirroring.VERTICAL
         private set
 
     var region: ConsoleRegion = ConsoleRegion.NTSC
@@ -33,7 +35,7 @@ class CartridgePortNes : CartridgePort {
     fun remove() {
         cartridge = null
         mapper = null
-        mirroring = null
+        mirroring = Mirroring.VERTICAL
         region = ConsoleRegion.NTSC
     }
 

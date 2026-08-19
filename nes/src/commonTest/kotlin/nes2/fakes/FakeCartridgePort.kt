@@ -1,9 +1,11 @@
 package nes2.fakes
 
+import nes.cartridge.Mirroring
 import nes2.cartridgePort.CartridgePort
 
 class FakeCartridgePort : CartridgePort {
 
+    override var mirroring: Mirroring = Mirroring.VERTICAL
     val memory = IntArray(0x2000)
 
     var lastReadAddress: Int? = null

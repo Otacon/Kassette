@@ -1,5 +1,6 @@
 package nes2.ppuBus
 
+import nes.cartridge.Mirroring
 import nes.util.low8Bits
 import nes2.cartridgePort.CartridgePort
 
@@ -19,7 +20,7 @@ class PpuBusNes(
         return when (val ppuAddress = address and 0x3FFF) {
             in 0x0000..0x1FFF -> cartridge.ppuRead(ppuAddress)
             in 0x2000..0x3EFF -> {
-                val nametableAddress = (ppuAddress - 0x2000) and 0x07FF
+                val nametableAddress = mapNametableAddress(ppuAddress)
                 state.nametableRam[nametableAddress]
             }
 
@@ -39,7 +40,7 @@ class PpuBusNes(
         when (ppuAddress) {
             in 0x0000..0x1FFF -> cartridge.ppuWrite(ppuAddress, value)
             in 0x2000..0x3EFF -> {
-                val nametableAddress = (ppuAddress - 0x2000) and 0x07FF
+                val nametableAddress = mapNametableAddress(ppuAddress)
                 state.nametableRam[nametableAddress] = value
             }
 
@@ -58,6 +59,22 @@ class PpuBusNes(
         }
 
         return paletteAddress
+    }
+
+    private fun mapNametableAddress(address: Int): Int {
+        val normalized = (address - 0x2000) and 0x0FFF
+        val table = normalized / 0x400
+        val offset = normalized and 0x03FF
+
+        // TODO fix the null check
+        val mappedTable = when (cartridge.mirroring!!) {
+            Mirroring.VERTICAL -> table and 0x01
+            Mirroring.HORIZONTAL -> table shr 1
+            Mirroring.SINGLE_SCREEN_LOWER -> 0
+            Mirroring.SINGLE_SCREEN_UPPER -> 1
+        }
+
+        return mappedTable * 0x400 + offset
     }
 }
 
