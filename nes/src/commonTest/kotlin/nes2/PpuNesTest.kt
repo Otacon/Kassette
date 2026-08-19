@@ -1686,4 +1686,226 @@ class PpuNesTest : FreeSpec({
         state.secondaryOamIndex shouldBe 32
     }
 
+    "sprite low pattern byte is fetched for first sprite" {
+        state.scanline = 12
+        state.dot = 261
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        // tile 2 -> $20, row 2 -> $22
+        ppuBus.memory[0x0022] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xAA
+    }
+
+    "sprite high pattern byte is fetched for first sprite" {
+        state.scanline = 12
+        state.dot = 263
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        // tile 2 -> $20, row 2 -> $22, high plane -> +8
+        ppuBus.memory[0x002A] = 0x55
+
+        ppu.tick()
+
+        state.spritePatternHigh[0] shouldBe 0x55
+    }
+
+    "sprite pattern fetch uses correct sprite slot" {
+        state.scanline = 12
+        state.dot = 269
+        state.mask = 0x10
+        state.spriteCount = 2
+
+        val offset = 4
+        state.secondaryOam[offset] = 10
+        state.secondaryOam[offset + 1] = 0x03
+
+        // Second sprite:
+        // dots 265..272
+        // dot 269 -> low pattern fetch
+        // tile 3 -> $30, row 2 -> $32
+        ppuBus.memory[0x0032] = 0xAB
+
+        ppu.tick()
+
+        state.spritePatternLow[1] shouldBe 0xAB
+    }
+
+    "sprite high pattern fetch uses correct sprite slot" {
+        state.scanline = 12
+        state.dot = 271
+        state.mask = 0x10
+        state.spriteCount = 2
+
+        val offset = 4
+        state.secondaryOam[offset] = 10
+        state.secondaryOam[offset + 1] = 0x03
+
+        // tile 3 -> $30, row 2 -> $32, high plane -> +8
+        ppuBus.memory[0x003A] = 0xCD
+
+        ppu.tick()
+
+        state.spritePatternHigh[1] shouldBe 0xCD
+    }
+
+    "sprite pattern fetch uses current sprite row" {
+        state.scanline = 15
+        state.dot = 261
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        // row = 15 - 10 = 5
+        // tile 2 -> $20 + 5 = $25
+        ppuBus.memory[0x0025] = 0x42
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0x42
+    }
+
+    "sprite pattern fetch uses pattern table 1 when PPUCTRL bit 3 is set" {
+        state.scanline = 12
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x08
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        // pattern table 1 -> $1000
+        // tile 2 -> $20
+        // row 2 -> $02
+        ppuBus.memory[0x1022] = 0x66
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0x66
+    }
+
+    "sprite high pattern fetch uses pattern table 1 when PPUCTRL bit 3 is set" {
+        state.scanline = 12
+        state.dot = 263
+        state.mask = 0x10
+        state.control = 0x08
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        ppuBus.memory[0x102A] = 0x77
+
+        ppu.tick()
+
+        state.spritePatternHigh[0] shouldBe 0x77
+    }
+
+    "empty sprite slot clears low pattern byte" {
+        state.scanline = 12
+        state.dot = 269
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spritePatternLow[1] = 0xAB
+
+        ppu.tick()
+
+        state.spritePatternLow[1] shouldBe 0x00
+    }
+
+    "empty sprite slot clears high pattern byte" {
+        state.scanline = 12
+        state.dot = 271
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spritePatternHigh[1] = 0xAB
+
+        ppu.tick()
+
+        state.spritePatternHigh[1] shouldBe 0x00
+    }
+
+    "sprite pattern fetch does not happen before dot 257" {
+        state.scanline = 0
+        state.dot = 256
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x02
+
+        state.spritePatternLow[0] = 0x11
+        ppuBus.memory[0x0020] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0x11
+    }
+
+    "sprite pattern fetch does not happen after dot 320" {
+        state.scanline = 0
+        state.dot = 321
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x02
+
+        state.spritePatternLow[0] = 0x11
+        ppuBus.memory[0x0020] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0x11
+    }
+
+    "sprite pattern fetch does not happen during VBlank" {
+        state.scanline = 241
+        state.dot = 261
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        state.spritePatternLow[0] = 0x11
+        ppuBus.memory[0x0022] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0x11
+    }
+
+    "sprite pattern fetch does not happen when rendering is disabled" {
+        state.scanline = 12
+        state.dot = 261
+        state.mask = 0x00
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+
+        state.spritePatternLow[0] = 0x11
+        ppuBus.memory[0x0022] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0x11
+    }
+
 })

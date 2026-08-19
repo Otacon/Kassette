@@ -71,6 +71,12 @@ class PpuNes(
             return isRenderingScanline && dot >= 65 && dot <= 256
         }
 
+    private val isSpriteFetchDot: Boolean
+        get() {
+            val dot = state.dot
+            return isRenderingScanline && dot >= 257 && dot <= 320
+        }
+
     private val isRenderingEnabled: Boolean
         get() = state.mask and 0x18 != 0
 
@@ -115,6 +121,7 @@ class PpuNes(
         if (isRenderingEnabled) {
             clearSecondaryOam()
             evaluateSprites()
+            fetchSprites()
             shiftBackgroundRegisters()
             fetchBackground()
             updateScroll()
@@ -165,11 +172,7 @@ class PpuNes(
 
         val color = ppuBus.read(paletteAddress)
 
-        frameBuffer.writePixel(
-            x = x,
-            y = y,
-            color = color,
-        )
+        frameBuffer.writePixel(x = x, y = y, color = color)
     }
 
     private fun getBackgroundPixel(): Int {
@@ -442,6 +445,68 @@ class PpuNes(
         }
 
         state.spriteEvaluationIndex++
+    }
+
+    private fun fetchSprites() {
+        if (!isSpriteFetchDot) {
+            return
+        }
+
+        val spriteIndex = (state.dot - 257) / 8
+        val spriteDot = (state.dot - 257) % 8
+
+        when (spriteDot) {
+            4 -> fetchSpritePatternLow(spriteIndex)
+            6 -> fetchSpritePatternHigh(spriteIndex)
+        }
+    }
+
+    private fun fetchSpritePatternLow(spriteIndex: Int) {
+        if (spriteIndex >= state.spriteCount) {
+            state.spritePatternLow[spriteIndex] = 0
+            return
+        }
+
+        val address = getSpritePatternAddress(
+            spriteIndex = spriteIndex,
+            highPlane = false,
+        )
+
+        state.spritePatternLow[spriteIndex] = ppuBus.read(address)
+    }
+
+    private fun fetchSpritePatternHigh(spriteIndex: Int) {
+        if (spriteIndex >= state.spriteCount) {
+            state.spritePatternHigh[spriteIndex] = 0
+            return
+        }
+
+        val address = getSpritePatternAddress(
+            spriteIndex = spriteIndex,
+            highPlane = true,
+        )
+
+        state.spritePatternHigh[spriteIndex] = ppuBus.read(address)
+    }
+
+    private fun getSpritePatternAddress(spriteIndex: Int, highPlane: Boolean): Int {
+        val offset = spriteIndex * 4
+        val spriteY = state.secondaryOam[offset]
+        val tile = state.secondaryOam[offset + 1]
+        val row = state.scanline - spriteY
+        val patternTable = if (state.control and 0x08 == 0) {
+            0x0000
+        } else {
+            0x1000
+        }
+
+        val planeOffset = if (highPlane) {
+            8
+        } else {
+            0
+        }
+
+        return patternTable + (tile * 16) + row + planeOffset
     }
 
     private fun writeControl(value: Int) {
