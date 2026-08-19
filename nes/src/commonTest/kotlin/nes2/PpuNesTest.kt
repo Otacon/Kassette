@@ -1387,4 +1387,53 @@ class PpuNesTest : FreeSpec({
         state.v and 0x041F shouldBe 0x0415
     }
 
+    "even frame does not skip pre-render dot" {
+        state.oddFrame = false
+        state.scanline = 261
+        state.dot = 339
+        state.mask = 0x08
+
+        ppu.tick()
+
+        state.scanline shouldBe 261
+        state.dot shouldBe 340
+    }
+
+    "odd frame skips final pre-render dot when rendering is enabled" {
+        state.oddFrame = true
+        state.scanline = 261
+        state.dot = 339
+        state.mask = 0x08
+
+        ppu.tick()
+
+        state.scanline shouldBe 0
+        state.dot shouldBe 0
+        state.oddFrame shouldBe false
+    }
+
+    "odd frame does not skip dot when rendering is disabled" {
+        state.oddFrame = true
+        state.scanline = 261
+        state.dot = 339
+        state.mask = 0x00
+
+        ppu.tick()
+
+        state.scanline shouldBe 261
+        state.dot shouldBe 340
+    }
+
+    "frame parity toggles after complete frame" {
+        state.oddFrame = false
+        state.scanline = 261
+        state.dot = 340
+
+        ppu.tick()
+
+        state.scanline shouldBe 0
+        state.dot shouldBe 0
+        state.oddFrame shouldBe true
+    }
+
 })

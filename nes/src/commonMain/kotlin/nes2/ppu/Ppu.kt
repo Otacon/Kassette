@@ -52,7 +52,7 @@ class PpuNes(
             fetchBackground()
             updateScroll()
         }
-        advanceTiming()
+        advanceTiming(isRenderingEnabled)
     }
 
     private fun updateStatusFlags() {
@@ -329,7 +329,14 @@ class PpuNes(
         }
     }
 
-    private fun advanceTiming() {
+    private fun advanceTiming(isRenderingEnabled: Boolean) {
+        if (state.oddFrame && isRenderingEnabled && state.scanline == 261 && state.dot == 339) {
+            state.dot = 0
+            state.scanline = 0
+            state.oddFrame = false
+            return
+        }
+
         state.dot++
 
         if (state.dot >= DOTS_PER_SCANLINE) {
@@ -338,6 +345,7 @@ class PpuNes(
 
             if (state.scanline >= SCANLINES_PER_FRAME) {
                 state.scanline = 0
+                state.oddFrame = !state.oddFrame
             }
         }
     }

@@ -25,6 +25,7 @@ data class PpuState(
     var t: Int = 0,
     var fineX: Int = 0,
 
+    var oddFrame: Boolean = false,
     var writeToggle: Boolean = false,
 
     var dataBuffer: Int = 0
