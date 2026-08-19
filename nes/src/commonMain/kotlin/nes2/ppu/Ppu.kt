@@ -77,13 +77,33 @@ class PpuNes(
             return
         }
 
-        val backgroundPixel = getBackgroundPixel()
-        val pattern = backgroundPixel and 0x03
-
         val x = dot - 1
         val y = scanline
 
-        frameBuffer.writePixel(x = x, y = y, color = pattern)
+        val backgroundVisible = isBackgroundEnabled() && (x >= 8 || isBackgroundEnabledInLeftmostPixels())
+
+        val backgroundPixel = if (backgroundVisible) {
+            getBackgroundPixel()
+        } else {
+            0
+        }
+
+        val pattern = backgroundPixel and 0x03
+        val palette = (backgroundPixel shr 2) and 0x03
+
+        val paletteAddress = if (pattern == 0) {
+            0x3F00
+        } else {
+            0x3F00 + (palette shl 2) + pattern
+        }
+
+        val color = ppuBus.read(paletteAddress)
+
+        frameBuffer.writePixel(
+            x = x,
+            y = y,
+            color = color,
+        )
     }
 
     private fun getBackgroundPixel(): Int {
@@ -150,6 +170,14 @@ class PpuNes(
         val isFetchDot = (dot >= 1 && dot <= 256) || (dot >= 321 && dot <= 336)
 
         return isRenderingScanline && isFetchDot
+    }
+
+    private fun isBackgroundEnabled(): Boolean {
+        return state.mask and 0x08 != 0
+    }
+
+    private fun isBackgroundEnabledInLeftmostPixels(): Boolean {
+        return state.mask and 0x02 != 0
     }
 
     private fun fetchNametableByte() {

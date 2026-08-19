@@ -1011,10 +1011,13 @@ class PpuNesTest : FreeSpec({
     "renders visible pixel" {
         state.scanline = 10
         state.dot = 20
+        state.mask = 0x08
 
         state.fineX = 0
         state.patternLowShift = 0x8000
         state.patternHighShift = 0x0000
+
+        ppuBus.memory[0x3F01] = 0x21
 
         ppu.tick()
 
@@ -1022,7 +1025,7 @@ class PpuNesTest : FreeSpec({
             FakeFrameBuffer.WrittenPixel(
                 x = 19,
                 y = 10,
-                color = 1,
+                color = 0x21,
             )
         )
     }
@@ -1076,54 +1079,215 @@ class PpuNesTest : FreeSpec({
 
     "renders background pattern 1" {
         state.scanline = 0
-        state.dot = 1
+        state.dot = 9
         state.fineX = 0
+        state.mask = 0x08
 
         state.patternLowShift = 0x8000
         state.patternHighShift = 0x0000
 
+        ppuBus.memory[0x3F01] = 0x21
+
         ppu.tick()
 
-        frameBuffer.writtenPixels.single().color shouldBe 1
+        frameBuffer.writtenPixels.single().color shouldBe 0x21
     }
 
     "renders background pattern 2" {
         state.scanline = 0
-        state.dot = 1
+        state.dot = 9
         state.fineX = 0
+        state.mask = 0x08
 
         state.patternLowShift = 0x0000
         state.patternHighShift = 0x8000
 
+        ppuBus.memory[0x3F02] = 0x22
+
         ppu.tick()
 
-        frameBuffer.writtenPixels.single().color shouldBe 2
+        frameBuffer.writtenPixels.single().color shouldBe 0x22
     }
 
     "renders background pattern 3" {
         state.scanline = 0
-        state.dot = 1
+        state.dot = 9
         state.fineX = 0
+        state.mask = 0x08
 
         state.patternLowShift = 0x8000
         state.patternHighShift = 0x8000
 
+        ppuBus.memory[0x3F03] = 0x23
+
         ppu.tick()
 
-        frameBuffer.writtenPixels.single().color shouldBe 3
+        frameBuffer.writtenPixels.single().color shouldBe 0x23
     }
 
     "fine X selects background pattern bit" {
         state.scanline = 0
-        state.dot = 1
+        state.dot = 9
         state.fineX = 3
+        state.mask = 0x08
 
         state.patternLowShift = 0x1000
         state.patternHighShift = 0x0000
 
+        ppuBus.memory[0x3F01] = 0x21
+
         ppu.tick()
 
-        frameBuffer.writtenPixels.single().color shouldBe 1
+        frameBuffer.writtenPixels.single().color shouldBe 0x21
+    }
+
+    "background pattern zero uses universal background color" {
+        state.scanline = 0
+        state.dot = 1
+
+        state.patternLowShift = 0x0000
+        state.patternHighShift = 0x0000
+
+        ppuBus.memory[0x3F00] = 0x2A
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x2A
+    }
+
+    "background pattern uses palette RAM color" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x08
+        state.fineX = 0
+
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        // palette 0, pattern 1 -> $3F01
+        ppuBus.memory[0x3F01] = 0x12
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x12
+    }
+
+    "background attribute selects palette" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x08
+        state.fineX = 0
+
+        // pattern = 1
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        // palette = 2
+        state.attributeLowShift = 0x0000
+        state.attributeHighShift = 0x8000
+
+        // palette 2, pattern 1 -> $3F09
+        ppuBus.memory[0x3F09] = 0x2C
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x2C
+    }
+
+    "background palette and pattern select palette RAM entry" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x08
+        state.fineX = 0
+
+        // pattern = 3
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x8000
+
+        // palette = 3
+        state.attributeLowShift = 0x8000
+        state.attributeHighShift = 0x8000
+
+        // $3F00 + 3 * 4 + 3 = $3F0F
+        ppuBus.memory[0x3F0F] = 0x30
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x30
+    }
+
+    "disabled background uses universal background color" {
+        state.scanline = 0
+        state.dot = 20
+        state.mask = 0x00
+
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x8000
+
+        ppuBus.memory[0x3F00] = 0x2A
+        ppuBus.memory[0x3F03] = 0x10
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x2A
+    }
+
+    "enabled background renders background pixel" {
+        state.scanline = 0
+        state.dot = 20
+        state.mask = 0x08
+
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        ppuBus.memory[0x3F01] = 0x12
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x12
+    }
+
+    "background is hidden in leftmost 8 pixels when clipping is enabled" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x08
+
+        state.patternLowShift = 0x8000
+
+        ppuBus.memory[0x3F00] = 0x2A
+        ppuBus.memory[0x3F01] = 0x12
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x2A
+    }
+
+    "background can be rendered in leftmost 8 pixels" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x0A
+
+        state.patternLowShift = 0x8000
+
+        ppuBus.memory[0x3F01] = 0x12
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x12
+    }
+
+    "background clipping only affects first 8 pixels" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x08
+
+        state.patternLowShift = 0x8000
+
+        ppuBus.memory[0x3F01] = 0x12
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x12
     }
 
 })
