@@ -3128,4 +3128,110 @@ class PpuNesTest : FreeSpec({
         state.ioLatch shouldBe 0xCA
     }
 
+    "reading PPUSTATUS one dot before VBlank suppresses VBlank" {
+        state.scanline = 241
+        state.dot = 0
+
+        ppu.cpuReadRegister(0x2002)
+
+        // Process dot 0.
+        ppu.tick()
+
+        // Process dot 1, where VBlank would normally begin.
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x00
+    }
+
+    "reading PPUSTATUS at VBlank start suppresses VBlank" {
+        state.scanline = 241
+        state.dot = 1
+
+        ppu.cpuReadRegister(0x2002)
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x00
+    }
+
+    "PPUSTATUS read before suppression window does not suppress VBlank" {
+        state.scanline = 240
+        state.dot = 340
+
+        ppu.cpuReadRegister(0x2002)
+
+        // Advance to scanline 241 dot 0.
+        ppu.tick()
+
+        // Dot 0.
+        ppu.tick()
+
+        // Dot 1.
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x80
+    }
+
+    "VBlank suppression also suppresses NMI" {
+        var nmiCount = 0
+
+        ppu = PpuNes(
+            state = state,
+            ppuBus = ppuBus,
+            onNmi = { nmiCount++ },
+            frameBuffer = frameBuffer,
+        )
+
+        state.control = 0x80
+        state.scanline = 241
+        state.dot = 0
+
+        ppu.cpuReadRegister(0x2002)
+
+        ppu.tick()
+        ppu.tick()
+
+        nmiCount shouldBe 0
+    }
+
+    "VBlank and NMI occur normally without PPUSTATUS read" {
+        var nmiCount = 0
+
+        ppu = PpuNes(
+            state = state,
+            ppuBus = ppuBus,
+            onNmi = { nmiCount++ },
+            frameBuffer = frameBuffer,
+        )
+
+        state.control = 0x80
+        state.scanline = 241
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x80
+        nmiCount shouldBe 1
+    }
+
+    "VBlank suppression only applies to one frame" {
+        state.scanline = 241
+        state.dot = 0
+
+        ppu.cpuReadRegister(0x2002)
+
+        ppu.tick()
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x00
+        state.suppressVblank shouldBe false
+
+        state.scanline = 241
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x80
+    }
+
 })

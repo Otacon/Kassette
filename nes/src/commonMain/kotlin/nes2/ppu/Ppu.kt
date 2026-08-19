@@ -155,15 +155,20 @@ class PpuNes(
 
     private fun updateStatusFlags() {
         if (state.scanline == 241 && state.dot == 1) {
-            state.status = state.status or VBLANK_FLAG
+            if (state.suppressVblank) {
+                state.suppressVblank = false
+            } else {
+                state.status = state.status or VBLANK_FLAG
 
-            if (state.control and NMI_ENABLED_FLAG != 0) {
-                onNmi()
+                if (state.control and NMI_ENABLED_FLAG != 0) {
+                    onNmi()
+                }
             }
         }
 
         if (state.scanline == 261 && state.dot == 1) {
             state.status = state.status and STATUS_FLAGS.inv()
+            state.suppressVblank = false
         }
     }
 
@@ -720,6 +725,10 @@ class PpuNes(
     }
 
     private fun readStatus(): Int {
+        if (state.scanline == 241 && (state.dot == 0 || state.dot == 1)) {
+            state.suppressVblank = true
+        }
+
         val statusBits = state.status and 0xE0
         val openBusBits = state.ioLatch and 0x1F
 

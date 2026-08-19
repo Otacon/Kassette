@@ -18,6 +18,8 @@ data class PpuState(
     var attributeLowShift: Int = 0,
     var attributeHighShift: Int = 0,
 
+    var suppressVblank: Boolean = false,
+
     var oamAddress: Int = 0,
     val oam: IntArray = IntArray(256),
     val secondaryOam: IntArray = IntArray(32) { 0xFF },
