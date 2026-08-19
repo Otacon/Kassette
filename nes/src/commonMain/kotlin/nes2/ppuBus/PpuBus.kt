@@ -62,12 +62,11 @@ class PpuBusNes(
     }
 
     private fun mapNametableAddress(address: Int): Int {
-        val normalized = (address - 0x2000) and 0x0FFF
+        val normalized = (address - 0x2000) % 0x1000
         val table = normalized / 0x400
         val offset = normalized and 0x03FF
 
-        // TODO fix the null check
-        val mappedTable = when (cartridge.mirroring!!) {
+        val mappedTable = when (cartridge.mirroring) {
             Mirroring.VERTICAL -> table and 0x01
             Mirroring.HORIZONTAL -> table shr 1
             Mirroring.SINGLE_SCREEN_LOWER -> 0
