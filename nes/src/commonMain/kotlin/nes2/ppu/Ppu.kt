@@ -47,7 +47,7 @@ class PpuNes(
     private val isSecondaryOamClearDot: Boolean
         get() {
             val dot = state.dot
-            return isRenderingScanline && dot >= 1 && dot <= 64 && dot % 2 == 1
+            return isVisibleScanline && dot >= 1 && dot <= 64 && dot % 2 == 1
         }
 
     private val isBackgroundShiftDot: Boolean
@@ -68,7 +68,7 @@ class PpuNes(
     private val isSpriteEvaluationDot: Boolean
         get() {
             val dot = state.dot
-            return isRenderingScanline && dot >= 65 && dot <= 256
+            return isVisibleScanline && dot >= 65 && dot <= 256
         }
 
     private val isSpriteEnabledInLeftmostPixels: Boolean
