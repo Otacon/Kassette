@@ -1,18 +1,23 @@
 package nes2.ppuBus
 
 import nes.util.low8Bits
+import nes2.cartridgePort.CartridgePort
 
 interface PpuBus {
+
     fun read(address: Int): Int
+
     fun write(address: Int, value: Int)
 }
 
 class PpuBusNes(
     private val state: PpuBusState,
+    private val cartridge: CartridgePort,
 ) : PpuBus {
 
     override fun read(address: Int): Int {
         return when (val ppuAddress = address and 0x3FFF) {
+            in 0x0000..0x1FFF -> cartridge.ppuRead(ppuAddress)
             in 0x2000..0x3EFF -> {
                 val nametableAddress = (ppuAddress - 0x2000) and 0x07FF
                 state.nametableRam[nametableAddress]
@@ -32,6 +37,7 @@ class PpuBusNes(
         val value = value.low8Bits()
 
         when (ppuAddress) {
+            in 0x0000..0x1FFF -> cartridge.ppuWrite(ppuAddress, value)
             in 0x2000..0x3EFF -> {
                 val nametableAddress = (ppuAddress - 0x2000) and 0x07FF
                 state.nametableRam[nametableAddress] = value

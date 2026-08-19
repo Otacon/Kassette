@@ -2,12 +2,14 @@ package nes2
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes2.fakes.FakeCartridgePort
 import nes2.ppuBus.PpuBusNes
 import nes2.ppuBus.PpuBusState
 
 class PpuBusNesTest : FreeSpec({
 
     lateinit var state: PpuBusState
+    lateinit var cartridge: FakeCartridgePort
     lateinit var bus: PpuBusNes
 
     beforeTest {
@@ -16,7 +18,12 @@ class PpuBusNesTest : FreeSpec({
             paletteRam = IntArray(0x20),
         )
 
-        bus = PpuBusNes(state)
+        cartridge = FakeCartridgePort()
+
+        bus = PpuBusNes(
+            state = state,
+            cartridge = cartridge,
+        )
     }
 
     "writing nametable RAM updates state" {

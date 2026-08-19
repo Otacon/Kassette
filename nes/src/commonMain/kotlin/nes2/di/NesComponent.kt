@@ -8,6 +8,8 @@ import nes2.ControllerPort
 import nes2.CpuBus
 import nes2.CpuBusNes
 import nes2.OamDmaNes
+import nes2.cartridgePort.CartridgePort
+import nes2.cartridgePort.CartridgePortNes
 import nes2.cpu.Cpu6502
 import nes2.ppu.FramebufferNes
 import nes2.ppu.Ppu
@@ -25,12 +27,13 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun cartridgeSocket(): CartridgeSocket = CartridgeSocket()
+    fun cartridgeSocket(): CartridgePort = CartridgePortNes()
 
     @NesScope
     @Provides
-    fun ppuBus(cartridgeSocket: CartridgeSocket): PpuBus = PpuBusNes(
-        state = PpuBusState()
+    fun ppuBus(cartridgeSocket: CartridgePort): PpuBus = PpuBusNes(
+        state = PpuBusState(),
+        cartridge = cartridgeSocket,
     )
 
     @NesScope
