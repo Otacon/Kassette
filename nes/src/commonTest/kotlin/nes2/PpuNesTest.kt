@@ -1694,6 +1694,7 @@ class PpuNesTest : FreeSpec({
 
         state.secondaryOam[0] = 10
         state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
 
         // tile 2 -> $20, row 2 -> $22
         ppuBus.memory[0x0022] = 0xAA
@@ -1711,6 +1712,7 @@ class PpuNesTest : FreeSpec({
 
         state.secondaryOam[0] = 10
         state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
 
         // tile 2 -> $20, row 2 -> $22, high plane -> +8
         ppuBus.memory[0x002A] = 0x55
@@ -1729,6 +1731,7 @@ class PpuNesTest : FreeSpec({
         val offset = 4
         state.secondaryOam[offset] = 10
         state.secondaryOam[offset + 1] = 0x03
+        state.secondaryOam[offset + 2] = 0x00
 
         // Second sprite:
         // dots 265..272
@@ -1750,6 +1753,7 @@ class PpuNesTest : FreeSpec({
         val offset = 4
         state.secondaryOam[offset] = 10
         state.secondaryOam[offset + 1] = 0x03
+        state.secondaryOam[offset + 2] = 0x00
 
         // tile 3 -> $30, row 2 -> $32, high plane -> +8
         ppuBus.memory[0x003A] = 0xCD
@@ -1767,6 +1771,7 @@ class PpuNesTest : FreeSpec({
 
         state.secondaryOam[0] = 10
         state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
 
         // row = 15 - 10 = 5
         // tile 2 -> $20 + 5 = $25
@@ -1786,6 +1791,7 @@ class PpuNesTest : FreeSpec({
 
         state.secondaryOam[0] = 10
         state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
 
         // pattern table 1 -> $1000
         // tile 2 -> $20
@@ -1806,6 +1812,7 @@ class PpuNesTest : FreeSpec({
 
         state.secondaryOam[0] = 10
         state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
 
         ppuBus.memory[0x102A] = 0x77
 
@@ -1906,6 +1913,96 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         state.spritePatternLow[0] shouldBe 0x11
+    }
+
+    "vertically flipped sprite fetches mirrored row" {
+        state.scanline = 12
+        state.dot = 261
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x80
+
+        // Normal row would be 2.
+        // Vertical flip makes it 7 - 2 = 5.
+        // Tile 2 -> $20 + row 5 -> $25.
+        ppuBus.memory[0x0025] = 0xAB
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xAB
+    }
+
+    "vertically flipped sprite high plane uses mirrored row" {
+        state.scanline = 12
+        state.dot = 263
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x80
+
+        // $20 + row 5 + high plane 8 = $2D
+        ppuBus.memory[0x002D] = 0xCD
+
+        ppu.tick()
+
+        state.spritePatternHigh[0] shouldBe 0xCD
+    }
+
+    "horizontally flipped sprite reverses low pattern byte" {
+        state.scanline = 12
+        state.dot = 261
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x40
+
+        // 10000001 reversed is still 10000001, so use an asymmetric value.
+        ppuBus.memory[0x0022] = 0b10010000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b00001001
+    }
+
+    "horizontally flipped sprite reverses high pattern byte" {
+        state.scanline = 12
+        state.dot = 263
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x40
+
+        ppuBus.memory[0x002A] = 0b11000010
+
+        ppu.tick()
+
+        state.spritePatternHigh[0] shouldBe 0b01000011
+    }
+
+    "sprite pattern byte is not reversed without horizontal flip" {
+        state.scanline = 12
+        state.dot = 261
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 10
+        state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
+
+        ppuBus.memory[0x0022] = 0b10010000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b10010000
     }
 
 })

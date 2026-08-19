@@ -472,7 +472,14 @@ class PpuNes(
             highPlane = false,
         )
 
-        state.spritePatternLow[spriteIndex] = ppuBus.read(address)
+        val attributes = state.secondaryOam[spriteIndex * 4 + 2]
+        val isHorizontallyFlipped = attributes and 0x40 != 0
+
+        val pattern = ppuBus.read(address)
+
+        state.spritePatternLow[spriteIndex] =
+            if (isHorizontallyFlipped) reverseByte(pattern)
+            else pattern
     }
 
     private fun fetchSpritePatternHigh(spriteIndex: Int) {
@@ -486,14 +493,29 @@ class PpuNes(
             highPlane = true,
         )
 
-        state.spritePatternHigh[spriteIndex] = ppuBus.read(address)
+        val attributes = state.secondaryOam[spriteIndex * 4 + 2]
+        val isHorizontallyFlipped = attributes and 0x40 != 0
+
+        val pattern = ppuBus.read(address)
+
+        state.spritePatternHigh[spriteIndex] =
+            if (isHorizontallyFlipped) reverseByte(pattern)
+            else pattern
     }
 
-    private fun getSpritePatternAddress(spriteIndex: Int, highPlane: Boolean): Int {
+    private fun getSpritePatternAddress(
+        spriteIndex: Int,
+        highPlane: Boolean,
+    ): Int {
         val offset = spriteIndex * 4
         val spriteY = state.secondaryOam[offset]
         val tile = state.secondaryOam[offset + 1]
-        val row = state.scanline - spriteY
+        val attributes = state.secondaryOam[offset + 2]
+        var row = state.scanline - spriteY
+        val isVerticallyFlipped = attributes and 0x80 != 0
+        if (isVerticallyFlipped) {
+            row = 7 - row
+        }
         val patternTable = if (state.control and 0x08 == 0) {
             0x0000
         } else {
@@ -507,6 +529,18 @@ class PpuNes(
         }
 
         return patternTable + (tile * 16) + row + planeOffset
+    }
+
+    private fun reverseByte(value: Int): Int {
+        var result = 0
+        var source = value.low8Bits()
+
+        repeat(8) {
+            result = (result shl 1) or (source and 0x01)
+            source = source shr 1
+        }
+
+        return result
     }
 
     private fun writeControl(value: Int) {
