@@ -13,6 +13,7 @@ interface Ppu {
 class PpuNes(
     private val state: PpuState = PpuState(),
     private val ppuBus: PpuBus,
+    private val onNmi: () -> Unit
 ) : Ppu {
 
     override fun cpuReadRegister(address: Int): Int {
@@ -49,6 +50,10 @@ class PpuNes(
     private fun updateStatusFlags() {
         if (state.scanline == 241 && state.dot == 1) {
             state.status = state.status or VBLANK_FLAG
+
+            if (state.control and NMI_ENABLED_FLAG != 0) {
+                onNmi()
+            }
         }
 
         if (state.scanline == 261 && state.dot == 1) {
@@ -70,7 +75,9 @@ class PpuNes(
     }
 
     private fun writeControl(value: Int) {
+        val previousControl = state.control
         val control = value.low8Bits()
+
         val nametable = control and 0x03
 
         // PPUCTRL bits 0-1 become nametable bits 10-11 in t.
@@ -79,6 +86,14 @@ class PpuNes(
 
         state.control = control
         state.t = tWithoutNametable or nametableBits
+
+        val nmiWasDisabled = previousControl and NMI_ENABLED_FLAG == 0
+        val nmiIsEnabled = control and NMI_ENABLED_FLAG != 0
+        val vblankIsActive = state.status and VBLANK_FLAG != 0
+
+        if (nmiWasDisabled && nmiIsEnabled && vblankIsActive) {
+            onNmi()
+        }
     }
 
     private fun readStatus(): Int {
@@ -161,6 +176,7 @@ class PpuNes(
 
     private companion object {
         const val VBLANK_FLAG = 0x80
+        const val NMI_ENABLED_FLAG = 0x80
         const val DOTS_PER_SCANLINE = 341
         const val SCANLINES_PER_FRAME = 262
     }

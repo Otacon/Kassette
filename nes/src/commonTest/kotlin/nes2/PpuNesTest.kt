@@ -11,11 +11,17 @@ class PpuNesTest : FreeSpec({
     lateinit var ppu: PpuNes
     lateinit var state: PpuState
     lateinit var ppuBus: FakePpuBus
+    var nmiRequested = false
 
     beforeTest {
         state = PpuState()
         ppuBus = FakePpuBus()
-        ppu = PpuNes(state, ppuBus = ppuBus)
+        nmiRequested = false
+        ppu = PpuNes(
+            state = state,
+            ppuBus = ppuBus,
+            onNmi = { nmiRequested = true }
+        )
     }
 
     "can write PPUCTRL" {
@@ -420,4 +426,71 @@ class PpuNesTest : FreeSpec({
 
         state.status shouldBe 0x60
     }
+
+    "NMI is requested when VBlank starts and NMI is enabled" {
+        state.control = 0x80
+        state.scanline = 241
+        state.dot = 1
+
+        ppu.tick()
+
+        nmiRequested shouldBe true
+    }
+
+    "NMI is not requested when VBlank starts and NMI is disabled" {
+        state.control = 0x00
+        state.scanline = 241
+        state.dot = 1
+
+        ppu.tick()
+
+        nmiRequested shouldBe false
+    }
+
+    "NMI is not requested again during VBlank" {
+        state.control = 0x80
+        state.scanline = 241
+        state.dot = 2
+
+        ppu.tick()
+
+        nmiRequested shouldBe false
+    }
+
+    "enabling NMI during VBlank requests NMI" {
+        state.control = 0x00
+        state.status = 0x80
+
+        ppu.cpuWriteRegister(0x2000, 0x80)
+
+        nmiRequested shouldBe true
+    }
+
+    "enabling NMI outside VBlank does not request NMI" {
+        state.control = 0x00
+        state.status = 0x00
+
+        ppu.cpuWriteRegister(0x2000, 0x80)
+
+        nmiRequested shouldBe false
+    }
+
+    "writing enabled NMI again during VBlank does not request another NMI" {
+        state.control = 0x80
+        state.status = 0x80
+
+        ppu.cpuWriteRegister(0x2000, 0x80)
+
+        nmiRequested shouldBe false
+    }
+
+    "disabling NMI during VBlank does not request NMI" {
+        state.control = 0x80
+        state.status = 0x80
+
+        ppu.cpuWriteRegister(0x2000, 0x00)
+
+        nmiRequested shouldBe false
+    }
+
 })
