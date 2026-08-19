@@ -191,8 +191,12 @@ class PpuNes(
             return
         }
 
-        val index = (state.dot - 1) / 2
+        if (state.dot == 1) {
+            state.spriteEvaluationIndex = 0
+            state.secondaryOamIndex = 0
+        }
 
+        val index = (state.dot - 1) / 2
         state.secondaryOam[index] = 0xFF
     }
 
@@ -406,17 +410,26 @@ class PpuNes(
             return
         }
 
+        if (state.spriteEvaluationIndex >= 64) {
+            return
+        }
+
         val spriteIndex = state.spriteEvaluationIndex
         val oamOffset = spriteIndex * 4
 
         val spriteY = state.oam[oamOffset]
-        val spriteHeight = 8 // 8x16 comes later
+        val spriteHeight = 8
 
         val row = state.scanline - spriteY
         val isInRange = row >= 0 && row < spriteHeight
 
-        if (isInRange) {
-            // We'll copy the sprite into secondary OAM next.
+        if (isInRange && state.secondaryOamIndex < 32) {
+            state.secondaryOam[state.secondaryOamIndex] = state.oam[oamOffset]
+            state.secondaryOam[state.secondaryOamIndex + 1] = state.oam[oamOffset + 1]
+            state.secondaryOam[state.secondaryOamIndex + 2] = state.oam[oamOffset + 2]
+            state.secondaryOam[state.secondaryOamIndex + 3] = state.oam[oamOffset + 3]
+
+            state.secondaryOamIndex += 4
         }
 
         state.spriteEvaluationIndex++

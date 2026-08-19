@@ -1495,16 +1495,16 @@ class PpuNesTest : FreeSpec({
         state.secondaryOam[31] shouldBe 0xFF
     }
 
-    "secondary OAM is not cleared after dot 64" {
+    "secondary OAM clearing stops after dot 64" {
         state.scanline = 0
         state.dot = 65
         state.mask = 0x08
 
-        state.secondaryOam[0] = 0x42
+        state.secondaryOam[31] = 0x42
 
         ppu.tick()
 
-        state.secondaryOam[0] shouldBe 0x42
+        state.secondaryOam[31] shouldBe 0x42
     }
 
     "secondary OAM is not cleared when rendering is disabled" {
@@ -1517,6 +1517,91 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         state.secondaryOam[0] shouldBe 0x42
+    }
+
+    "sprite evaluation copies in-range sprite into secondary OAM" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.oam[0] = 10
+        state.oam[1] = 0x42
+        state.oam[2] = 0x03
+        state.oam[3] = 0x80
+
+        ppu.tick()
+
+        state.secondaryOam[0] shouldBe 10
+        state.secondaryOam[1] shouldBe 0x42
+        state.secondaryOam[2] shouldBe 0x03
+        state.secondaryOam[3] shouldBe 0x80
+    }
+
+    "sprite evaluation does not copy out-of-range sprite" {
+        state.scanline = 20
+        state.dot = 65
+        state.mask = 0x10
+
+        state.oam[0] = 10
+        state.oam[1] = 0x42
+        state.oam[2] = 0x03
+        state.oam[3] = 0x80
+
+        ppu.tick()
+
+        state.secondaryOam[0] shouldBe 0xFF
+        state.secondaryOam[1] shouldBe 0xFF
+        state.secondaryOam[2] shouldBe 0xFF
+        state.secondaryOam[3] shouldBe 0xFF
+    }
+
+    "sprite evaluation advances to next primary OAM sprite" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.spriteEvaluationIndex = 3
+
+        ppu.tick()
+
+        state.spriteEvaluationIndex shouldBe 4
+    }
+
+    "copying sprite advances secondary OAM index by four" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.secondaryOamIndex shouldBe 4
+    }
+
+    "out-of-range sprite does not advance secondary OAM index" {
+        state.scanline = 20
+        state.dot = 65
+        state.mask = 0x10
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.secondaryOamIndex shouldBe 0
+    }
+
+    "sprite evaluation does not copy more than eight sprites" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+        state.secondaryOamIndex = 32
+
+        state.oam[0] = 10
+
+        ppu.tick()
+
+        state.secondaryOamIndex shouldBe 32
     }
 
     "sprite evaluation advances to next sprite" {
