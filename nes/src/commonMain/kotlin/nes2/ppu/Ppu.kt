@@ -478,8 +478,13 @@ class PpuNes(
         }
 
         if (state.dot == 257) {
-            state.spriteCount = state.evaluatedSpriteCount
-            state.spriteZeroSelected = state.evaluatedSpriteZeroSelected
+            if (isVisibleScanline) {
+                state.spriteCount = state.evaluatedSpriteCount
+                state.spriteZeroSelected = state.evaluatedSpriteZeroSelected
+            } else {
+                state.spriteCount = 0
+                state.spriteZeroSelected = false
+            }
         }
 
         val spriteIndex = (state.dot - 257) / 8
