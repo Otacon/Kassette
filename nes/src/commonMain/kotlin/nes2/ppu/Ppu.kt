@@ -63,10 +63,13 @@ class PpuNes(
         get() = state.mask and 0x18 != 0
 
     private val isExtraNametableFetchDot: Boolean
-        get() {
-            val dot = state.dot
-            return isRenderingScanline && (dot == 337 || dot == 339)
-        }
+        get() = isRenderingScanline && state.dot.let { it == 337 || it == 339 }
+
+    private val isHorizontalScrollCopyDot: Boolean
+        get() = state.dot == 257
+
+    private val isVerticalScrollCopyDot: Boolean
+        get() = state.dot.let { it >= 280 && it <= 304 }
 
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {
@@ -120,16 +123,12 @@ class PpuNes(
     }
 
     private fun renderPixel() {
-        val scanline = state.scanline
-        val dot = state.dot
-
-        val isVisibleScanline = scanline >= 0 && scanline <= 239
-        val isVisibleDot = dot >= 1 && dot <= 256
-
         if (!isVisibleScanline || !isVisibleDot) {
             return
         }
 
+        val scanline = state.scanline
+        val dot = state.dot
         val x = dot - 1
         val y = scanline
 
@@ -342,14 +341,14 @@ class PpuNes(
     }
 
     private fun updateScroll() {
-        if (state.dot == 257) {
+        if (isHorizontalScrollCopyDot) {
             val horizontalBits = state.t and 0x041F
             val vWithoutHorizontalBits = state.v and 0x7BE0
 
             state.v = vWithoutHorizontalBits or horizontalBits
         }
 
-        if (state.scanline == 261 && state.dot in 280..304) {
+        if (state.scanline == 261 && isVerticalScrollCopyDot) {
             val verticalBits = state.t and 0x7BE0
             val vWithoutVerticalBits = state.v and 0x041F
 
