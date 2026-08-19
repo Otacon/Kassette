@@ -119,6 +119,7 @@ class PpuNes(
         updateStatusFlags()
         renderPixel()
         if (isRenderingEnabled) {
+            shiftSprites()
             clearSecondaryOam()
             evaluateSprites()
             fetchSprites()
@@ -458,6 +459,14 @@ class PpuNes(
         when (spriteDot) {
             4 -> fetchSpritePatternLow(spriteIndex)
             6 -> fetchSpritePatternHigh(spriteIndex)
+            7 -> {
+                if (spriteIndex < state.spriteCount) {
+                    val offset = spriteIndex * 4
+                    state.spriteXCounter[spriteIndex] = state.secondaryOam[offset + 3]
+                } else {
+                    state.spriteXCounter[spriteIndex] = 0
+                }
+            }
         }
     }
 
@@ -501,6 +510,25 @@ class PpuNes(
         state.spritePatternHigh[spriteIndex] =
             if (isHorizontallyFlipped) reverseByte(pattern)
             else pattern
+    }
+
+    private fun shiftSprites() {
+        if (!isVisibleScanline || !isVisibleDot) {
+            return
+        }
+
+        var spriteIndex = 0
+
+        while (spriteIndex < state.spriteCount) {
+            if (state.spriteXCounter[spriteIndex] > 0) {
+                state.spriteXCounter[spriteIndex]--
+            } else {
+                state.spritePatternLow[spriteIndex] = (state.spritePatternLow[spriteIndex] shl 1) and 0xFF
+                state.spritePatternHigh[spriteIndex] = (state.spritePatternHigh[spriteIndex] shl 1) and 0xFF
+            }
+
+            spriteIndex++
+        }
     }
 
     private fun getSpritePatternAddress(

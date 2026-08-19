@@ -1856,7 +1856,9 @@ class PpuNesTest : FreeSpec({
         state.secondaryOam[0] = 0
         state.secondaryOam[1] = 0x02
 
+        state.spriteXCounter[0] = 1
         state.spritePatternLow[0] = 0x11
+
         ppuBus.memory[0x0020] = 0xAA
 
         ppu.tick()
@@ -2003,6 +2005,181 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         state.spritePatternLow[0] shouldBe 0b10010000
+    }
+
+    "sprite X counter is loaded from secondary OAM" {
+        state.scanline = 0
+        state.dot = 264
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.secondaryOam[3] = 0x42
+
+        ppu.tick()
+
+        state.spriteXCounter[0] shouldBe 0x42
+    }
+
+    "sprite X counter is loaded for correct sprite slot" {
+        state.scanline = 0
+        state.dot = 272
+        state.mask = 0x10
+        state.spriteCount = 2
+
+        val offset = 4
+        state.secondaryOam[offset + 3] = 0x24
+
+        ppu.tick()
+
+        state.spriteXCounter[1] shouldBe 0x24
+    }
+
+    "empty sprite slot clears X counter" {
+        state.scanline = 0
+        state.dot = 272
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[1] = 0x42
+
+        ppu.tick()
+
+        state.spriteXCounter[1] shouldBe 0
+    }
+
+    "sprite X counter decrements on visible dot" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 3
+
+        ppu.tick()
+
+        state.spriteXCounter[0] shouldBe 2
+    }
+
+    "sprite pattern does not shift while X counter is greater than zero" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 3
+        state.spritePatternLow[0] = 0b10000001
+        state.spritePatternHigh[0] = 0b01000010
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b10000001
+        state.spritePatternHigh[0] shouldBe 0b01000010
+    }
+
+    "sprite pattern shifts when X counter is zero" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0b10000001
+        state.spritePatternHigh[0] = 0b01000010
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b00000010
+        state.spritePatternHigh[0] shouldBe 0b10000100
+    }
+
+    "sprite pattern stays 8 bit while shifting" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0b10000000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0
+    }
+
+    "sprite shifting handles multiple selected sprites" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x10
+        state.spriteCount = 2
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0b10000000
+
+        state.spriteXCounter[1] = 2
+        state.spritePatternLow[1] = 0b01000000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0
+        state.spriteXCounter[0] shouldBe 0
+
+        state.spritePatternLow[1] shouldBe 0b01000000
+        state.spriteXCounter[1] shouldBe 1
+    }
+
+    "sprite X counters do not advance outside visible dots" {
+        state.scanline = 0
+        state.dot = 257
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 3
+
+        ppu.tick()
+
+        state.spriteXCounter[0] shouldBe 3
+    }
+
+    "sprite patterns do not shift outside visible dots" {
+        state.scanline = 0
+        state.dot = 257
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0b10000000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b10000000
+    }
+
+    "sprite shifting does not happen during VBlank" {
+        state.scanline = 241
+        state.dot = 1
+        state.mask = 0x10
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0b10000000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b10000000
+    }
+
+    "sprite shifting does not happen when rendering is disabled" {
+        state.scanline = 0
+        state.dot = 1
+        state.mask = 0x00
+        state.spriteCount = 1
+
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0b10000000
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0b10000000
     }
 
 })

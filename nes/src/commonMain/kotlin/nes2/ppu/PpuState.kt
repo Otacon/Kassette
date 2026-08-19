@@ -28,6 +28,7 @@ data class PpuState(
     var spriteZeroSelected: Boolean = false,
     val spritePatternLow: IntArray = IntArray(8),
     val spritePatternHigh: IntArray = IntArray(8),
+    val spriteXCounter: IntArray = IntArray(8),
 
     var v: Int = 0,
     var t: Int = 0,
