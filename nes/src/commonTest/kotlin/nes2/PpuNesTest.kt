@@ -417,16 +417,6 @@ class PpuNesTest : FreeSpec({
         state.status and 0x80 shouldBe 0x00
     }
 
-    "clearing VBlank preserves other status flags" {
-        state.status = 0xE0
-        state.scanline = 261
-        state.dot = 1
-
-        ppu.tick()
-
-        state.status shouldBe 0x60
-    }
-
     "NMI is requested when VBlank starts and NMI is enabled" {
         state.control = 0x80
         state.scanline = 241
@@ -491,6 +481,46 @@ class PpuNesTest : FreeSpec({
         ppu.cpuWriteRegister(0x2000, 0x00)
 
         nmiRequested shouldBe false
+    }
+
+    "pre-render scanline clears VBlank" {
+        state.status = 0x80
+        state.scanline = 261
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0
+    }
+
+    "pre-render scanline clears sprite zero hit" {
+        state.status = 0x40
+        state.scanline = 261
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x40 shouldBe 0
+    }
+
+    "pre-render scanline clears sprite overflow" {
+        state.status = 0x20
+        state.scanline = 261
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x20 shouldBe 0
+    }
+
+    "pre-render scanline clears all PPU status flags" {
+        state.status = 0xE0
+        state.scanline = 261
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status shouldBe 0x00
     }
 
 })

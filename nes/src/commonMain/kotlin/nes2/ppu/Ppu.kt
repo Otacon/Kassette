@@ -57,7 +57,7 @@ class PpuNes(
         }
 
         if (state.scanline == 261 && state.dot == 1) {
-            state.status = state.status and VBLANK_FLAG.inv()
+            state.status = state.status and STATUS_FLAGS.inv()
         }
     }
 
@@ -175,7 +175,11 @@ class PpuNes(
     }
 
     private companion object {
+        const val SPRITE_OVERFLOW_FLAG = 0x20
+        const val SPRITE_ZERO_HIT_FLAG = 0x40
         const val VBLANK_FLAG = 0x80
+        const val STATUS_FLAGS = SPRITE_OVERFLOW_FLAG or SPRITE_ZERO_HIT_FLAG or VBLANK_FLAG
+
         const val NMI_ENABLED_FLAG = 0x80
         const val DOTS_PER_SCANLINE = 341
         const val SCANLINES_PER_FRAME = 262
