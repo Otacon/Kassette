@@ -811,7 +811,18 @@ class PpuNes(
     }
 
     private fun incrementVramAddress() {
-        val increment = if (state.control and 0x04 == 0) 1 else 32
+        if (isRenderingEnabled && isRenderingScanline) {
+            incrementCoarseX()
+            incrementVerticalScroll()
+            return
+        }
+
+        val increment = if (state.control and 0x04 == 0) {
+            1
+        } else {
+            32
+        }
+
         state.v = (state.v + increment) and 0x3FFF
     }
 

@@ -3234,4 +3234,118 @@ class PpuNesTest : FreeSpec({
         state.status and 0x80 shouldBe 0x80
     }
 
+    "PPUDATA increments VRAM address by one outside rendering" {
+        state.v = 0x2000
+        state.control = 0x00
+        state.scanline = 241
+        state.dot = 10
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v shouldBe 0x2001
+    }
+
+    "PPUDATA increments VRAM address by thirty two outside rendering" {
+        state.v = 0x2000
+        state.control = 0x04
+        state.scanline = 241
+        state.dot = 10
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v shouldBe 0x2020
+    }
+
+    "PPUDATA increments coarse X during rendering" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+
+        state.v = 0x0000
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v and 0x001F shouldBe 1
+    }
+
+    "PPUDATA wraps coarse X and switches horizontal nametable during rendering" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+
+        // Coarse X = 31.
+        state.v = 0x001F
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v and 0x001F shouldBe 0
+        state.v and 0x0400 shouldBe 0x0400
+    }
+
+    "PPUDATA increments fine Y during rendering" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+
+        state.v = 0x0000
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v and 0x7000 shouldBe 0x1000
+    }
+
+    "PPUDATA rendering increment ignores control increment setting" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+
+        // Normally selects +32.
+        state.control = 0x04
+
+        state.v = 0x0000
+
+        ppu.cpuReadRegister(0x2007)
+
+        // Rendering rules apply instead:
+        // coarse X +1 and fine Y +1.
+        state.v shouldBe 0x1001
+    }
+
+    "PPUDATA write uses rendering VRAM increment behavior" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+
+        state.v = 0x0000
+
+        ppu.cpuWriteRegister(0x2007, 0x42)
+
+        state.v shouldBe 0x1001
+    }
+
+    "PPUDATA uses rendering increment on pre-render scanline" {
+        state.scanline = 261
+        state.dot = 100
+        state.mask = 0x08
+
+        state.v = 0x0000
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v shouldBe 0x1001
+    }
+
+    "PPUDATA uses normal increment when rendering is disabled" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x00
+        state.control = 0x00
+
+        state.v = 0x2000
+
+        ppu.cpuReadRegister(0x2007)
+
+        state.v shouldBe 0x2001
+    }
+
 })
