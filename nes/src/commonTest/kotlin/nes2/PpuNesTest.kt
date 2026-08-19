@@ -1595,7 +1595,7 @@ class PpuNesTest : FreeSpec({
         state.scanline = 10
         state.dot = 65
         state.mask = 0x10
-
+        state.evaluatedSpriteCount = 8
         state.spriteCount = 8
         state.secondaryOamIndex = 32
 
@@ -1627,7 +1627,7 @@ class PpuNesTest : FreeSpec({
 
         ppu.tick()
 
-        state.spriteCount shouldBe 1
+        state.evaluatedSpriteCount shouldBe 1
     }
 
     "out-of-range sprite does not increment selected sprite count" {
@@ -1652,7 +1652,7 @@ class PpuNesTest : FreeSpec({
 
         ppu.tick()
 
-        state.spriteZeroSelected shouldBe true
+        state.evaluatedSpriteZeroSelected shouldBe true
     }
 
     "non-zero sprite does not mark sprite zero as selected" {
@@ -1675,14 +1675,14 @@ class PpuNesTest : FreeSpec({
         state.dot = 65
         state.mask = 0x10
 
-        state.spriteCount = 8
+        state.evaluatedSpriteCount = 8
         state.secondaryOamIndex = 32
 
         state.oam[0] = 10
 
         ppu.tick()
 
-        state.spriteCount shouldBe 8
+        state.evaluatedSpriteCount shouldBe 8
         state.secondaryOamIndex shouldBe 32
     }
 
@@ -2281,7 +2281,7 @@ class PpuNesTest : FreeSpec({
         state.spritePatternHigh[0] = 0x80
 
         // Bit 5 -> behind background.
-        state.secondaryOam[2] = 0x20
+        state.spriteAttributes[0] = 0x20
 
         ppuBus.memory[0x3F01] = 0x11
         ppuBus.memory[0x3F12] = 0x22
@@ -2325,7 +2325,7 @@ class PpuNesTest : FreeSpec({
         state.spritePatternHigh[0] = 0x80
 
         // Palette 2.
-        state.secondaryOam[2] = 0x02
+        state.spriteAttributes[0] = 0x02
 
         // $3F10 + palette 2 * 4 + pattern 3
         // = $3F1B
@@ -2487,7 +2487,7 @@ class PpuNesTest : FreeSpec({
         state.spritePatternLow[0] = 0x80
 
         // Palette 3.
-        state.secondaryOam[2] = 0x03
+        state.spriteAttributes[0] = 0x03
 
         // $3F10 + (3 * 4) + 1 = $3F1D
         ppuBus.memory[0x3F1D] = 0x2A

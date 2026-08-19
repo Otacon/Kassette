@@ -221,11 +221,12 @@ class PpuNes(
         if (state.dot == 1) {
             state.spriteEvaluationIndex = 0
             state.secondaryOamIndex = 0
-            state.spriteCount = 0
-            state.spriteZeroSelected = false
+            state.evaluatedSpriteCount = 0
+            state.evaluatedSpriteZeroSelected = false
         }
 
         val index = (state.dot - 1) / 2
+
         state.secondaryOam[index] = 0xFF
     }
 
@@ -452,8 +453,8 @@ class PpuNes(
         val row = state.scanline - spriteY
         val isInRange = row >= 0 && row < spriteHeight
 
-        if (isInRange && state.spriteCount < 8) {
-            val secondaryOffset = state.spriteCount * 4
+        if (isInRange && state.evaluatedSpriteCount < 8) {
+            val secondaryOffset = state.evaluatedSpriteCount * 4
 
             state.secondaryOam[secondaryOffset] = state.oam[oamOffset]
             state.secondaryOam[secondaryOffset + 1] = state.oam[oamOffset + 1]
@@ -461,10 +462,10 @@ class PpuNes(
             state.secondaryOam[secondaryOffset + 3] = state.oam[oamOffset + 3]
 
             if (spriteIndex == 0) {
-                state.spriteZeroSelected = true
+                state.evaluatedSpriteZeroSelected = true
             }
 
-            state.spriteCount++
+            state.evaluatedSpriteCount++
             state.secondaryOamIndex += 4
         }
 
@@ -476,17 +477,26 @@ class PpuNes(
             return
         }
 
+        if (state.dot == 257) {
+            state.spriteCount = state.evaluatedSpriteCount
+            state.spriteZeroSelected = state.evaluatedSpriteZeroSelected
+        }
+
         val spriteIndex = (state.dot - 257) / 8
         val spriteDot = (state.dot - 257) % 8
 
         when (spriteDot) {
             4 -> fetchSpritePatternLow(spriteIndex)
+
             6 -> fetchSpritePatternHigh(spriteIndex)
+
             7 -> {
                 if (spriteIndex < state.spriteCount) {
                     val offset = spriteIndex * 4
+                    state.spriteAttributes[spriteIndex] = state.secondaryOam[offset + 2]
                     state.spriteXCounter[spriteIndex] = state.secondaryOam[offset + 3]
                 } else {
+                    state.spriteAttributes[spriteIndex] = 0
                     state.spriteXCounter[spriteIndex] = 0
                 }
             }
@@ -574,8 +584,7 @@ class PpuNes(
                 val pattern = patternLow or (patternHigh shl 1)
 
                 if (pattern != 0) {
-                    val attributesOffset = spriteIndex * 4 + 2
-                    val attributes = state.secondaryOam[attributesOffset]
+                    val attributes = state.spriteAttributes[spriteIndex]
 
                     val palette = attributes and 0x03
                     val priority = (attributes shr 5) and 0x01
