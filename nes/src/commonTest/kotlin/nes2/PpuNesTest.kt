@@ -3348,4 +3348,88 @@ class PpuNesTest : FreeSpec({
         state.v shouldBe 0x2001
     }
 
+    "writing OAMDATA outside rendering updates OAM" {
+        state.scanline = 241
+        state.dot = 10
+        state.oamAddress = 0x20
+
+        ppu.cpuWriteRegister(0x2004, 0x42)
+
+        state.oam[0x20] shouldBe 0x42
+        state.oamAddress shouldBe 0x21
+    }
+
+    "writing OAMDATA during rendering does not update OAM" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+        state.oamAddress = 0x20
+
+        state.oam[0x20] = 0x11
+
+        ppu.cpuWriteRegister(0x2004, 0x42)
+
+        state.oam[0x20] shouldBe 0x11
+    }
+
+    "writing OAMDATA during rendering does not increment OAM address" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+        state.oamAddress = 0x20
+
+        ppu.cpuWriteRegister(0x2004, 0x42)
+
+        state.oamAddress shouldBe 0x20
+    }
+
+    "reading OAMDATA outside rendering reads OAM address" {
+        state.scanline = 241
+        state.dot = 10
+        state.oamAddress = 0x20
+
+        state.oam[0x20] = 0x42
+        state.oamDataBus = 0x11
+
+        ppu.cpuReadRegister(0x2004) shouldBe 0x42
+    }
+
+    "reading OAMDATA during rendering exposes internal OAM bus" {
+        state.scanline = 10
+        state.dot = 100
+        state.mask = 0x08
+
+        state.oamAddress = 0x20
+        state.oam[0x20] = 0x42
+
+        state.oamDataBus = 0x55
+
+        ppu.cpuReadRegister(0x2004) shouldBe 0x55
+    }
+
+    "secondary OAM clearing exposes FF on OAM data bus" {
+        state.scanline = 10
+        state.dot = 1
+        state.mask = 0x08
+
+        state.oamDataBus = 0x42
+
+        ppu.tick()
+
+        state.oamDataBus shouldBe 0xFF
+    }
+
+    "sprite evaluation exposes evaluated OAM byte on OAM data bus" {
+        state.scanline = 10
+        state.dot = 65
+        state.mask = 0x10
+
+        state.spriteEvaluationIndex = 0
+        state.oam[0] = 0x07
+
+        ppu.tick()
+
+        state.oamDataBus shouldBe 0x07
+    }
+
 })

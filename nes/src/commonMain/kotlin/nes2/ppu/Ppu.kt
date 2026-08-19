@@ -128,14 +128,26 @@ class PpuNes(
     }
 
     private fun readOamData(): Int {
-        val value = state.oam[state.oamAddress].low8Bits()
+        val value = if (isRenderingEnabled && isRenderingScanline) {
+            state.oamDataBus
+        } else {
+            state.oam[state.oamAddress]
+        }.low8Bits()
+
         state.ioLatch = value
+
         return value
     }
 
     override fun writeOamData(value: Int) {
-        state.oam[state.oamAddress] = value.low8Bits()
-        state.oamAddress = (state.oamAddress + 1).low8Bits()
+        val data = value.low8Bits()
+
+        if (isRenderingEnabled && isRenderingScanline) {
+            return
+        }
+
+        state.oam[state.oamAddress] = data
+        state.oamAddress = (state.oamAddress + 1) and 0xFF
     }
 
     override fun tick() {
@@ -258,6 +270,7 @@ class PpuNes(
 
         val index = (state.dot - 1) / 2
 
+        state.oamDataBus = 0xFF
         state.secondaryOam[index] = 0xFF
     }
 
@@ -479,6 +492,9 @@ class PpuNes(
         val oamOffset = spriteIndex * 4
 
         val spriteY = state.oam[oamOffset]
+
+        state.oamDataBus = spriteY
+
         val row = state.scanline - spriteY
         val isInRange = row >= 0 && row < spriteHeight
 
@@ -522,6 +538,13 @@ class PpuNes(
 
         val spriteIndex = (state.dot - 257) / 8
         val spriteDot = (state.dot - 257) % 8
+        val secondaryOffset = spriteIndex * 4
+
+        state.oamDataBus = if (secondaryOffset < state.secondaryOam.size) {
+            state.secondaryOam[secondaryOffset + (spriteDot and 0x03)]
+        } else {
+            0xFF
+        }
 
         when (spriteDot) {
             4 -> fetchSpritePatternLow(spriteIndex)
@@ -530,9 +553,8 @@ class PpuNes(
 
             7 -> {
                 if (spriteIndex < state.spriteCount) {
-                    val offset = spriteIndex * 4
-                    state.spriteAttributes[spriteIndex] = state.secondaryOam[offset + 2]
-                    state.spriteXCounter[spriteIndex] = state.secondaryOam[offset + 3]
+                    state.spriteAttributes[spriteIndex] = state.secondaryOam[secondaryOffset + 2]
+                    state.spriteXCounter[spriteIndex] = state.secondaryOam[secondaryOffset + 3]
                 } else {
                     state.spriteAttributes[spriteIndex] = 0
                     state.spriteXCounter[spriteIndex] = 0
