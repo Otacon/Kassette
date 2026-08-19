@@ -80,6 +80,13 @@ class PpuNes(
             return isRenderingScanline && dot >= 257 && dot <= 320
         }
 
+    private val spriteHeight: Int
+        get() = if (state.control and 0x20 == 0) {
+            8
+        } else {
+            16
+        }
+
     private val isRenderingEnabled: Boolean
         get() = state.mask and 0x18 != 0
 
@@ -448,8 +455,6 @@ class PpuNes(
         val oamOffset = spriteIndex * 4
 
         val spriteY = state.oam[oamOffset]
-        val spriteHeight = 8
-
         val row = state.scanline - spriteY
         val isInRange = row >= 0 && row < spriteHeight
 
@@ -613,18 +618,17 @@ class PpuNes(
         highPlane: Boolean,
     ): Int {
         val offset = spriteIndex * 4
+
         val spriteY = state.secondaryOam[offset]
         val tile = state.secondaryOam[offset + 1]
         val attributes = state.secondaryOam[offset + 2]
+
         var row = state.scanline - spriteY
+
         val isVerticallyFlipped = attributes and 0x80 != 0
+
         if (isVerticallyFlipped) {
-            row = 7 - row
-        }
-        val patternTable = if (state.control and 0x08 == 0) {
-            0x0000
-        } else {
-            0x1000
+            row = spriteHeight - 1 - row
         }
 
         val planeOffset = if (highPlane) {
@@ -633,7 +637,33 @@ class PpuNes(
             0
         }
 
-        return patternTable + (tile * 16) + row + planeOffset
+        if (spriteHeight == 8) {
+            val patternTable =
+                if (state.control and 0x08 == 0) {
+                    0x0000
+                } else {
+                    0x1000
+                }
+
+            return patternTable + (tile * 16) + row + planeOffset
+        }
+
+        val patternTable = if (tile and 0x01 == 0) {
+            0x0000
+        } else {
+            0x1000
+        }
+
+        val topTile = tile and 0xFE
+
+        val tileOffset = if (row < 8) {
+            0
+        } else {
+            16
+        }
+
+        val rowInTile = row and 0x07
+        return patternTable + (topTile * 16) + tileOffset + rowInTile + planeOffset
     }
 
     private fun reverseByte(value: Int): Int {

@@ -2775,4 +2775,173 @@ class PpuNesTest : FreeSpec({
         state.status and 0x20 shouldBe 0x00
     }
 
+    "8x16 sprite evaluation includes rows 8 through 15" {
+        state.scanline = 15
+        state.dot = 65
+        state.mask = 0x10
+
+        // 8x16 sprite mode.
+        state.control = 0x20
+
+        state.oam[0] = 0
+
+        ppu.tick()
+
+        state.evaluatedSpriteCount shouldBe 1
+    }
+
+    "8x8 sprite evaluation excludes rows 8 through 15" {
+        state.scanline = 15
+        state.dot = 65
+        state.mask = 0x10
+
+        // 8x8 sprite mode.
+        state.control = 0x00
+
+        state.oam[0] = 0
+
+        ppu.tick()
+
+        state.evaluatedSpriteCount shouldBe 0
+    }
+
+    "8x16 sprite uses tile bit zero to select pattern table zero" {
+        state.scanline = 5
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x02
+        state.secondaryOam[2] = 0x00
+
+        // Tile $02, row 5:
+        // $0000 + ($02 * 16) + 5 = $0025
+        ppuBus.memory[0x0025] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xAA
+    }
+
+    "8x16 sprite uses tile bit zero to select pattern table one" {
+        state.scanline = 5
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+        state.secondaryOam[2] = 0x00
+
+        // Tile $03 selects table $1000,
+        // but the tile pair starts at tile $02.
+        //
+        // $1000 + ($02 * 16) + 5 = $1025
+        ppuBus.memory[0x1025] = 0xAA
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xAA
+    }
+
+    "8x16 sprite uses second tile for bottom eight rows" {
+        state.scanline = 10
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+        state.secondaryOam[2] = 0x00
+
+        // Row 10 is row 2 of the bottom tile.
+        //
+        // Table $1000
+        // top tile = $02
+        // bottom tile = $03
+        //
+        // $1000 + ($03 * 16) + 2 = $1032
+        ppuBus.memory[0x1032] = 0xBB
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xBB
+    }
+
+    "8x16 sprite high plane uses correct bottom tile address" {
+        state.scanline = 10
+        state.dot = 263
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+        state.secondaryOam[2] = 0x00
+
+        // Bottom tile row 2 + high plane:
+        // $1032 + 8 = $103A
+        ppuBus.memory[0x103A] = 0xCC
+
+        ppu.tick()
+
+        state.spritePatternHigh[0] shouldBe 0xCC
+    }
+
+    "8x16 vertically flipped sprite flips across all sixteen rows" {
+        state.scanline = 2
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+
+        // Vertical flip.
+        state.secondaryOam[2] = 0x80
+
+        // Normal row 2 becomes row 13.
+        // Row 13 = row 5 of the bottom tile ($03).
+        //
+        // $1000 + ($03 * 16) + 5 = $1035
+        ppuBus.memory[0x1035] = 0xDD
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xDD
+    }
+
+    "8x16 vertically flipped bottom row uses top tile" {
+        state.scanline = 15
+        state.dot = 261
+        state.mask = 0x10
+        state.control = 0x20
+
+        state.spriteCount = 1
+
+        state.secondaryOam[0] = 0
+        state.secondaryOam[1] = 0x03
+        state.secondaryOam[2] = 0x80
+
+        // Normal row 15 becomes row 0.
+        // That is row 0 of the top tile ($02).
+        //
+        // $1000 + ($02 * 16) = $1020
+        ppuBus.memory[0x1020] = 0xEE
+
+        ppu.tick()
+
+        state.spritePatternLow[0] shouldBe 0xEE
+    }
+
 })
