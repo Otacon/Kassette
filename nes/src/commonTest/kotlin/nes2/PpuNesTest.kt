@@ -2,6 +2,7 @@ package nes2
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes2.fakes.FakeFrameBuffer
 import nes2.fakes.FakePpuBus
 import nes2.ppu.PpuNes
 import nes2.ppu.PpuState
@@ -11,16 +12,19 @@ class PpuNesTest : FreeSpec({
     lateinit var ppu: PpuNes
     lateinit var state: PpuState
     lateinit var ppuBus: FakePpuBus
+    lateinit var frameBuffer: FakeFrameBuffer
     var nmiRequested = false
 
     beforeTest {
         state = PpuState()
         ppuBus = FakePpuBus()
         nmiRequested = false
+        frameBuffer = FakeFrameBuffer()
         ppu = PpuNes(
             state = state,
             ppuBus = ppuBus,
-            onNmi = { nmiRequested = true }
+            onNmi = { nmiRequested = true },
+            frameBuffer = frameBuffer
         )
     }
 
@@ -839,6 +843,287 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         state.v and 0x7BE0 shouldBe 0x7380
+    }
+
+    "dot 8 loads low pattern byte into shift register" {
+        state.scanline = 0
+        state.dot = 8
+
+        state.patternLowByte = 0xAB
+
+        ppu.tick()
+
+        state.patternLowShift and 0x00FF shouldBe 0xAB
+    }
+
+    "dot 8 loads high pattern byte into shift register" {
+        state.scanline = 0
+        state.dot = 8
+
+        state.patternHighByte = 0xCD
+
+        ppu.tick()
+
+        state.patternHighShift and 0x00FF shouldBe 0xCD
+    }
+
+    "dot 8 shifts existing pattern data before loading new tile data" {
+        state.scanline = 0
+        state.dot = 8
+
+        state.patternLowShift = 0xAB00
+        state.patternLowByte = 0x42
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x5642
+    }
+
+    "attribute palette 0 loads zeroes into attribute shift registers" {
+        state.scanline = 0
+        state.dot = 8
+
+        state.attributeByte = 0x00
+
+        ppu.tick()
+
+        state.attributeLowShift and 0x00FF shouldBe 0x00
+        state.attributeHighShift and 0x00FF shouldBe 0x00
+    }
+
+    "attribute palette 1 loads low attribute shift bits" {
+        state.scanline = 0
+        state.dot = 8
+
+        // top-left quadrant = palette 1
+        state.attributeByte = 0b00000001
+        state.v = 0x0000
+
+        ppu.tick()
+
+        state.attributeLowShift and 0x00FF shouldBe 0xFF
+        state.attributeHighShift and 0x00FF shouldBe 0x00
+    }
+
+    "attribute palette 2 loads high attribute shift bits" {
+        state.scanline = 0
+        state.dot = 8
+
+        // top-left quadrant = palette 2
+        state.attributeByte = 0b00000010
+        state.v = 0x0000
+
+        ppu.tick()
+
+        state.attributeLowShift and 0x00FF shouldBe 0x00
+        state.attributeHighShift and 0x00FF shouldBe 0xFF
+    }
+
+    "attribute palette 3 loads both attribute shift bits" {
+        state.scanline = 0
+        state.dot = 8
+
+        // top-left quadrant = palette 3
+        state.attributeByte = 0b00000011
+        state.v = 0x0000
+
+        ppu.tick()
+
+        state.attributeLowShift and 0x00FF shouldBe 0xFF
+        state.attributeHighShift and 0x00FF shouldBe 0xFF
+    }
+
+    "attribute palette is selected from current tile quadrant" {
+        state.scanline = 0
+        state.dot = 8
+
+        // top-right quadrant = palette 3
+        state.attributeByte = 0b00001100
+
+        // coarse X bit 1 set => right quadrant
+        state.v = 0x0002
+
+        ppu.tick()
+
+        state.attributeLowShift and 0x00FF shouldBe 0xFF
+        state.attributeHighShift and 0x00FF shouldBe 0xFF
+    }
+
+    "background pattern shift registers shift left" {
+        state.scanline = 0
+        state.dot = 1
+
+        state.patternLowShift = 0x1234
+        state.patternHighShift = 0x5678
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x2468
+        state.patternHighShift shouldBe 0xACF0
+    }
+
+    "background attribute shift registers shift left" {
+        state.scanline = 0
+        state.dot = 1
+
+        state.attributeLowShift = 0x1234
+        state.attributeHighShift = 0x5678
+
+        ppu.tick()
+
+        state.attributeLowShift shouldBe 0x2468
+        state.attributeHighShift shouldBe 0xACF0
+    }
+
+    "background shift registers stay 16 bit" {
+        state.scanline = 0
+        state.dot = 1
+
+        state.patternLowShift = 0x8001
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x0002
+    }
+
+    "background shift registers do not shift outside rendering dots" {
+        state.scanline = 0
+        state.dot = 300
+
+        state.patternLowShift = 0x1234
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x1234
+    }
+
+    "background shift registers do not shift during VBlank" {
+        state.scanline = 241
+        state.dot = 100
+
+        state.patternLowShift = 0x1234
+
+        ppu.tick()
+
+        state.patternLowShift shouldBe 0x1234
+    }
+
+    "renders visible pixel" {
+        state.scanline = 10
+        state.dot = 20
+
+        state.fineX = 0
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels shouldBe listOf(
+            FakeFrameBuffer.WrittenPixel(
+                x = 19,
+                y = 10,
+                color = 1,
+            )
+        )
+    }
+
+    "first visible dot renders pixel at 0,0" {
+        state.scanline = 0
+        state.dot = 1
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().x shouldBe 0
+        frameBuffer.writtenPixels.single().y shouldBe 0
+    }
+
+    "last visible dot renders pixel at 255,239" {
+        state.scanline = 239
+        state.dot = 256
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().x shouldBe 255
+        frameBuffer.writtenPixels.single().y shouldBe 239
+    }
+
+    "does not render outside visible scanlines" {
+        state.scanline = 240
+        state.dot = 1
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.size shouldBe 0
+    }
+
+    "does not render before first visible dot" {
+        state.scanline = 0
+        state.dot = 0
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.size shouldBe 0
+    }
+
+    "does not render after last visible dot" {
+        state.scanline = 0
+        state.dot = 257
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.size shouldBe 0
+    }
+
+    "renders background pattern 1" {
+        state.scanline = 0
+        state.dot = 1
+        state.fineX = 0
+
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x0000
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 1
+    }
+
+    "renders background pattern 2" {
+        state.scanline = 0
+        state.dot = 1
+        state.fineX = 0
+
+        state.patternLowShift = 0x0000
+        state.patternHighShift = 0x8000
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 2
+    }
+
+    "renders background pattern 3" {
+        state.scanline = 0
+        state.dot = 1
+        state.fineX = 0
+
+        state.patternLowShift = 0x8000
+        state.patternHighShift = 0x8000
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 3
+    }
+
+    "fine X selects background pattern bit" {
+        state.scanline = 0
+        state.dot = 1
+        state.fineX = 3
+
+        state.patternLowShift = 0x1000
+        state.patternHighShift = 0x0000
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 1
     }
 
 })

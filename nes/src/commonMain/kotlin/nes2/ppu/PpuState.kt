@@ -12,6 +12,12 @@ data class PpuState(
     var patternLowByte: Int = 0,
     var patternHighByte: Int = 0,
 
+    var patternLowShift: Int = 0,
+    var patternHighShift: Int = 0,
+
+    var attributeLowShift: Int = 0,
+    var attributeHighShift: Int = 0,
+
     var oamAddress: Int = 0,
     val oam: IntArray = IntArray(256),
 

@@ -13,7 +13,8 @@ interface Ppu {
 class PpuNes(
     private val state: PpuState = PpuState(),
     private val ppuBus: PpuBus,
-    private val onNmi: () -> Unit
+    private val onNmi: () -> Unit,
+    private val frameBuffer: FrameBuffer,
 ) : Ppu {
 
     override fun cpuReadRegister(address: Int): Int {
@@ -44,9 +45,71 @@ class PpuNes(
 
     override fun tick() {
         updateStatusFlags()
+        renderPixel()
+        shiftBackgroundRegisters()
         fetchBackground()
         updateScroll()
         advanceTiming()
+    }
+
+    private fun updateStatusFlags() {
+        if (state.scanline == 241 && state.dot == 1) {
+            state.status = state.status or VBLANK_FLAG
+
+            if (state.control and NMI_ENABLED_FLAG != 0) {
+                onNmi()
+            }
+        }
+
+        if (state.scanline == 261 && state.dot == 1) {
+            state.status = state.status and STATUS_FLAGS.inv()
+        }
+    }
+
+    private fun renderPixel() {
+        val scanline = state.scanline
+        val dot = state.dot
+
+        val isVisibleScanline = scanline >= 0 && scanline <= 239
+        val isVisibleDot = dot >= 1 && dot <= 256
+
+        if (!isVisibleScanline || !isVisibleDot) {
+            return
+        }
+
+        val backgroundPixel = getBackgroundPixel()
+        val pattern = backgroundPixel and 0x03
+
+        val x = dot - 1
+        val y = scanline
+
+        frameBuffer.writePixel(x = x, y = y, color = pattern)
+    }
+
+    private fun getBackgroundPixel(): Int {
+        val bit = 0x8000 shr state.fineX
+
+        val patternLow = if (state.patternLowShift and bit != 0) 1 else 0
+        val patternHigh = if (state.patternHighShift and bit != 0) 1 else 0
+        val attributeLow = if (state.attributeLowShift and bit != 0) 1 else 0
+        val attributeHigh = if (state.attributeHighShift and bit != 0) 1 else 0
+
+        val pattern = patternLow or (patternHigh shl 1)
+        val palette = attributeLow or (attributeHigh shl 1)
+
+        return pattern or (palette shl 2)
+    }
+
+    private fun shiftBackgroundRegisters() {
+        if (!isBackgroundShiftDot()) {
+            return
+        }
+
+        state.patternLowShift = (state.patternLowShift shl 1) and 0xFFFF
+        state.patternHighShift = (state.patternHighShift shl 1) and 0xFFFF
+
+        state.attributeLowShift = (state.attributeLowShift shl 1) and 0xFFFF
+        state.attributeHighShift = (state.attributeHighShift shl 1) and 0xFFFF
     }
 
     private fun fetchBackground() {
@@ -60,6 +123,7 @@ class PpuNes(
             4 -> fetchPatternLowByte()
             6 -> fetchPatternHighByte()
             7 -> {
+                loadBackgroundShiftRegisters()
                 incrementCoarseX()
                 if (state.dot == 256) {
                     incrementVerticalScroll()
@@ -68,11 +132,22 @@ class PpuNes(
         }
     }
 
-    private fun isBackgroundFetchDot(): Boolean {
-        // TODO verify performance or memory allocation of these ranges.
-        val isRenderingScanline = state.scanline in 0..239 || state.scanline == 261
+    private fun isBackgroundShiftDot(): Boolean {
+        val scanline = state.scanline
+        val dot = state.dot
 
-        val isFetchDot = state.dot in 1..256 || state.dot in 321..336
+        val isRenderingScanline = (scanline >= 0 && scanline <= 239) || scanline == 261
+        val isShiftDot = (dot >= 1 && dot <= 256) || (dot >= 321 && dot <= 336)
+
+        return isRenderingScanline && isShiftDot
+    }
+
+    private fun isBackgroundFetchDot(): Boolean {
+        val scanline = state.scanline
+        val dot = state.dot
+
+        val isRenderingScanline = (scanline >= 0 && scanline <= 239) || scanline == 261
+        val isFetchDot = (dot >= 1 && dot <= 256) || (dot >= 321 && dot <= 336)
 
         return isRenderingScanline && isFetchDot
     }
@@ -119,6 +194,45 @@ class PpuNes(
         val address = patternTable + (tile * 16) + fineY + 8
 
         state.patternHighByte = ppuBus.read(address)
+    }
+
+    private fun loadBackgroundShiftRegisters() {
+        state.patternLowShift = (state.patternLowShift and 0xFF00) or state.patternLowByte
+        state.patternHighShift = (state.patternHighShift and 0xFF00) or state.patternHighByte
+
+        val attributePalette = extractAttributePalette()
+
+        val attributeLow = if (attributePalette and 0x01 != 0) {
+            0xFF
+        } else {
+            0x00
+        }
+
+        val attributeHigh = if (attributePalette and 0x02 != 0) {
+            0xFF
+        } else {
+            0x00
+        }
+
+        state.attributeLowShift = (state.attributeLowShift and 0xFF00) or attributeLow
+        state.attributeHighShift = (state.attributeHighShift and 0xFF00) or attributeHigh
+    }
+
+    private fun extractAttributePalette(): Int {
+        val coarseX = state.v and 0x001F
+        val coarseY = (state.v shr 5) and 0x001F
+
+        val isRightQuadrant = coarseX and 0x02 != 0
+        val isBottomQuadrant = coarseY and 0x02 != 0
+
+        val shift = when {
+            !isRightQuadrant && !isBottomQuadrant -> 0
+            isRightQuadrant && !isBottomQuadrant -> 2
+            !isRightQuadrant && isBottomQuadrant -> 4
+            else -> 6
+        }
+
+        return (state.attributeByte shr shift) and 0x03
     }
 
     private fun incrementCoarseX() {
@@ -181,20 +295,6 @@ class PpuNes(
             val vWithoutVerticalBits = state.v and 0x041F
 
             state.v = vWithoutVerticalBits or verticalBits
-        }
-    }
-
-    private fun updateStatusFlags() {
-        if (state.scanline == 241 && state.dot == 1) {
-            state.status = state.status or VBLANK_FLAG
-
-            if (state.control and NMI_ENABLED_FLAG != 0) {
-                onNmi()
-            }
-        }
-
-        if (state.scanline == 261 && state.dot == 1) {
-            state.status = state.status and STATUS_FLAGS.inv()
         }
     }
 

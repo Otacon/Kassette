@@ -1,10 +1,15 @@
-package nes2
+package nes2.di
 
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.Scope
 import nes.cartridge.CartridgeSocket
+import nes2.ControllerPort
+import nes2.CpuBus
+import nes2.CpuBusNes
+import nes2.OamDmaNes
 import nes2.cpu.Cpu6502
+import nes2.ppu.FramebufferNes
 import nes2.ppu.Ppu
 import nes2.ppu.PpuNes
 import nes2.ppu.PpuState
@@ -36,7 +41,8 @@ interface NesComponent {
     ): Ppu = PpuNes(
         state = PpuState(),
         ppuBus = ppuBus,
-        onNmi = { cpu6502.requestNmi() }
+        onNmi = { cpu6502.requestNmi() },
+        frameBuffer = FramebufferNes()
     )
 
     @NesScope
