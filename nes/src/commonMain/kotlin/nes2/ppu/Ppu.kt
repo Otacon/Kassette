@@ -99,6 +99,9 @@ class PpuNes(
     private val isVerticalScrollCopyDot: Boolean
         get() = state.dot.let { it >= 280 && it <= 304 }
 
+    private val isGrayscaleEnabled: Boolean
+        get() = state.mask and 0x01 != 0
+
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {
             0x2002 -> readStatus()
@@ -201,7 +204,13 @@ class PpuNes(
             else -> 0x3F10 + (spritePalette shl 2) + spritePattern
         }
 
-        val color = ppuBus.read(paletteAddress)
+        val paletteColor = ppuBus.read(paletteAddress)
+
+        val color = if (isGrayscaleEnabled) {
+            paletteColor and 0x30
+        } else {
+            paletteColor and 0x3F
+        }
 
         frameBuffer.writePixel(x = x, y = y, color = color)
     }

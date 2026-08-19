@@ -2986,4 +2986,53 @@ class PpuNesTest : FreeSpec({
         state.spritePatternLow[0] shouldBe 0xBB
     }
 
+    "palette color is limited to six bits" {
+        state.scanline = 0
+        state.dot = 9
+        state.mask = 0x08
+
+        state.patternLowShift = 0x8000
+
+        ppuBus.memory[0x3F01] = 0xE5
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x25
+    }
+
+    "grayscale masks palette color to luminance bits" {
+        state.scanline = 0
+        state.dot = 9
+
+        // Background enabled + grayscale enabled.
+        state.mask = 0x09
+
+        state.patternLowShift = 0x8000
+
+        ppuBus.memory[0x3F01] = 0x2D
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x20
+    }
+
+    "grayscale also applies to sprite colors" {
+        state.scanline = 0
+        state.dot = 9
+
+        // Sprite enabled + grayscale enabled.
+        state.mask = 0x11
+
+        state.spriteCount = 1
+        state.spriteXCounter[0] = 0
+        state.spritePatternLow[0] = 0x80
+        state.spriteAttributes[0] = 0x00
+
+        ppuBus.memory[0x3F11] = 0x3D
+
+        ppu.tick()
+
+        frameBuffer.writtenPixels.single().color shouldBe 0x30
+    }
+
 })
