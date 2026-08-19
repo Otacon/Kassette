@@ -105,22 +105,32 @@ class PpuNes(
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {
             0x2002 -> readStatus()
-            0x2004 -> state.oam[state.oamAddress]
+            0x2004 -> readOamData()
             0x2007 -> readData()
-            else -> 0
+            else -> state.ioLatch
         }
     }
 
     override fun cpuWriteRegister(address: Int, value: Int) {
+        val data = value.low8Bits()
+
+        state.ioLatch = data
+
         when (address) {
-            0x2000 -> writeControl(value)
-            0x2001 -> state.mask = value.low8Bits()
-            0x2003 -> state.oamAddress = value.low8Bits()
-            0x2004 -> writeOamData(value)
-            0x2005 -> writeScroll(value)
-            0x2006 -> writeAddress(value)
-            0x2007 -> writeData(value)
+            0x2000 -> writeControl(data)
+            0x2001 -> state.mask = data
+            0x2003 -> state.oamAddress = data
+            0x2004 -> writeOamData(data)
+            0x2005 -> writeScroll(data)
+            0x2006 -> writeAddress(data)
+            0x2007 -> writeData(data)
         }
+    }
+
+    private fun readOamData(): Int {
+        val value = state.oam[state.oamAddress].low8Bits()
+        state.ioLatch = value
+        return value
     }
 
     override fun writeOamData(value: Int) {
@@ -710,8 +720,12 @@ class PpuNes(
     }
 
     private fun readStatus(): Int {
-        val value = state.status
+        val statusBits = state.status and 0xE0
+        val openBusBits = state.ioLatch and 0x1F
 
+        val value = statusBits or openBusBits
+
+        state.ioLatch = value
         state.status = state.status and VBLANK_FLAG.inv()
         state.writeToggle = false
 
@@ -763,16 +777,21 @@ class PpuNes(
     private fun readData(): Int {
         val address = state.v
         val value = ppuBus.read(address)
+
         val result = if (address < 0x3F00) {
             val buffered = state.dataBuffer
             state.dataBuffer = value
             buffered
         } else {
-            // Palette reads are immediate, but still refresh the internal buffer
-            // from the mirrored nametable address underneath.
+            // Palette reads are immediate, but still refresh the internal
+            // read buffer from the mirrored nametable address underneath.
             state.dataBuffer = ppuBus.read(address - 0x1000)
-            value
+            val paletteBits = value and 0x3F
+            val openBusBits = state.ioLatch and 0xC0
+            paletteBits or openBusBits
         }
+
+        state.ioLatch = result.low8Bits()
         incrementVramAddress()
         return result
     }

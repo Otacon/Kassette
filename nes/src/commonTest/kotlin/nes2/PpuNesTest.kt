@@ -272,9 +272,10 @@ class PpuNesTest : FreeSpec({
     "PPUDATA palette reads are not buffered" {
         state.v = 0x3F00
         state.dataBuffer = 0x11
-        ppuBus.memory[0x3F00] = 0x42
 
-        ppu.cpuReadRegister(0x2007) shouldBe 0x42
+        ppuBus.memory[0x3F00] = 0x22
+
+        ppu.cpuReadRegister(0x2007) shouldBe 0x22
     }
 
     "PPUDATA palette read increments VRAM address" {
@@ -299,10 +300,10 @@ class PpuNesTest : FreeSpec({
         state.v = 0x3F00
         state.dataBuffer = 0x11
 
-        ppuBus.memory[0x3F00] = 0x42
+        ppuBus.memory[0x3F00] = 0x22
         ppuBus.memory[0x2F00] = 0xAB
 
-        ppu.cpuReadRegister(0x2007) shouldBe 0x42
+        ppu.cpuReadRegister(0x2007) shouldBe 0x22
         state.dataBuffer shouldBe 0xAB
     }
 
@@ -3033,6 +3034,98 @@ class PpuNesTest : FreeSpec({
         ppu.tick()
 
         frameBuffer.writtenPixels.single().color shouldBe 0x30
+    }
+
+    "writing PPU register updates IO latch" {
+        ppu.cpuWriteRegister(0x2000, 0x42)
+
+        state.ioLatch shouldBe 0x42
+    }
+
+    "writing read-only PPUSTATUS still updates IO latch" {
+        ppu.cpuWriteRegister(0x2002, 0x57)
+
+        state.ioLatch shouldBe 0x57
+    }
+
+    "reading write-only register returns IO latch" {
+        ppu.cpuWriteRegister(0x2000, 0x42)
+
+        ppu.cpuReadRegister(0x2001) shouldBe 0x42
+    }
+
+    "PPUSTATUS lower five bits come from IO latch" {
+        state.status = 0xA0
+        state.ioLatch = 0x13
+
+        val value = ppu.cpuReadRegister(0x2002)
+
+        value shouldBe 0xB3
+    }
+
+    "PPUSTATUS ignores lower five bits stored in status state" {
+        state.status = 0xBF
+        state.ioLatch = 0x04
+
+        val value = ppu.cpuReadRegister(0x2002)
+
+        value shouldBe 0xA4
+    }
+
+    "reading PPUSTATUS refreshes IO latch with returned value" {
+        state.status = 0x80
+        state.ioLatch = 0x15
+
+        ppu.cpuReadRegister(0x2002)
+
+        state.ioLatch shouldBe 0x95
+    }
+
+    "reading OAMDATA refreshes IO latch" {
+        state.oamAddress = 0x20
+        state.oam[0x20] = 0x67
+        state.ioLatch = 0x11
+
+        val value = ppu.cpuReadRegister(0x2004)
+
+        value shouldBe 0x67
+        state.ioLatch shouldBe 0x67
+    }
+
+    "buffered PPUDATA read refreshes IO latch with returned value" {
+        state.v = 0x2000
+        state.dataBuffer = 0x42
+
+        ppuBus.memory[0x2000] = 0x55
+
+        val value = ppu.cpuReadRegister(0x2007)
+
+        value shouldBe 0x42
+        state.ioLatch shouldBe 0x42
+    }
+
+    "palette PPUDATA read keeps upper two bits from IO latch" {
+        state.v = 0x3F00
+        state.ioLatch = 0xC0
+
+        ppuBus.memory[0x3F00] = 0x25
+
+        val value = ppu.cpuReadRegister(0x2007)
+
+        value shouldBe 0xE5
+        state.ioLatch shouldBe 0xE5
+    }
+
+    "palette PPUDATA read replaces previous lower six latch bits" {
+        state.v = 0x3F00
+        state.ioLatch = 0xD7
+
+        ppuBus.memory[0x3F00] = 0x0A
+
+        val value = ppu.cpuReadRegister(0x2007)
+
+        value shouldBe 0xCA
+        state.ioLatch shouldBe 0xCA
     }
 
 })
