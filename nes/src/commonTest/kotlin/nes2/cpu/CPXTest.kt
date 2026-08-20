@@ -1,14 +1,25 @@
 package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
-import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
+import io.kotest.core.spec.style.scopes.FreeSpecRootScope
 import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class CPXTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
+
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
     val cases = listOf(
-        CpxCase(
+        CpuInstructionCase(
             name = "sets carry and zero when equal",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -19,7 +30,7 @@ class CPXTest : FreeSpec({
             expectedZ = true,
             expectedN = false,
         ),
-        CpxCase(
+        CpuInstructionCase(
             name = "sets carry when X is greater",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -30,7 +41,7 @@ class CPXTest : FreeSpec({
             expectedZ = false,
             expectedN = false,
         ),
-        CpxCase(
+        CpuInstructionCase(
             name = "clears carry when X is smaller",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -41,7 +52,7 @@ class CPXTest : FreeSpec({
             expectedZ = false,
             expectedN = true,
         ),
-        CpxCase(
+        CpuInstructionCase(
             name = "negative comes from subtraction result",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -54,17 +65,17 @@ class CPXTest : FreeSpec({
         ),
     )
 
-    suspend fun FreeSpecContainerScope.testCpxMode(
+    fun FreeSpecRootScope.testCpxMode(
         name: String,
         instructionSize: Int,
         expectedCycles: Int,
-        setup: (IntArray, CpuState, CpxCase) -> Unit,
+        setup: (IntArray, CpuState, CpuInstructionCase) -> Unit,
     ) {
         name - {
             cases.forEach { case ->
                 case.name {
-                    val memory = IntArray(0x10_000)
-                    val state = case.cpuState.copy()
+                    memory = IntArray(0x10_000)
+                    state = case.cpuState.copy()
 
                     setup(memory, state, case)
 
@@ -72,10 +83,10 @@ class CPXTest : FreeSpec({
                     val initialV = state.v
                     val initialPc = state.pc
 
-                    val cycles = Cpu6502(
-                        bus = FakeBus(memory = memory),
-                        state = state,
-                    ).step()
+                    bus = FakeBus(memory = memory)
+                    cpu = Cpu6502(bus = bus, state = state)
+
+                    val cycles = cpu.step()
 
                     state.x shouldBe initialX
                     state.c shouldBe case.expectedC
@@ -90,45 +101,34 @@ class CPXTest : FreeSpec({
         }
     }
 
-    "CPX" - {
 
-        testCpxMode(
-            name = "immediate",
-            instructionSize = 2,
-            expectedCycles = 2,
-        ) { memory, state, case ->
-            memory[state.pc] = 0xE0
-            memory[state.pc + 1] = case.value
-        }
+    testCpxMode(
+        name = "immediate",
+        instructionSize = 2,
+        expectedCycles = 2,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xE0
+        memory[state.pc + 1] = case.value
+    }
 
-        testCpxMode(
-            name = "zero page",
-            instructionSize = 2,
-            expectedCycles = 3,
-        ) { memory, state, case ->
-            memory[state.pc] = 0xE4
-            memory[state.pc + 1] = 0x20
-            memory[0x0020] = case.value
-        }
+    testCpxMode(
+        name = "zero page",
+        instructionSize = 2,
+        expectedCycles = 3,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xE4
+        memory[state.pc + 1] = 0x20
+        memory[0x0020] = case.value
+    }
 
-        testCpxMode(
-            name = "absolute",
-            instructionSize = 3,
-            expectedCycles = 4,
-        ) { memory, state, case ->
-            memory[state.pc] = 0xEC
-            memory[state.pc + 1] = 0x34
-            memory[state.pc + 2] = 0x12
-            memory[0x1234] = case.value
-        }
+    testCpxMode(
+        name = "absolute",
+        instructionSize = 3,
+        expectedCycles = 4,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xEC
+        memory[state.pc + 1] = 0x34
+        memory[state.pc + 2] = 0x12
+        memory[0x1234] = case.value
     }
 })
-
-private data class CpxCase(
-    val name: String,
-    val cpuState: CpuState,
-    val value: Int,
-    val expectedC: Boolean,
-    val expectedZ: Boolean,
-    val expectedN: Boolean,
-)

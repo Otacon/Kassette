@@ -5,113 +5,109 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class JSRTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "JSR" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "jumps to target address" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            )
 
-            memory[0x8000] = 0x20
-            memory[0x8001] = 0x34
-            memory[0x8002] = 0x12
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "jumps to target address" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+        )
 
-            state.pc shouldBe 0x1234
-            cycles shouldBe 6
-        }
+        memory[0x8000] = 0x20
+        memory[0x8001] = 0x34
+        memory[0x8002] = 0x12
 
-        "pushes return address onto stack" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[0x8000] = 0x20
-            memory[0x8001] = 0x34
-            memory[0x8002] = 0x12
+        state.pc shouldBe 0x1234
+        cycles shouldBe 6
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "pushes return address onto stack" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+        )
 
-            // JSR pushes $8002.
-            // High byte first at $01FD.
-            memory[0x01FD] shouldBe 0x80
+        memory[0x8000] = 0x20
+        memory[0x8001] = 0x34
+        memory[0x8002] = 0x12
 
-            // Then low byte at $01FC.
-            memory[0x01FC] shouldBe 0x02
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            state.sp shouldBe 0xFB
-        }
+        // JSR pushes $8002.
+        // High byte first at $01FD.
+        memory[0x01FD] shouldBe 0x80
 
-        "stack pointer wraps while pushing" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x00,
-            )
+        // Then low byte at $01FC.
+        memory[0x01FC] shouldBe 0x02
 
-            memory[0x8000] = 0x20
-            memory[0x8001] = 0x34
-            memory[0x8002] = 0x12
+        state.sp shouldBe 0xFB
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "stack pointer wraps while pushing" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x00,
+        )
 
-            memory[0x0100] shouldBe 0x80
-            memory[0x01FF] shouldBe 0x02
+        memory[0x8000] = 0x20
+        memory[0x8001] = 0x34
+        memory[0x8002] = 0x12
 
-            state.sp shouldBe 0xFE
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-        "does not modify registers or flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                a = 0x11,
-                x = 0x22,
-                y = 0x33,
-                sp = 0xFD,
-            ).also {
-                it.c = true
-                it.z = true
-                it.i = true
-                it.d = true
-                it.v = true
-                it.n = true
-            }
+        memory[0x0100] shouldBe 0x80
+        memory[0x01FF] shouldBe 0x02
 
-            memory[0x8000] = 0x20
-            memory[0x8001] = 0x34
-            memory[0x8002] = 0x12
+        state.sp shouldBe 0xFE
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify registers or flags" {
+        state = CpuState(
+            pc = 0x8000,
+            a = 0x11,
+            x = 0x22,
+            y = 0x33,
+            sp = 0xFD,
+            status = 0xEF,
+        )
 
-            state.a shouldBe 0x11
-            state.x shouldBe 0x22
-            state.y shouldBe 0x33
+        memory[0x8000] = 0x20
+        memory[0x8001] = 0x34
+        memory[0x8002] = 0x12
 
-            state.c shouldBe true
-            state.z shouldBe true
-            state.i shouldBe true
-            state.d shouldBe true
-            state.v shouldBe true
-            state.n shouldBe true
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.a shouldBe 0x11
+        state.x shouldBe 0x22
+        state.y shouldBe 0x33
+
+        state.c shouldBe true
+        state.z shouldBe true
+        state.i shouldBe true
+        state.d shouldBe true
+        state.v shouldBe true
+        state.n shouldBe true
     }
 })

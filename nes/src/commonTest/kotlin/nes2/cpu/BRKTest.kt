@@ -5,180 +5,170 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class BRKTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "BRK" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "jumps to IRQ BRK vector" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            )
 
-            memory[0x8000] = 0x00
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "jumps to IRQ BRK vector" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+        )
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x8000] = 0x00
 
-            state.pc shouldBe 0x1234
-            cycles shouldBe 7
-        }
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-        "pushes return address after BRK padding byte" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[0x8000] = 0x00
+        state.pc shouldBe 0x1234
+        cycles shouldBe 7
+    }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "pushes return address after BRK padding byte" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+        )
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x8000] = 0x00
 
-            // BRK at $8000 returns to $8002.
-            //
-            // High byte pushed first.
-            memory[0x01FD] shouldBe 0x80
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            // Then low byte.
-            memory[0x01FC] shouldBe 0x02
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            state.sp shouldBe 0xFA
-        }
+        // BRK at $8000 returns to $8002.
+        //
+        // High byte pushed first.
+        memory[0x01FD] shouldBe 0x80
 
-        "pushes status with B and U set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.c = true
-                it.z = true
-                it.i = false
-                it.d = true
-                it.v = true
-                it.n = false
-            }
+        // Then low byte.
+        memory[0x01FC] shouldBe 0x02
 
-            memory[0x8000] = 0x00
+        state.sp shouldBe 0xFA
+    }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "pushes status with B and U set" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x6B,
+        )
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x8000] = 0x00
 
-            val pushedStatus = memory[0x01FB]
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            // B
-            (pushedStatus and 0x10) shouldBe 0x10
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            // U
-            (pushedStatus and 0x20) shouldBe 0x20
+        val pushedStatus = memory[0x01FB]
 
-            // Carry
-            (pushedStatus and 0x01) shouldBe 0x01
+        // B
+        (pushedStatus and 0x10) shouldBe 0x10
 
-            // Zero
-            (pushedStatus and 0x02) shouldBe 0x02
+        // U
+        (pushedStatus and 0x20) shouldBe 0x20
 
-            // Decimal
-            (pushedStatus and 0x08) shouldBe 0x08
+        // Carry
+        (pushedStatus and 0x01) shouldBe 0x01
 
-            // Overflow
-            (pushedStatus and 0x40) shouldBe 0x40
-        }
+        // Zero
+        (pushedStatus and 0x02) shouldBe 0x02
 
-        "sets interrupt disable flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = false
-            }
+        // Decimal
+        (pushedStatus and 0x08) shouldBe 0x08
 
-            memory[0x8000] = 0x00
+        // Overflow
+        (pushedStatus and 0x40) shouldBe 0x40
+    }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "sets interrupt disable flag" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x20,
+        )
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x8000] = 0x00
 
-            state.i shouldBe true
-        }
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-        "pushes status before setting interrupt disable" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = false
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[0x8000] = 0x00
+        state.i shouldBe true
+    }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "pushes status before setting interrupt disable" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x20,
+        )
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x8000] = 0x00
 
-            val pushedStatus = memory[0x01FB]
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            // The old I value is what gets pushed.
-            (pushedStatus and 0x04) shouldBe 0
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            // The live CPU status then gets I set.
-            state.i shouldBe true
-        }
+        val pushedStatus = memory[0x01FB]
 
-        "stack pointer wraps" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x01,
-            )
+        // The old I value is what gets pushed.
+        (pushedStatus and 0x04) shouldBe 0
 
-            memory[0x8000] = 0x00
+        // The live CPU status then gets I set.
+        state.i shouldBe true
+    }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "stack pointer wraps" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x01,
+        )
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x8000] = 0x00
 
-            // Return address high.
-            memory[0x0101] shouldBe 0x80
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            // Return address low.
-            memory[0x0100] shouldBe 0x02
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            // Status wraps to $01FF.
-            (memory[0x01FF] and 0x30) shouldBe 0x30
+        // Return address high.
+        memory[0x0101] shouldBe 0x80
 
-            state.sp shouldBe 0xFE
-        }
+        // Return address low.
+        memory[0x0100] shouldBe 0x02
+
+        // Status wraps to $01FF.
+        (memory[0x01FF] and 0x30) shouldBe 0x30
+
+        state.sp shouldBe 0xFE
     }
 })

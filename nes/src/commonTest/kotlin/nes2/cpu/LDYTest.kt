@@ -1,14 +1,25 @@
 package nes2.cpu
 
 import io.kotest.core.spec.style.FreeSpec
-import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
+import io.kotest.core.spec.style.scopes.FreeSpecRootScope
 import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class LDYTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
+
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
     val cases = listOf(
-        LdyCase(
+        CpuInstructionCase(
             name = "loads value into Y",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -19,7 +30,7 @@ class LDYTest : FreeSpec({
             expectedZ = false,
             expectedN = false,
         ),
-        LdyCase(
+        CpuInstructionCase(
             name = "sets zero when loaded value is zero",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -30,20 +41,19 @@ class LDYTest : FreeSpec({
             expectedZ = true,
             expectedN = false,
         ),
-        LdyCase(
+        CpuInstructionCase(
             name = "clears zero when loaded value is non zero",
             cpuState = CpuState(
                 pc = 0x8000,
                 y = 0x00,
-            ).also {
-                it.z = true
-            },
+                status = 0x22,
+            ),
             value = 0x01,
             expectedY = 0x01,
             expectedZ = false,
             expectedN = false,
         ),
-        LdyCase(
+        CpuInstructionCase(
             name = "sets negative when bit 7 is set",
             cpuState = CpuState(
                 pc = 0x8000,
@@ -54,28 +64,25 @@ class LDYTest : FreeSpec({
             expectedZ = false,
             expectedN = true,
         ),
-        LdyCase(
+        CpuInstructionCase(
             name = "clears negative when bit 7 is not set",
             cpuState = CpuState(
                 pc = 0x8000,
                 y = 0xFF,
-            ).also {
-                it.n = true
-            },
+                status = 0xA0,
+            ),
             value = 0x7F,
             expectedY = 0x7F,
             expectedZ = false,
             expectedN = false,
         ),
-        LdyCase(
+        CpuInstructionCase(
             name = "does not modify carry or overflow",
             cpuState = CpuState(
                 pc = 0x8000,
                 y = 0x00,
-            ).also {
-                it.c = true
-                it.v = true
-            },
+                status = 0x61,
+            ),
             value = 0x42,
             expectedY = 0x42,
             expectedZ = false,
@@ -83,17 +90,17 @@ class LDYTest : FreeSpec({
         ),
     )
 
-    suspend fun FreeSpecContainerScope.testLdyMode(
+    fun FreeSpecRootScope.testLdyMode(
         name: String,
         instructionSize: Int,
         expectedCycles: Int,
-        setup: (memory: IntArray, state: CpuState, case: LdyCase) -> Unit,
+        setup: (memory: IntArray, state: CpuState, case: CpuInstructionCase) -> Unit,
     ) {
         name - {
             cases.forEach { case ->
                 case.name {
-                    val memory = IntArray(0x10_000)
-                    val state = case.cpuState.copy()
+                    memory = IntArray(0x10_000)
+                    state = case.cpuState.copy()
 
                     setup(memory, state, case)
 
@@ -101,10 +108,8 @@ class LDYTest : FreeSpec({
                     val initialOverflow = state.v
                     val initialPc = state.pc
 
-                    val cpu = Cpu6502(
-                        bus = FakeBus(memory = memory),
-                        state = state,
-                    )
+                    bus = FakeBus(memory = memory)
+                    cpu = Cpu6502(bus = bus, state = state)
 
                     val cycles = cpu.step()
 
@@ -122,104 +127,91 @@ class LDYTest : FreeSpec({
         }
     }
 
-    "LDY" - {
 
-        testLdyMode(
-            name = "immediate",
-            instructionSize = 2,
-            expectedCycles = 2,
-        ) { memory, state, case ->
-            memory[state.pc] = 0xA0
-            memory[state.pc + 1] = case.value
-        }
+    testLdyMode(
+        name = "immediate",
+        instructionSize = 2,
+        expectedCycles = 2,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xA0
+        memory[state.pc + 1] = case.value
+    }
 
-        testLdyMode(
-            name = "zero page",
-            instructionSize = 2,
-            expectedCycles = 3,
-        ) { memory, state, case ->
-            memory[state.pc] = 0xA4
-            memory[state.pc + 1] = 0x42
+    testLdyMode(
+        name = "zero page",
+        instructionSize = 2,
+        expectedCycles = 3,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xA4
+        memory[state.pc + 1] = 0x42
 
-            memory[0x0042] = case.value
-        }
+        memory[0x0042] = case.value
+    }
 
-        testLdyMode(
-            name = "zero page X",
-            instructionSize = 2,
-            expectedCycles = 4,
-        ) { memory, state, case ->
-            state.x = 0x10
+    testLdyMode(
+        name = "zero page X",
+        instructionSize = 2,
+        expectedCycles = 4,
+    ) { memory, state, case ->
+        state.x = 0x10
 
-            memory[state.pc] = 0xB4
-            memory[state.pc + 1] = 0x40
+        memory[state.pc] = 0xB4
+        memory[state.pc + 1] = 0x40
 
-            // $40 + X($10) = $50
-            memory[0x0050] = case.value
-        }
+        // $40 + X($10) = $50
+        memory[0x0050] = case.value
+    }
 
-        testLdyMode(
-            name = "absolute",
-            instructionSize = 3,
-            expectedCycles = 4,
-        ) { memory, state, case ->
-            memory[state.pc] = 0xAC
-            memory[state.pc + 1] = 0x34
-            memory[state.pc + 2] = 0x12
+    testLdyMode(
+        name = "absolute",
+        instructionSize = 3,
+        expectedCycles = 4,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xAC
+        memory[state.pc + 1] = 0x34
+        memory[state.pc + 2] = 0x12
 
-            memory[0x1234] = case.value
-        }
+        memory[0x1234] = case.value
+    }
 
-        testLdyMode(
-            name = "absolute X",
-            instructionSize = 3,
-            expectedCycles = 4,
-        ) { memory, state, case ->
-            state.x = 0x01
+    testLdyMode(
+        name = "absolute X",
+        instructionSize = 3,
+        expectedCycles = 4,
+    ) { memory, state, case ->
+        state.x = 0x01
 
-            memory[state.pc] = 0xBC
-            memory[state.pc + 1] = 0x34
-            memory[state.pc + 2] = 0x12
+        memory[state.pc] = 0xBC
+        memory[state.pc + 1] = 0x34
+        memory[state.pc + 2] = 0x12
 
-            // $1234 + X($01) = $1235
-            memory[0x1235] = case.value
-        }
+        // $1234 + X($01) = $1235
+        memory[0x1235] = case.value
+    }
 
-        "absolute X with page crossing penalty" {
-            val memory = IntArray(0x10_000)
+    "absolute X with page crossing penalty" {
 
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x01,
-            )
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x01,
+        )
 
-            memory[state.pc] = 0xBC
-            memory[state.pc + 1] = 0xFF
-            memory[state.pc + 2] = 0x12
+        memory[state.pc] = 0xBC
+        memory[state.pc + 1] = 0xFF
+        memory[state.pc + 2] = 0x12
 
-            // $12FF + X($01) = $1300
-            memory[0x1300] = 0x80
+        // $12FF + X($01) = $1300
+        memory[0x1300] = 0x80
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            state.y shouldBe 0x80
-            state.z shouldBe false
-            state.n shouldBe true
-            state.pc shouldBe 0x8003
+        state.y shouldBe 0x80
+        state.z shouldBe false
+        state.n shouldBe true
+        state.pc shouldBe 0x8003
 
-            cycles shouldBe 5
-        }
+        cycles shouldBe 5
     }
 })
-
-private data class LdyCase(
-    val name: String,
-    val cpuState: CpuState,
-    val value: Int,
-    val expectedY: Int,
-    val expectedZ: Boolean,
-    val expectedN: Boolean,
-)

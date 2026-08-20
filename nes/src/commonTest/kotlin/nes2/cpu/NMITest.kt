@@ -5,112 +5,108 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class NMITest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "NMI" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "jumps to NMI vector" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            )
 
-            memory[0xFFFA] = 0x34
-            memory[0xFFFB] = 0x12
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+    "jumps to NMI vector" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+        )
 
-            cpu.requestNmi()
+        memory[0xFFFA] = 0x34
+        memory[0xFFFB] = 0x12
 
-            val cycles = cpu.step()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            state.pc shouldBe 0x1234
-            cycles shouldBe 7
-        }
+        cpu.requestNmi()
 
-        "NMI is serviced even when interrupt disable is set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = true
-            }
+        val cycles = cpu.step()
 
-            memory[0xFFFA] = 0x34
-            memory[0xFFFB] = 0x12
+        state.pc shouldBe 0x1234
+        cycles shouldBe 7
+    }
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+    "NMI is serviced even when interrupt disable is set" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x24,
+        )
 
-            cpu.requestNmi()
+        memory[0xFFFA] = 0x34
+        memory[0xFFFB] = 0x12
 
-            cpu.step()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            state.pc shouldBe 0x1234
-        }
+        cpu.requestNmi()
 
-        "NMI is consumed once" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            )
+        cpu.step()
 
-            memory[0xFFFA] = 0x00
-            memory[0xFFFB] = 0x90
+        state.pc shouldBe 0x1234
+    }
 
-            // Handler starts with NOP.
-            memory[0x9000] = 0xEA
+    "NMI is consumed once" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+        )
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+        memory[0xFFFA] = 0x00
+        memory[0xFFFB] = 0x90
 
-            cpu.requestNmi()
+        // Handler starts with NOP.
+        memory[0x9000] = 0xEA
 
-            cpu.step() shouldBe 7
-            state.pc shouldBe 0x9000
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            // No second NMI was requested, so execute NOP.
-            cpu.step() shouldBe 2
-            state.pc shouldBe 0x9001
-        }
+        cpu.requestNmi()
 
-        "NMI has priority over IRQ" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = false
-            }
+        cpu.step() shouldBe 7
+        state.pc shouldBe 0x9000
 
-            // NMI -> $9000
-            memory[0xFFFA] = 0x00
-            memory[0xFFFB] = 0x90
+        // No second NMI was requested, so execute NOP.
+        cpu.step() shouldBe 2
+        state.pc shouldBe 0x9001
+    }
 
-            // IRQ -> $A000
-            memory[0xFFFE] = 0x00
-            memory[0xFFFF] = 0xA0
+    "NMI has priority over IRQ" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x20,
+        )
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+        // NMI -> $9000
+        memory[0xFFFA] = 0x00
+        memory[0xFFFB] = 0x90
 
-            cpu.setIrqLine(true)
-            cpu.requestNmi()
+        // IRQ -> $A000
+        memory[0xFFFE] = 0x00
+        memory[0xFFFF] = 0xA0
 
-            cpu.step()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            state.pc shouldBe 0x9000
-        }
+        cpu.setIrqLine(true)
+        cpu.requestNmi()
+
+        cpu.step()
+
+        state.pc shouldBe 0x9000
     }
 })

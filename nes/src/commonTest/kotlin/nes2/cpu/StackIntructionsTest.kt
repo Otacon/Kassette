@@ -5,12 +5,23 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class StackInstructionsTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
+
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
+
 
     "PHA" - {
 
         "pushes accumulator onto stack" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 a = 0x42,
                 sp = 0xFD,
@@ -18,10 +29,9 @@ class StackInstructionsTest : FreeSpec({
 
             memory[0x8000] = 0x48
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            val cycles = cpu.step()
 
             memory[0x01FD] shouldBe 0x42
 
@@ -33,8 +43,7 @@ class StackInstructionsTest : FreeSpec({
         }
 
         "stack pointer wraps" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 a = 0x42,
                 sp = 0x00,
@@ -42,36 +51,27 @@ class StackInstructionsTest : FreeSpec({
 
             memory[0x8000] = 0x48
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            cpu.step()
 
             memory[0x0100] shouldBe 0x42
             state.sp shouldBe 0xFF
         }
 
         "does not modify flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 a = 0x00,
                 sp = 0xFD,
-            ).also {
-                it.c = true
-                it.z = true
-                it.i = true
-                it.d = true
-                it.v = true
-                it.n = true
-            }
+                status = 0xEF,
+            )
 
             memory[0x8000] = 0x48
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            cpu.step()
 
             state.c shouldBe true
             state.z shouldBe true
@@ -85,8 +85,7 @@ class StackInstructionsTest : FreeSpec({
     "PLA" - {
 
         "pulls accumulator from stack" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 a = 0x00,
                 sp = 0xFC,
@@ -95,10 +94,9 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x68
             memory[0x01FD] = 0x42
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            val cycles = cpu.step()
 
             state.a shouldBe 0x42
             state.sp shouldBe 0xFD
@@ -111,8 +109,7 @@ class StackInstructionsTest : FreeSpec({
         }
 
         "sets zero flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 sp = 0xFC,
             )
@@ -120,10 +117,9 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x68
             memory[0x01FD] = 0x00
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            cpu.step()
 
             state.a shouldBe 0x00
             state.z shouldBe true
@@ -131,8 +127,7 @@ class StackInstructionsTest : FreeSpec({
         }
 
         "sets negative flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 sp = 0xFC,
             )
@@ -140,10 +135,9 @@ class StackInstructionsTest : FreeSpec({
             memory[0x8000] = 0x68
             memory[0x01FD] = 0x80
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            cpu.step()
 
             state.a shouldBe 0x80
             state.z shouldBe false
@@ -154,25 +148,17 @@ class StackInstructionsTest : FreeSpec({
     "PHP" - {
 
         "pushes status with B and U set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 sp = 0xFD,
-            ).also {
-                it.c = true
-                it.z = true
-                it.i = false
-                it.d = false
-                it.v = true
-                it.n = false
-            }
+                status = 0x63,
+            )
 
             memory[0x8000] = 0x08
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            val cycles = cpu.step()
 
             val pushedStatus = memory[0x01FD]
 
@@ -199,8 +185,7 @@ class StackInstructionsTest : FreeSpec({
     "PLP" - {
 
         "restores status flags from stack" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 sp = 0xFC,
             )
@@ -211,10 +196,9 @@ class StackInstructionsTest : FreeSpec({
             // 1 1 1 0 1 1 0 1
             memory[0x01FD] = 0b1110_1101
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            val cycles = cpu.step()
 
             state.c shouldBe true
             state.z shouldBe false
@@ -230,8 +214,7 @@ class StackInstructionsTest : FreeSpec({
         }
 
         "normalizes B and U bits" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
+            state = CpuState(
                 pc = 0x8000,
                 sp = 0xFC,
             )
@@ -241,10 +224,9 @@ class StackInstructionsTest : FreeSpec({
             // Deliberately pull U=0 and B=1.
             memory[0x01FD] = 0x10
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+            bus = FakeBus(memory = memory)
+            cpu = Cpu6502(bus = bus, state = state)
+            cpu.step()
 
             // Internal B is cleared.
             (state.status and 0x10) shouldBe 0
@@ -255,16 +237,14 @@ class StackInstructionsTest : FreeSpec({
     }
 
     "PLP clearing I delays IRQ by one instruction" {
-        val memory = IntArray(0x10_000)
 
-        val state = CpuState(
+        state = CpuState(
             pc = 0x8000,
             sp = 0xFC,
             irqLine = true,
             irqPollI = true,
-        ).also {
-            it.i = true
-        }
+            status = 0x24,
+        )
 
         memory[0x8000] = 0x28 // PLP
         memory[0x8001] = 0xEA // NOP
@@ -275,10 +255,8 @@ class StackInstructionsTest : FreeSpec({
         memory[0xFFFE] = 0x00
         memory[0xFFFF] = 0x90
 
-        val cpu = Cpu6502(
-            bus = FakeBus(memory),
-            state = state,
-        )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
         cpu.step() shouldBe 4
 
@@ -293,8 +271,7 @@ class StackInstructionsTest : FreeSpec({
     }
 
     "PHA followed by PLA restores accumulator" {
-        val memory = IntArray(0x10_000)
-        val state = CpuState(
+        state = CpuState(
             pc = 0x8000,
             a = 0xAB,
             sp = 0xFD,
@@ -303,10 +280,8 @@ class StackInstructionsTest : FreeSpec({
         memory[0x8000] = 0x48 // PHA
         memory[0x8001] = 0x68 // PLA
 
-        val cpu = Cpu6502(
-            bus = FakeBus(memory = memory),
-            state = state,
-        )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
         cpu.step()
 

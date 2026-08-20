@@ -5,120 +5,121 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class RTITest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "RTI" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "restores processor status and program counter" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x9000,
-                sp = 0xFA,
-            )
 
-            memory[0x9000] = 0x40
 
-            // RTI pulls status first.
-            memory[0x01FB] = 0b1110_1101
+    "restores processor status and program counter" {
+        state = CpuState(
+            pc = 0x9000,
+            sp = 0xFA,
+        )
 
-            // Then PC low/high.
-            memory[0x01FC] = 0x34
-            memory[0x01FD] = 0x12
+        memory[0x9000] = 0x40
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        // RTI pulls status first.
+        memory[0x01FB] = 0b1110_1101
 
-            state.pc shouldBe 0x1234
+        // Then PC low/high.
+        memory[0x01FC] = 0x34
+        memory[0x01FD] = 0x12
 
-            state.c shouldBe true
-            state.z shouldBe false
-            state.i shouldBe true
-            state.d shouldBe true
-            state.v shouldBe true
-            state.n shouldBe true
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            state.sp shouldBe 0xFD
+        state.pc shouldBe 0x1234
 
-            cycles shouldBe 6
-        }
+        state.c shouldBe true
+        state.z shouldBe false
+        state.i shouldBe true
+        state.d shouldBe true
+        state.v shouldBe true
+        state.n shouldBe true
 
-        "does not increment restored PC like RTS" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x9000,
-                sp = 0xFA,
-            )
+        state.sp shouldBe 0xFD
 
-            memory[0x9000] = 0x40
+        cycles shouldBe 6
+    }
 
-            memory[0x01FB] = 0x20
-            memory[0x01FC] = 0xFF
-            memory[0x01FD] = 0x7F
+    "does not increment restored PC like RTS" {
+        state = CpuState(
+            pc = 0x9000,
+            sp = 0xFA,
+        )
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x9000] = 0x40
 
-            state.pc shouldBe 0x7FFF
-        }
+        memory[0x01FB] = 0x20
+        memory[0x01FC] = 0xFF
+        memory[0x01FD] = 0x7F
 
-        "normalizes B and U bits when restoring status" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x9000,
-                sp = 0xFA,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[0x9000] = 0x40
+        state.pc shouldBe 0x7FFF
+    }
 
-            // Deliberately B=1 and U=0.
-            memory[0x01FB] = 0x10
+    "normalizes B and U bits when restoring status" {
+        state = CpuState(
+            pc = 0x9000,
+            sp = 0xFA,
+        )
 
-            memory[0x01FC] = 0x34
-            memory[0x01FD] = 0x12
+        memory[0x9000] = 0x40
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        // Deliberately B=1 and U=0.
+        memory[0x01FB] = 0x10
 
-            (state.status and 0x10) shouldBe 0
-            (state.status and 0x20) shouldBe 0x20
-        }
+        memory[0x01FC] = 0x34
+        memory[0x01FD] = 0x12
 
-        "stack pointer wraps while pulling" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x9000,
-                sp = 0xFE,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[0x9000] = 0x40
+        (state.status and 0x10) shouldBe 0
+        (state.status and 0x20) shouldBe 0x20
+    }
 
-            // First pull -> $01FF
-            memory[0x01FF] = 0x20
+    "stack pointer wraps while pulling" {
+        state = CpuState(
+            pc = 0x9000,
+            sp = 0xFE,
+        )
 
-            // Second pull wraps -> $0100
-            memory[0x0100] = 0x34
+        memory[0x9000] = 0x40
 
-            // Third pull -> $0101
-            memory[0x0101] = 0x12
+        // First pull -> $01FF
+        memory[0x01FF] = 0x20
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        // Second pull wraps -> $0100
+        memory[0x0100] = 0x34
 
-            state.pc shouldBe 0x1234
-            state.sp shouldBe 0x01
-        }
+        // Third pull -> $0101
+        memory[0x0101] = 0x12
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.pc shouldBe 0x1234
+        state.sp shouldBe 0x01
     }
 
     "BRK followed by RTI returns after BRK" {
-        val memory = IntArray(0x10_000)
-        val state = CpuState(
+        state = CpuState(
             pc = 0x8000,
             sp = 0xFD,
         )
@@ -136,10 +137,8 @@ class RTITest : FreeSpec({
         // Interrupt handler: RTI
         memory[0x9000] = 0x40
 
-        val cpu = Cpu6502(
-            bus = FakeBus(memory = memory),
-            state = state,
-        )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
         cpu.step() shouldBe 7
 
@@ -154,16 +153,14 @@ class RTITest : FreeSpec({
     }
 
     "RTI clearing I allows IRQ immediately" {
-        val memory = IntArray(0x10_000)
 
-        val state = CpuState(
+        state = CpuState(
             pc = 0x9000,
             sp = 0xFA,
             irqLine = true,
             irqPollI = true,
-        ).also {
-            it.i = true
-        }
+            status = 0x24,
+        )
 
         memory[0x9000] = 0x40 // RTI
 
@@ -177,10 +174,8 @@ class RTITest : FreeSpec({
         memory[0xFFFE] = 0x00
         memory[0xFFFF] = 0xA0
 
-        val cpu = Cpu6502(
-            bus = FakeBus(memory),
-            state = state,
-        )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
         cpu.step() shouldBe 6
         state.pc shouldBe 0x8000

@@ -5,66 +5,70 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class INYTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "INY" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "increments Y" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                y = 0x41,
-            )
 
-            memory[state.pc] = 0xC8
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "increments Y" {
+        state = CpuState(
+            pc = 0x8000,
+            y = 0x41,
+        )
 
-            state.y shouldBe 0x42
-            state.z shouldBe false
-            state.n shouldBe false
-            state.pc shouldBe 0x8001
-            cycles shouldBe 2
-        }
+        memory[state.pc] = 0xC8
 
-        "wraps FF to zero and sets zero flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                y = 0xFF,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[state.pc] = 0xC8
+        state.y shouldBe 0x42
+        state.z shouldBe false
+        state.n shouldBe false
+        state.pc shouldBe 0x8001
+        cycles shouldBe 2
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "wraps FF to zero and sets zero flag" {
+        state = CpuState(
+            pc = 0x8000,
+            y = 0xFF,
+        )
 
-            state.y shouldBe 0x00
-            state.z shouldBe true
-            state.n shouldBe false
-        }
+        memory[state.pc] = 0xC8
 
-        "sets negative flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                y = 0x7F,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xC8
+        state.y shouldBe 0x00
+        state.z shouldBe true
+        state.n shouldBe false
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "sets negative flag" {
+        state = CpuState(
+            pc = 0x8000,
+            y = 0x7F,
+        )
 
-            state.y shouldBe 0x80
-            state.z shouldBe false
-            state.n shouldBe true
-        }
+        memory[state.pc] = 0xC8
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.y shouldBe 0x80
+        state.z shouldBe false
+        state.n shouldBe true
     }
 })

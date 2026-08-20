@@ -5,100 +5,97 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class RTSTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "RTS" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "pulls return address and advances to next instruction" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x1234,
-                sp = 0xFB,
-            )
 
-            memory[0x1234] = 0x60
 
-            // Stack contains $8002.
-            // SP points below the last pushed byte.
-            memory[0x01FC] = 0x02
-            memory[0x01FD] = 0x80
+    "pulls return address and advances to next instruction" {
+        state = CpuState(
+            pc = 0x1234,
+            sp = 0xFB,
+        )
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        memory[0x1234] = 0x60
 
-            // RTS pulls $8002 then adds one.
-            state.pc shouldBe 0x8003
-            state.sp shouldBe 0xFD
-            cycles shouldBe 6
-        }
+        // Stack contains $8002.
+        // SP points below the last pushed byte.
+        memory[0x01FC] = 0x02
+        memory[0x01FD] = 0x80
 
-        "stack pointer wraps while pulling" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x1234,
-                sp = 0xFE,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[0x1234] = 0x60
+        // RTS pulls $8002 then adds one.
+        state.pc shouldBe 0x8003
+        state.sp shouldBe 0xFD
+        cycles shouldBe 6
+    }
 
-            // First pull: SP FF -> low byte.
-            memory[0x01FF] = 0x34
+    "stack pointer wraps while pulling" {
+        state = CpuState(
+            pc = 0x1234,
+            sp = 0xFE,
+        )
 
-            // Second pull: SP wraps to 00 -> high byte.
-            memory[0x0100] = 0x12
+        memory[0x1234] = 0x60
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+        // First pull: SP FF -> low byte.
+        memory[0x01FF] = 0x34
 
-            state.pc shouldBe 0x1235
-            state.sp shouldBe 0x00
-        }
+        // Second pull: SP wraps to 00 -> high byte.
+        memory[0x0100] = 0x12
 
-        "does not modify registers or flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x1234,
-                a = 0x11,
-                x = 0x22,
-                y = 0x33,
-                sp = 0xFB,
-            ).also {
-                it.c = true
-                it.z = true
-                it.i = true
-                it.d = true
-                it.v = true
-                it.n = true
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[0x1234] = 0x60
-            memory[0x01FC] = 0x02
-            memory[0x01FD] = 0x80
+        state.pc shouldBe 0x1235
+        state.sp shouldBe 0x00
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify registers or flags" {
+        state = CpuState(
+            pc = 0x1234,
+            a = 0x11,
+            x = 0x22,
+            y = 0x33,
+            sp = 0xFB,
+            status = 0xEF,
+        )
 
-            state.a shouldBe 0x11
-            state.x shouldBe 0x22
-            state.y shouldBe 0x33
+        memory[0x1234] = 0x60
+        memory[0x01FC] = 0x02
+        memory[0x01FD] = 0x80
 
-            state.c shouldBe true
-            state.z shouldBe true
-            state.i shouldBe true
-            state.d shouldBe true
-            state.v shouldBe true
-            state.n shouldBe true
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.a shouldBe 0x11
+        state.x shouldBe 0x22
+        state.y shouldBe 0x33
+
+        state.c shouldBe true
+        state.z shouldBe true
+        state.i shouldBe true
+        state.d shouldBe true
+        state.v shouldBe true
+        state.n shouldBe true
     }
 
     "JSR followed by RTS returns to instruction after JSR" {
-        val memory = IntArray(0x10_000)
-        val state = CpuState(
+        state = CpuState(
             pc = 0x8000,
             sp = 0xFD,
         )
@@ -111,10 +108,8 @@ class RTSTest : FreeSpec({
         // RTS
         memory[0x9000] = 0x60
 
-        val cpu = Cpu6502(
-            bus = FakeBus(memory = memory),
-            state = state,
-        )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
         cpu.step() shouldBe 6
         state.pc shouldBe 0x9000

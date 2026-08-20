@@ -5,136 +5,128 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class TSXTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "TSX" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "copies SP into X" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x42,
-                x = 0x00,
-            )
 
-            memory[state.pc] = 0xBA
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "copies SP into X" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x42,
+            x = 0x00,
+        )
 
-            state.x shouldBe 0x42
-            state.sp shouldBe 0x42
+        memory[state.pc] = 0xBA
 
-            state.z shouldBe false
-            state.n shouldBe false
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            state.pc shouldBe 0x8001
-            cycles shouldBe 2
-        }
+        state.x shouldBe 0x42
+        state.sp shouldBe 0x42
 
-        "sets zero flag when SP is zero" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x00,
-                x = 0xFF,
-            )
+        state.z shouldBe false
+        state.n shouldBe false
 
-            memory[state.pc] = 0xBA
+        state.pc shouldBe 0x8001
+        cycles shouldBe 2
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "sets zero flag when SP is zero" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x00,
+            x = 0xFF,
+        )
 
-            state.x shouldBe 0x00
-            state.z shouldBe true
-            state.n shouldBe false
-        }
+        memory[state.pc] = 0xBA
 
-        "sets negative flag when bit 7 is set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x80,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xBA
+        state.x shouldBe 0x00
+        state.z shouldBe true
+        state.n shouldBe false
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "sets negative flag when bit 7 is set" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x80,
+        )
 
-            state.x shouldBe 0x80
-            state.z shouldBe false
-            state.n shouldBe true
-        }
+        memory[state.pc] = 0xBA
 
-        "clears zero and negative flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x42,
-            ).also {
-                it.z = true
-                it.n = true
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xBA
+        state.x shouldBe 0x80
+        state.z shouldBe false
+        state.n shouldBe true
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "clears zero and negative flags" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x42,
+            status = 0xA2,
+        )
 
-            state.x shouldBe 0x42
-            state.z shouldBe false
-            state.n shouldBe false
-        }
+        memory[state.pc] = 0xBA
 
-        "does not modify unrelated flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0x42,
-            ).also {
-                it.c = true
-                it.v = true
-                it.i = true
-                it.d = true
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xBA
+        state.x shouldBe 0x42
+        state.z shouldBe false
+        state.n shouldBe false
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify unrelated flags" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0x42,
+            status = 0x6D,
+        )
 
-            state.c shouldBe true
-            state.v shouldBe true
-            state.i shouldBe true
-            state.d shouldBe true
-        }
+        memory[state.pc] = 0xBA
 
-        "does not modify SP" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xAB,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xBA
+        state.c shouldBe true
+        state.v shouldBe true
+        state.i shouldBe true
+        state.d shouldBe true
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify SP" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xAB,
+        )
 
-            state.sp shouldBe 0xAB
-            state.x shouldBe 0xAB
-        }
+        memory[state.pc] = 0xBA
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.sp shouldBe 0xAB
+        state.x shouldBe 0xAB
     }
 })

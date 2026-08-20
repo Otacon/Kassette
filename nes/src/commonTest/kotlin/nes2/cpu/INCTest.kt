@@ -5,163 +5,154 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class INCTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "INC" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "zero page" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(pc = 0x8000)
 
-            memory[state.pc] = 0xE6
-            memory[state.pc + 1] = 0x20
-            memory[0x0020] = 0x41
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "zero page" {
+        state = CpuState(pc = 0x8000)
 
-            memory[0x0020] shouldBe 0x42
-            state.z shouldBe false
-            state.n shouldBe false
-            state.pc shouldBe 0x8002
-            cycles shouldBe 5
-        }
+        memory[state.pc] = 0xE6
+        memory[state.pc + 1] = 0x20
+        memory[0x0020] = 0x41
 
-        "zero page X" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x10,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[state.pc] = 0xF6
-            memory[state.pc + 1] = 0x20
-            memory[0x0030] = 0x41
+        memory[0x0020] shouldBe 0x42
+        state.z shouldBe false
+        state.n shouldBe false
+        state.pc shouldBe 0x8002
+        cycles shouldBe 5
+    }
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "zero page X" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x10,
+        )
 
-            memory[0x0030] shouldBe 0x42
-            state.pc shouldBe 0x8002
-            cycles shouldBe 6
-        }
+        memory[state.pc] = 0xF6
+        memory[state.pc + 1] = 0x20
+        memory[0x0030] = 0x41
 
-        "zero page X wraps" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x02,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[state.pc] = 0xF6
-            memory[state.pc + 1] = 0xFF
-            memory[0x0001] = 0x10
+        memory[0x0030] shouldBe 0x42
+        state.pc shouldBe 0x8002
+        cycles shouldBe 6
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "zero page X wraps" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x02,
+        )
 
-            memory[0x0001] shouldBe 0x11
-        }
+        memory[state.pc] = 0xF6
+        memory[state.pc + 1] = 0xFF
+        memory[0x0001] = 0x10
 
-        "absolute" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(pc = 0x8000)
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xEE
-            memory[state.pc + 1] = 0x34
-            memory[state.pc + 2] = 0x12
-            memory[0x1234] = 0x41
+        memory[0x0001] shouldBe 0x11
+    }
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "absolute" {
+        state = CpuState(pc = 0x8000)
 
-            memory[0x1234] shouldBe 0x42
-            state.pc shouldBe 0x8003
-            cycles shouldBe 6
-        }
+        memory[state.pc] = 0xEE
+        memory[state.pc + 1] = 0x34
+        memory[state.pc + 2] = 0x12
+        memory[0x1234] = 0x41
 
-        "absolute X" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x01,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[state.pc] = 0xFE
-            memory[state.pc + 1] = 0x34
-            memory[state.pc + 2] = 0x12
-            memory[0x1235] = 0x41
+        memory[0x1234] shouldBe 0x42
+        state.pc shouldBe 0x8003
+        cycles shouldBe 6
+    }
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "absolute X" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x01,
+        )
 
-            memory[0x1235] shouldBe 0x42
-            cycles shouldBe 7
-        }
+        memory[state.pc] = 0xFE
+        memory[state.pc + 1] = 0x34
+        memory[state.pc + 2] = 0x12
+        memory[0x1235] = 0x41
 
-        "wraps FF to zero and sets zero" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(pc = 0x8000)
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[state.pc] = 0xE6
-            memory[state.pc + 1] = 0x20
-            memory[0x0020] = 0xFF
+        memory[0x1235] shouldBe 0x42
+        cycles shouldBe 7
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "wraps FF to zero and sets zero" {
+        state = CpuState(pc = 0x8000)
 
-            memory[0x0020] shouldBe 0x00
-            state.z shouldBe true
-            state.n shouldBe false
-        }
+        memory[state.pc] = 0xE6
+        memory[state.pc + 1] = 0x20
+        memory[0x0020] = 0xFF
 
-        "sets negative when result has bit 7 set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(pc = 0x8000)
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xE6
-            memory[state.pc + 1] = 0x20
-            memory[0x0020] = 0x7F
+        memory[0x0020] shouldBe 0x00
+        state.z shouldBe true
+        state.n shouldBe false
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "sets negative when result has bit 7 set" {
+        state = CpuState(pc = 0x8000)
 
-            memory[0x0020] shouldBe 0x80
-            state.z shouldBe false
-            state.n shouldBe true
-        }
+        memory[state.pc] = 0xE6
+        memory[state.pc + 1] = 0x20
+        memory[0x0020] = 0x7F
 
-        "does not modify carry or overflow" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(pc = 0x8000).also {
-                it.c = true
-                it.v = true
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0xE6
-            memory[state.pc + 1] = 0x20
-            memory[0x0020] = 0x10
+        memory[0x0020] shouldBe 0x80
+        state.z shouldBe false
+        state.n shouldBe true
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify carry or overflow" {
+        state = CpuState(pc = 0x8000, status = 0x61)
 
-            state.c shouldBe true
-            state.v shouldBe true
-        }
+        memory[state.pc] = 0xE6
+        memory[state.pc + 1] = 0x20
+        memory[0x0020] = 0x10
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.c shouldBe true
+        state.v shouldBe true
     }
 })

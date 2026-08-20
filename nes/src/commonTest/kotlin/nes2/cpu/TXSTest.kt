@@ -5,123 +5,115 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class TXSTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "TXS" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "copies X into SP" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x42,
-                sp = 0x00,
-            )
 
-            memory[state.pc] = 0x9A
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "copies X into SP" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x42,
+            sp = 0x00,
+        )
 
-            state.sp shouldBe 0x42
-            state.x shouldBe 0x42
+        memory[state.pc] = 0x9A
 
-            state.pc shouldBe 0x8001
-            cycles shouldBe 2
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-        "copies zero into SP without setting zero flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x00,
-                sp = 0xFF,
-            ).also {
-                it.z = false
-            }
+        state.sp shouldBe 0x42
+        state.x shouldBe 0x42
 
-            memory[state.pc] = 0x9A
+        state.pc shouldBe 0x8001
+        cycles shouldBe 2
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "copies zero into SP without setting zero flag" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x00,
+            sp = 0xFF,
+            status = 0x20,
+        )
 
-            state.sp shouldBe 0x00
+        memory[state.pc] = 0x9A
 
-            // TXS does not affect flags.
-            state.z shouldBe false
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-        "copies value with bit 7 set without setting negative flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x80,
-            ).also {
-                it.n = false
-            }
+        state.sp shouldBe 0x00
 
-            memory[state.pc] = 0x9A
+        // TXS does not affect flags.
+        state.z shouldBe false
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "copies value with bit 7 set without setting negative flag" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x80,
+            status = 0x20,
+        )
 
-            state.sp shouldBe 0x80
-            state.n shouldBe false
-        }
+        memory[state.pc] = 0x9A
 
-        "does not modify any flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0x42,
-            ).also {
-                it.c = true
-                it.z = true
-                it.i = true
-                it.d = true
-                it.v = true
-                it.n = true
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0x9A
+        state.sp shouldBe 0x80
+        state.n shouldBe false
+    }
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify any flags" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0x42,
+            status = 0xEF,
+        )
 
-            state.c shouldBe true
-            state.z shouldBe true
-            state.i shouldBe true
-            state.d shouldBe true
-            state.v shouldBe true
-            state.n shouldBe true
+        memory[state.pc] = 0x9A
 
-            state.pc shouldBe 0x8001
-            cycles shouldBe 2
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-        "does not modify X" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                x = 0xAB,
-                sp = 0x00,
-            )
+        state.c shouldBe true
+        state.z shouldBe true
+        state.i shouldBe true
+        state.d shouldBe true
+        state.v shouldBe true
+        state.n shouldBe true
 
-            memory[state.pc] = 0x9A
+        state.pc shouldBe 0x8001
+        cycles shouldBe 2
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify X" {
+        state = CpuState(
+            pc = 0x8000,
+            x = 0xAB,
+            sp = 0x00,
+        )
 
-            state.x shouldBe 0xAB
-            state.sp shouldBe 0xAB
-        }
+        memory[state.pc] = 0x9A
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.x shouldBe 0xAB
+        state.sp shouldBe 0xAB
     }
 })

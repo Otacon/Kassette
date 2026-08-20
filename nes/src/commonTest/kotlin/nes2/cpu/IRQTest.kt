@@ -5,142 +5,130 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class IRQTest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "IRQ" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "jumps to IRQ vector" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = false
-            }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+    "jumps to IRQ vector" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x20,
+        )
 
-            cpu.setIrqLine(true)
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            val cycles = cpu.step()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            state.pc shouldBe 0x1234
-            cycles shouldBe 7
-        }
+        cpu.setIrqLine(true)
 
-        "pushes current PC" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-                irqPollI = false,
-            ).also {
-                it.i = false
-            }
+        val cycles = cpu.step()
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+        state.pc shouldBe 0x1234
+        cycles shouldBe 7
+    }
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+    "pushes current PC" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            irqPollI = false,
+            status = 0x20,
+        )
 
-            cpu.setIrqLine(true)
-            cpu.step()
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            memory[0x01FD] shouldBe 0x80
-            memory[0x01FC] shouldBe 0x00
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            state.sp shouldBe 0xFA
-        }
+        cpu.setIrqLine(true)
+        cpu.step()
 
-        "pushes status with B clear and U set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-                irqPollI = false,
-            ).also {
-                it.i = false
-                it.c = true
-                it.v = true
-            }
+        memory[0x01FD] shouldBe 0x80
+        memory[0x01FC] shouldBe 0x00
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+        state.sp shouldBe 0xFA
+    }
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+    "pushes status with B clear and U set" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            irqPollI = false,
+            status = 0x61,
+        )
 
-            cpu.setIrqLine(true)
-            cpu.step()
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            val pushedStatus = memory[0x01FB]
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            (pushedStatus and 0x10) shouldBe 0
-            (pushedStatus and 0x20) shouldBe 0x20
-            (pushedStatus and 0x01) shouldBe 0x01
-            (pushedStatus and 0x40) shouldBe 0x40
-        }
+        cpu.setIrqLine(true)
+        cpu.step()
 
-        "sets interrupt disable flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = false
-            }
+        val pushedStatus = memory[0x01FB]
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+        (pushedStatus and 0x10) shouldBe 0
+        (pushedStatus and 0x20) shouldBe 0x20
+        (pushedStatus and 0x01) shouldBe 0x01
+        (pushedStatus and 0x40) shouldBe 0x40
+    }
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+    "sets interrupt disable flag" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x20,
+        )
 
-            cpu.setIrqLine(true)
-            cpu.step()
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            state.i shouldBe true
-        }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-        "does not service IRQ when interrupt disable is set" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                sp = 0xFD,
-            ).also {
-                it.i = true
-            }
+        cpu.setIrqLine(true)
+        cpu.step()
 
-            // NOP
-            memory[0x8000] = 0xEA
+        state.i shouldBe true
+    }
 
-            memory[0xFFFE] = 0x34
-            memory[0xFFFF] = 0x12
+    "does not service IRQ when interrupt disable is set" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            status = 0x24,
+        )
 
-            val cpu = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            )
+        // NOP
+        memory[0x8000] = 0xEA
 
-            cpu.setIrqLine(true)
+        memory[0xFFFE] = 0x34
+        memory[0xFFFF] = 0x12
 
-            val cycles = cpu.step()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
 
-            // NOP executed instead.
-            state.pc shouldBe 0x8001
-            cycles shouldBe 2
-        }
+        cpu.setIrqLine(true)
+
+        val cycles = cpu.step()
+
+        // NOP executed instead.
+        state.pc shouldBe 0x8001
+        cycles shouldBe 2
     }
 })

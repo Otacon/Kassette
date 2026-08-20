@@ -5,90 +5,90 @@ import io.kotest.matchers.shouldBe
 import nes2.fakes.FakeBus
 
 class TYATest : FreeSpec({
+    lateinit var memory: IntArray
+    lateinit var state: CpuState
+    lateinit var bus: FakeBus
+    lateinit var cpu: Cpu6502
 
-    "TYA" - {
+    beforeTest {
+        memory = IntArray(0x10_000)
+        state = CpuState()
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+    }
 
-        "copies Y into A" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                a = 0x00,
-                y = 0x42,
-            )
 
-            memory[state.pc] = 0x98
 
-            val cycles = Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "copies Y into A" {
+        state = CpuState(
+            pc = 0x8000,
+            a = 0x00,
+            y = 0x42,
+        )
 
-            state.a shouldBe 0x42
-            state.y shouldBe 0x42
-            state.z shouldBe false
-            state.n shouldBe false
-            state.pc shouldBe 0x8001
-            cycles shouldBe 2
-        }
+        memory[state.pc] = 0x98
 
-        "sets zero flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                a = 0xFF,
-                y = 0x00,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        val cycles = cpu.step()
 
-            memory[state.pc] = 0x98
+        state.a shouldBe 0x42
+        state.y shouldBe 0x42
+        state.z shouldBe false
+        state.n shouldBe false
+        state.pc shouldBe 0x8001
+        cycles shouldBe 2
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "sets zero flag" {
+        state = CpuState(
+            pc = 0x8000,
+            a = 0xFF,
+            y = 0x00,
+        )
 
-            state.a shouldBe 0x00
-            state.z shouldBe true
-            state.n shouldBe false
-        }
+        memory[state.pc] = 0x98
 
-        "sets negative flag" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                y = 0x80,
-            )
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0x98
+        state.a shouldBe 0x00
+        state.z shouldBe true
+        state.n shouldBe false
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "sets negative flag" {
+        state = CpuState(
+            pc = 0x8000,
+            y = 0x80,
+        )
 
-            state.a shouldBe 0x80
-            state.z shouldBe false
-            state.n shouldBe true
-        }
+        memory[state.pc] = 0x98
 
-        "does not modify unrelated flags" {
-            val memory = IntArray(0x10_000)
-            val state = CpuState(
-                pc = 0x8000,
-                y = 0x42,
-            ).also {
-                it.c = true
-                it.v = true
-            }
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
 
-            memory[state.pc] = 0x98
+        state.a shouldBe 0x80
+        state.z shouldBe false
+        state.n shouldBe true
+    }
 
-            Cpu6502(
-                bus = FakeBus(memory = memory),
-                state = state,
-            ).step()
+    "does not modify unrelated flags" {
+        state = CpuState(
+            pc = 0x8000,
+            y = 0x42,
+            status = 0x61,
+        )
 
-            state.c shouldBe true
-            state.v shouldBe true
-        }
+        memory[state.pc] = 0x98
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+        cpu.step()
+
+        state.c shouldBe true
+        state.v shouldBe true
     }
 })
