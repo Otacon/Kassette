@@ -686,7 +686,37 @@ class Cpu6502(
                 kil(); 1
             }
 
-            // NOP, including currently-unimplemented unofficial opcodes.
+            // NOP
+            0xEA, 0x1A, 0x3A, 0x5A, 0x7A, 0xDA, 0xFA -> {
+                nop(); 2
+            }
+
+            // NOP #imm
+            0x80, 0x82, 0x89, 0xC2, 0xE2 -> {
+                immediate(); 2
+            }
+
+            // NOP zp
+            0x04, 0x44, 0x64 -> {
+                readZeroPage(); 3
+            }
+
+            // NOP zp,X
+            0x14, 0x34, 0x54, 0x74, 0xD4, 0xF4 -> {
+                readZeroPageX(); 4
+            }
+
+            // NOP abs
+            0x0C -> {
+                readAbsolute(); 4
+            }
+
+            // NOP abs,X
+            0x1C, 0x3C, 0x5C, 0x7C, 0xDC, 0xFC -> {
+                readAbsoluteX(); 4 + pagePenalty
+            }
+
+            // Currently-unimplemented unofficial opcodes.
             else -> {
                 nop(); 2
             }
