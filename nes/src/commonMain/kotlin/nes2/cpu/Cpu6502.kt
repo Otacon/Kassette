@@ -8,6 +8,7 @@ import nes2.CpuBus
 
 interface Cpu {
     fun reset(): Int
+    fun softReset(): Int
     fun setIrqLine(active: Boolean)
     fun requestNmi()
     fun step(): Int
@@ -26,11 +27,22 @@ class Cpu6502(
         state.y = 0
         state.sp = 0xFD
         state.status = 0x24
+        resetCommon()
+        return RESET_CYCLES
+    }
+
+    override fun softReset(): Int {
+        state.sp = (state.sp - 3).low8Bits()
+        state.i = true
+        resetCommon()
+        return RESET_CYCLES
+    }
+
+    private fun resetCommon() {
         state.irqLine = false
         state.nmiPending = false
         state.irqPollI = true
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
-        return RESET_CYCLES
     }
 
     override fun setIrqLine(active: Boolean) {

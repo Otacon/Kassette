@@ -20,8 +20,16 @@ class FakeCpu : Cpu {
 
     var resetCycles = 0
 
+    var softResets = 0
+        private set
+
     override fun reset(): Int {
         resets++
+        return resetCycles
+    }
+
+    override fun softReset(): Int {
+        softResets++
         return resetCycles
     }
 
