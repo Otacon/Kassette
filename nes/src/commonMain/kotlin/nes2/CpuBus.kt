@@ -20,33 +20,38 @@ class CpuBusNes(
 ) : CpuBus {
 
     // TODO missing APU read/write
+    private var openBus = 0
 
     override fun read(address: Int): Int {
-        return when (address) {
+        val value = when (address) {
             in CPU_RAM_START..CPU_RAM_END -> ram[address and CPU_RAM_MASK].low8Bits()
-            in CARTRIDGE_START..CPU_ADDRESS_MAX -> cartridge.cpuRead(address)
+            in CARTRIDGE_START..CPU_ADDRESS_MAX -> cartridge.cpuRead(address, openBus)
             in PPU_REGISTERS_START..PPU_REGISTERS_END -> ppu.cpuReadRegister(PPU_REGISTERS_START + (address and PPU_REGISTER_MASK))
             CONTROLLER_1 -> controller1.read()
             CONTROLLER_2 -> controller2.read()
-            else -> 0
-        }
+            else -> openBus
+        }.low8Bits()
+        openBus = value
+        return value
     }
 
     override fun write(address: Int, value: Int) {
+        val v = value.low8Bits()
+        openBus = v
         when (address) {
-            in CPU_RAM_START..CPU_RAM_END -> ram[address and CPU_RAM_MASK] = value
-            in CARTRIDGE_START..CPU_ADDRESS_MAX -> cartridge.cpuWrite(address, value)
+            in CPU_RAM_START..CPU_RAM_END -> ram[address and CPU_RAM_MASK] = v
+            in CARTRIDGE_START..CPU_ADDRESS_MAX -> cartridge.cpuWrite(address, v)
             in PPU_REGISTERS_START..PPU_REGISTERS_END -> ppu.cpuWriteRegister(
                 PPU_REGISTERS_START + (address and PPU_REGISTER_MASK),
-                value
+                v
             )
 
             CONTROLLER_STROBE -> {
-                controller1.write(value)
-                controller2.write(value)
+                controller1.write(v)
+                controller2.write(v)
             }
 
-            OAM_DMA -> dma.start(value)
+            OAM_DMA -> dma.start(v)
         }
     }
 

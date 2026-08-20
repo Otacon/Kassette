@@ -2,8 +2,11 @@ package nes2
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
+import nes.cartridge.Mirroring
 import nes2.fakes.FakeController
+import nes2.fakes.FakeMapper
 import nes2.fakes.FakeOamDma
 import nes2.fakes.FakePpu
 
@@ -104,7 +107,43 @@ class CpuBusNesTest : FreeSpec({
     }
 
     "unmapped addresses read open bus" {
-        bus.read(0x4000) shouldBe 0
+        bus.write(0x4018, 0x42)
+
+        bus.read(0x4018) shouldBe 0x42
+    }
+
+    "reads update open bus" {
+        ram[0x0000] = 0xAB
+
+        bus.read(0x0000) shouldBe 0xAB
+        bus.read(0x4018) shouldBe 0xAB
+    }
+
+    "writes update open bus" {
+        bus.write(0x0000, 0xCD)
+
+        bus.read(0x4018) shouldBe 0xCD
+    }
+
+    "cartridge reads receive current open bus" {
+        val mapper = FakeMapper().apply {
+            useOpenBusForCpuRead = true
+        }
+        cartridgeSocket.insert(
+            Cartridge(
+                mirroring = Mirroring.HORIZONTAL,
+                prgRom = ByteArray(0),
+                chr = ByteArray(0),
+                isChrRam = true,
+                trainerPresent = false,
+                mapper = mapper,
+            )
+        )
+
+        bus.write(0x0000, 0x5A)
+
+        bus.read(0x8000) shouldBe 0x5A
+        mapper.lastCpuReadOpenBus shouldBe 0x5A
     }
 
     "starts OAM DMA with written page" {
