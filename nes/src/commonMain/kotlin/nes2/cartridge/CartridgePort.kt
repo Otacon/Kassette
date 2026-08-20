@@ -1,14 +1,14 @@
 package nes2.cartridge
 
-import nes.ConsoleRegion
 import nes.cartridge.Cartridge
 import nes.cartridge.Mapper
-import nes.cartridge.MapperState
 import nes.cartridge.Mirroring
 
 interface CartridgePort {
 
     val mirroring: Mirroring
+
+    fun insert(cartridge: Cartridge)
 
     fun ppuRead(address: Int): Int
 
@@ -26,21 +26,17 @@ class CartridgePortNes : CartridgePort {
     override var mirroring: Mirroring = Mirroring.VERTICAL
         private set
 
-    var region: ConsoleRegion = ConsoleRegion.NTSC
-        private set
 
-    fun insert(cartridge: Cartridge) {
+    override fun insert(cartridge: Cartridge) {
         this.cartridge = cartridge
         mapper = cartridge.mapper
         mirroring = mapper?.mirroring() ?: cartridge.mirroring
-        region = cartridge.region
     }
 
     fun remove() {
         cartridge = null
         mapper = null
         mirroring = Mirroring.VERTICAL
-        region = ConsoleRegion.NTSC
     }
 
     fun reset() {
@@ -79,14 +75,5 @@ class CartridgePortNes : CartridgePort {
 
     override fun irqPending(): Boolean {
         return mapper?.irqPending() ?: false
-    }
-
-    fun captureMapperState(): MapperState = requireNotNull(mapper).captureState()
-
-    fun restoreMapperState(state: MapperState) {
-        val inserted = cartridge ?: return
-        val activeMapper = mapper ?: return
-        activeMapper.restoreState(state)
-        mirroring = activeMapper.mirroring() ?: inserted.mirroring
     }
 }

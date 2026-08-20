@@ -5,6 +5,7 @@ import nes2.ppuBus.PpuBus
 
 interface Ppu {
     val frame: Long
+    fun configureTiming(scanlinesPerFrame: Int, nmiScanline: Int, skipsOddFrameDot: Boolean)
     fun reset()
     fun cpuReadRegister(address: Int): Int
     fun cpuWriteRegister(address: Int, value: Int)
@@ -20,11 +21,18 @@ class PpuNes(
     private val frameBuffer: FrameBuffer,
 ) : Ppu {
 
+    private var scanlinesPerFrame = 262
+    private var nmiScanline = 241
+    private var skipsOddFrameDot = true
+
     override val frame: Long
         get() = state.frame
 
+    private val preRenderScanline: Int
+        get() = scanlinesPerFrame - 1
+
     private val isRenderingScanline: Boolean
-        get() = isVisibleScanline || state.scanline == 261
+        get() = isVisibleScanline || state.scanline == preRenderScanline
 
     private val isVisibleScanline: Boolean
         get() {
@@ -112,6 +120,12 @@ class PpuNes(
         state = PpuState()
     }
 
+    override fun configureTiming(scanlinesPerFrame: Int, nmiScanline: Int, skipsOddFrameDot: Boolean) {
+        this.scanlinesPerFrame = scanlinesPerFrame
+        this.nmiScanline = nmiScanline
+        this.skipsOddFrameDot = skipsOddFrameDot
+    }
+
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {
             0x2002 -> readStatus()
@@ -183,7 +197,7 @@ class PpuNes(
     }
 
     private fun updateStatusFlags() {
-        if (state.scanline == 241 && state.dot == 1) {
+        if (state.scanline == nmiScanline && state.dot == 1) {
             if (state.suppressVblank) {
                 state.suppressVblank = false
             } else {
@@ -195,7 +209,7 @@ class PpuNes(
             }
         }
 
-        if (state.scanline == 261 && state.dot == 1) {
+        if (state.scanline == preRenderScanline && state.dot == 1) {
             state.status = state.status and STATUS_FLAGS.inv()
             state.suppressVblank = false
         }
@@ -467,7 +481,7 @@ class PpuNes(
             state.v = vWithoutHorizontalBits or horizontalBits
         }
 
-        if (state.scanline == 261 && isVerticalScrollCopyDot) {
+        if (state.scanline == preRenderScanline && isVerticalScrollCopyDot) {
             val verticalBits = state.t and 0x7BE0
             val vWithoutVerticalBits = state.v and 0x041F
 
@@ -476,7 +490,7 @@ class PpuNes(
     }
 
     private fun advanceTiming(isRenderingEnabled: Boolean) {
-        if (state.oddFrame && isRenderingEnabled && state.scanline == 261 && state.dot == 339) {
+        if (skipsOddFrameDot && state.oddFrame && isRenderingEnabled && state.scanline == preRenderScanline && state.dot == 339) {
             state.dot = 0
             state.scanline = 0
             state.oddFrame = false
@@ -489,7 +503,7 @@ class PpuNes(
             state.dot = 0
             state.scanline++
 
-            if (state.scanline >= SCANLINES_PER_FRAME) {
+            if (state.scanline >= scanlinesPerFrame) {
                 state.scanline = 0
                 state.oddFrame = !state.oddFrame
                 state.frame++
@@ -875,6 +889,5 @@ class PpuNes(
         const val NMI_ENABLED_FLAG = 0x80
         const val MAPPER_SCANLINE_DOT = 260
         const val DOTS_PER_SCANLINE = 341
-        const val SCANLINES_PER_FRAME = 262
     }
 }

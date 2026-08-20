@@ -1,5 +1,6 @@
 package nes2.fakes
 
+import nes.cartridge.Cartridge
 import nes.cartridge.Mirroring
 import nes2.cartridge.CartridgePort
 
@@ -13,6 +14,10 @@ class FakeCartridgePort : CartridgePort {
     var lastWriteValue: Int? = null
     var irqPending = false
     var scanlineClocks = 0
+
+    override fun insert(cartridge: Cartridge) {
+        mirroring = cartridge.mirroring
+    }
 
     override fun ppuRead(address: Int): Int {
         lastReadAddress = address

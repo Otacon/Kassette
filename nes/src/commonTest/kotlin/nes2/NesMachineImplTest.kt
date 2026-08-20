@@ -2,9 +2,13 @@ package nes2
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes.ConsoleRegion
+import nes.cartridge.Cartridge
+import nes.cartridge.Mirroring
 import nes2.fakes.FakeCartridgePort
 import nes2.fakes.FakeCpu
 import nes2.fakes.FakeOamDma
+import nes2.fakes.FakeMapper
 import nes2.fakes.FakePpu
 
 class NesMachineImplTest : FreeSpec({
@@ -30,6 +34,67 @@ class NesMachineImplTest : FreeSpec({
 
         cpu.resets shouldBe 1
         ppu.ticks shouldBe 21
+    }
+
+    "reset advances PPU using cartridge region timing" {
+        machine.insertCartridge(
+            Cartridge(
+                mirroring = Mirroring.HORIZONTAL,
+                prgRom = ByteArray(0),
+                chr = ByteArray(0),
+                isChrRam = true,
+                trainerPresent = false,
+                mapper = FakeMapper(),
+                region = ConsoleRegion.PAL,
+            )
+        )
+        cpu.resetCycles = 7
+
+        machine.reset()
+
+        ppu.scanlinesPerFrame shouldBe 312
+        ppu.nmiScanline shouldBe 241
+        ppu.skipsOddFrameDot shouldBe false
+        ppu.ticks shouldBe 22
+    }
+
+    "insertCartridge applies cartridge region timing" {
+        machine.insertCartridge(
+            Cartridge(
+                mirroring = Mirroring.HORIZONTAL,
+                prgRom = ByteArray(0),
+                chr = ByteArray(0),
+                isChrRam = true,
+                trainerPresent = false,
+                mapper = FakeMapper(),
+                region = ConsoleRegion.DENDY,
+            )
+        )
+
+        ppu.scanlinesPerFrame shouldBe 312
+        ppu.nmiScanline shouldBe 291
+        ppu.skipsOddFrameDot shouldBe false
+    }
+
+    "PPU timing preserves fractional PAL cycles across CPU steps" {
+        machine.insertCartridge(
+            Cartridge(
+                mirroring = Mirroring.HORIZONTAL,
+                prgRom = ByteArray(0),
+                chr = ByteArray(0),
+                isChrRam = true,
+                trainerPresent = false,
+                mapper = FakeMapper(),
+                region = ConsoleRegion.PAL,
+            )
+        )
+        cpu.cycles = 1
+        ppu.ticksUntilNextFrame = 25
+
+        machine.runUntilFrame()
+
+        cpu.steps shouldBe 8
+        ppu.ticks shouldBe 25
     }
 
     "DMA after reset uses odd CPU cycle parity" {

@@ -385,6 +385,42 @@ class PpuNesTest : FreeSpec({
         state.scanline shouldBe 0
     }
 
+    "PPU uses PAL scanline count when PAL timing is selected" {
+        ppu.configureTiming(
+            scanlinesPerFrame = 312,
+            nmiScanline = 241,
+            skipsOddFrameDot = false,
+        )
+
+        repeat(341 * 311) {
+            ppu.tick()
+        }
+
+        state.dot shouldBe 0
+        state.scanline shouldBe 311
+
+        repeat(341) {
+            ppu.tick()
+        }
+
+        state.dot shouldBe 0
+        state.scanline shouldBe 0
+    }
+
+    "VBlank starts at region NMI scanline" {
+        ppu.configureTiming(
+            scanlinesPerFrame = 312,
+            nmiScanline = 291,
+            skipsOddFrameDot = false,
+        )
+        state.scanline = 291
+        state.dot = 1
+
+        ppu.tick()
+
+        state.status and 0x80 shouldBe 0x80
+    }
+
     "PPU stays on current scanline until final dot" {
         repeat(340) { ppu.tick() }
 

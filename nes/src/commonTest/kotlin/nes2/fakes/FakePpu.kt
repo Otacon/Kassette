@@ -7,6 +7,12 @@ class FakePpu(
 ) : Ppu {
 
     override var frame: Long = 0
+    var scanlinesPerFrame = 262
+        private set
+    var nmiScanline = 241
+        private set
+    var skipsOddFrameDot = true
+        private set
     var ticks = 0
     var ticksUntilNextFrame: Int? = null
     val oamWrites = mutableListOf<Int>()
@@ -16,6 +22,12 @@ class FakePpu(
         ticks = 0
         ticksUntilNextFrame = null
         oamWrites.clear()
+    }
+
+    override fun configureTiming(scanlinesPerFrame: Int, nmiScanline: Int, skipsOddFrameDot: Boolean) {
+        this.scanlinesPerFrame = scanlinesPerFrame
+        this.nmiScanline = nmiScanline
+        this.skipsOddFrameDot = skipsOddFrameDot
     }
 
     override fun cpuReadRegister(address: Int): Int {
