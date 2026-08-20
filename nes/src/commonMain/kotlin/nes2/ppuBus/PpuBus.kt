@@ -2,7 +2,7 @@ package nes2.ppuBus
 
 import nes.cartridge.Mirroring
 import nes.util.low8Bits
-import nes2.cartridgePort.CartridgePort
+import nes2.cartridge.CartridgePort
 
 interface PpuBus {
 

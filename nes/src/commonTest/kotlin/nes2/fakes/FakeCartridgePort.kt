@@ -1,7 +1,7 @@
 package nes2.fakes
 
 import nes.cartridge.Mirroring
-import nes2.cartridgePort.CartridgePort
+import nes2.cartridge.CartridgePort
 
 class FakeCartridgePort : CartridgePort {
 

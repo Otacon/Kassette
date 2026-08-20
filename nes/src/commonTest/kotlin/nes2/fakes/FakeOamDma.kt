@@ -1,4 +1,6 @@
-package nes2
+package nes2.fakes
+
+import nes2.OamDma
 
 class FakeOamDma : OamDma {
     override var page: Int = 0

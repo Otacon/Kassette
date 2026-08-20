@@ -1,6 +1,6 @@
 package nes2.fakes
 
-import nes2.ControllerPort
+import nes2.controller.ControllerPort
 
 class FakeController : ControllerPort {
 

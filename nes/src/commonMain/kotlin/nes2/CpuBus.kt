@@ -2,6 +2,7 @@ package nes2
 
 import nes.cartridge.CartridgeSocket
 import nes.util.low8Bits
+import nes2.controller.ControllerPort
 import nes2.ppu.Ppu
 
 interface CpuBus {

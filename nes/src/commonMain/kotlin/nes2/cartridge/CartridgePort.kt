@@ -1,4 +1,4 @@
-package nes2.cartridgePort
+package nes2.cartridge
 
 import nes.ConsoleRegion
 import nes.cartridge.Cartridge

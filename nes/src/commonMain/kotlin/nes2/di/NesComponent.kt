@@ -2,14 +2,16 @@ package nes2.di
 
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.Scope
 import nes.cartridge.CartridgeSocket
-import nes2.ControllerPort
+import nes.di.NesScope
 import nes2.CpuBus
 import nes2.CpuBusNes
+import nes2.OamDma
 import nes2.OamDmaNes
-import nes2.cartridgePort.CartridgePort
-import nes2.cartridgePort.CartridgePortNes
+import nes2.cartridge.CartridgePort
+import nes2.cartridge.CartridgePortNes
+import nes2.controller.ControllerPort
+import nes2.controller.ControllerPortNes
 import nes2.cpu.Cpu6502
 import nes2.ppu.FramebufferNes
 import nes2.ppu.Ppu
@@ -24,7 +26,6 @@ import nes2.ppuBus.PpuBusState
 @Suppress("unused")
 interface NesComponent {
 
-
     @NesScope
     @Provides
     fun cartridgeSocket(): CartridgePort = CartridgePortNes()
@@ -38,10 +39,7 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun ppu(
-        ppuBus: PpuBus,
-        cpu6502: Cpu6502,
-    ): Ppu = PpuNes(
+    fun ppu(ppuBus: PpuBus, cpu6502: Cpu6502): Ppu = PpuNes(
         state = PpuState(),
         ppuBus = ppuBus,
         onNmi = { cpu6502.requestNmi() },
@@ -50,30 +48,25 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun cpuBus(
-        cartridgeSocket: CartridgeSocket,
-        ppu: Ppu,
-    ): CpuBus {
-        val fakeController = object : ControllerPort {
-            override fun read(): Int = 0
+    fun controllerPort(controllerPort: ControllerPort): ControllerPort = ControllerPortNes()
 
-            override fun write(value: Int) = Unit
-        }
-        return CpuBusNes(
-            ram = IntArray(2048),
-            cartridge = cartridgeSocket,
-            ppu = ppu,
-            dma = OamDmaNes(ppu),
-            controller1 = fakeController,
-            controller2 = fakeController,
-        )
-    }
+    @NesScope
+    @Provides
+    fun oamDma(ppu: Ppu): OamDma = OamDmaNes(ppu)
+
+    @NesScope
+    @Provides
+    fun cpuBus(cartridgeSocket: CartridgeSocket, ppu: Ppu, controllerPort: ControllerPort): CpuBus = CpuBusNes(
+        ram = IntArray(2048),
+        cartridge = cartridgeSocket,
+        ppu = ppu,
+        dma = OamDmaNes(ppu),
+        controller1 = controllerPort,
+        controller2 = controllerPort,
+    )
 
     @NesScope
     @Provides
     fun cpu6502(cpuBus: CpuBus): Cpu6502 = Cpu6502(cpuBus)
 
 }
-
-@Scope
-annotation class NesScope
