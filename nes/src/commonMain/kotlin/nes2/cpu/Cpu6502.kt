@@ -18,224 +18,7 @@ class Cpu6502(
     private var state: CpuState = CpuState(),
 ) : Cpu {
 
-    private val instructions = Array(256) { Instruction(Operation.NOP, AddressingMode.IMPLIED, 2) }
-    private var pageCrossed = false
-
-    init {
-        // ADC
-        instructions[0x69] = Instruction(Operation.ADC, AddressingMode.IMMEDIATE, 2)
-        instructions[0x65] = Instruction(Operation.ADC, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x75] = Instruction(Operation.ADC, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x61] = Instruction(Operation.ADC, AddressingMode.INDIRECT_X, 6)
-        instructions[0x6D] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE, 4)
-        instructions[0x71] = Instruction(Operation.ADC, AddressingMode.INDIRECT_Y, 5)
-        instructions[0x7D] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0x79] = Instruction(Operation.ADC, AddressingMode.ABSOLUTE_Y, 4)
-
-        // AND
-        instructions[0x29] = Instruction(Operation.AND, AddressingMode.IMMEDIATE, 2)
-        instructions[0x25] = Instruction(Operation.AND, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x35] = Instruction(Operation.AND, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x21] = Instruction(Operation.AND, AddressingMode.INDIRECT_X, 6)
-        instructions[0x2D] = Instruction(Operation.AND, AddressingMode.ABSOLUTE, 4)
-        instructions[0x31] = Instruction(Operation.AND, AddressingMode.INDIRECT_Y, 5)
-        instructions[0x3D] = Instruction(Operation.AND, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0x39] = Instruction(Operation.AND, AddressingMode.ABSOLUTE_Y, 4)
-
-        // ORA
-        instructions[0x09] = Instruction(Operation.ORA, AddressingMode.IMMEDIATE, 2)
-        instructions[0x05] = Instruction(Operation.ORA, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x15] = Instruction(Operation.ORA, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x01] = Instruction(Operation.ORA, AddressingMode.INDIRECT_X, 6)
-        instructions[0x0D] = Instruction(Operation.ORA, AddressingMode.ABSOLUTE, 4)
-        instructions[0x11] = Instruction(Operation.ORA, AddressingMode.INDIRECT_Y, 5)
-        instructions[0x1D] = Instruction(Operation.ORA, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0x19] = Instruction(Operation.ORA, AddressingMode.ABSOLUTE_Y, 4)
-
-        // EOR
-        instructions[0x49] = Instruction(Operation.EOR, AddressingMode.IMMEDIATE, 2)
-        instructions[0x45] = Instruction(Operation.EOR, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x55] = Instruction(Operation.EOR, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x41] = Instruction(Operation.EOR, AddressingMode.INDIRECT_X, 6)
-        instructions[0x4D] = Instruction(Operation.EOR, AddressingMode.ABSOLUTE, 4)
-        instructions[0x51] = Instruction(Operation.EOR, AddressingMode.INDIRECT_Y, 5)
-        instructions[0x5D] = Instruction(Operation.EOR, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0x59] = Instruction(Operation.EOR, AddressingMode.ABSOLUTE_Y, 4)
-
-        // LDA
-        instructions[0xA9] = Instruction(Operation.LDA, AddressingMode.IMMEDIATE, 2)
-        instructions[0xA5] = Instruction(Operation.LDA, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xB5] = Instruction(Operation.LDA, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0xA1] = Instruction(Operation.LDA, AddressingMode.INDIRECT_X, 6)
-        instructions[0xAD] = Instruction(Operation.LDA, AddressingMode.ABSOLUTE, 4)
-        instructions[0xB1] = Instruction(Operation.LDA, AddressingMode.INDIRECT_Y, 5)
-        instructions[0xBD] = Instruction(Operation.LDA, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0xB9] = Instruction(Operation.LDA, AddressingMode.ABSOLUTE_Y, 4)
-
-        // CMP
-        instructions[0xC9] = Instruction(Operation.CMP, AddressingMode.IMMEDIATE, 2)
-        instructions[0xC5] = Instruction(Operation.CMP, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xD5] = Instruction(Operation.CMP, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0xC1] = Instruction(Operation.CMP, AddressingMode.INDIRECT_X, 6)
-        instructions[0xCD] = Instruction(Operation.CMP, AddressingMode.ABSOLUTE, 4)
-        instructions[0xD1] = Instruction(Operation.CMP, AddressingMode.INDIRECT_Y, 5)
-        instructions[0xDD] = Instruction(Operation.CMP, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0xD9] = Instruction(Operation.CMP, AddressingMode.ABSOLUTE_Y, 4)
-
-        // SBC
-        instructions[0xE9] = Instruction(Operation.SBC, AddressingMode.IMMEDIATE, 2)
-        instructions[0xE5] = Instruction(Operation.SBC, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xF5] = Instruction(Operation.SBC, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0xE1] = Instruction(Operation.SBC, AddressingMode.INDIRECT_X, 6)
-        instructions[0xED] = Instruction(Operation.SBC, AddressingMode.ABSOLUTE, 4)
-        instructions[0xF1] = Instruction(Operation.SBC, AddressingMode.INDIRECT_Y, 5)
-        instructions[0xFD] = Instruction(Operation.SBC, AddressingMode.ABSOLUTE_X, 4)
-        instructions[0xF9] = Instruction(Operation.SBC, AddressingMode.ABSOLUTE_Y, 4)
-
-        // LDX
-        instructions[0xA2] = Instruction(Operation.LDX, AddressingMode.IMMEDIATE, 2)
-        instructions[0xA6] = Instruction(Operation.LDX, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xB6] = Instruction(Operation.LDX, AddressingMode.ZERO_PAGE_Y, 4)
-        instructions[0xAE] = Instruction(Operation.LDX, AddressingMode.ABSOLUTE, 4)
-        instructions[0xBE] = Instruction(Operation.LDX, AddressingMode.ABSOLUTE_Y, 4)
-
-        // LDY
-        instructions[0xA0] = Instruction(Operation.LDY, AddressingMode.IMMEDIATE, 2)
-        instructions[0xA4] = Instruction(Operation.LDY, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xB4] = Instruction(Operation.LDY, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0xAC] = Instruction(Operation.LDY, AddressingMode.ABSOLUTE, 4)
-        instructions[0xBC] = Instruction(Operation.LDY, AddressingMode.ABSOLUTE_X, 4)
-
-        // STA
-        instructions[0x85] = Instruction(Operation.STA, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x95] = Instruction(Operation.STA, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x8D] = Instruction(Operation.STA, AddressingMode.ABSOLUTE, 4)
-        instructions[0x9D] = Instruction(Operation.STA, AddressingMode.ABSOLUTE_X, 5)
-        instructions[0x99] = Instruction(Operation.STA, AddressingMode.ABSOLUTE_Y, 5)
-        instructions[0x81] = Instruction(Operation.STA, AddressingMode.INDIRECT_X, 6)
-        instructions[0x91] = Instruction(Operation.STA, AddressingMode.INDIRECT_Y, 6)
-
-        // STX
-        instructions[0x86] = Instruction(Operation.STX, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x96] = Instruction(Operation.STX, AddressingMode.ZERO_PAGE_Y, 4)
-        instructions[0x8E] = Instruction(Operation.STX, AddressingMode.ABSOLUTE, 4)
-
-        // STY
-        instructions[0x84] = Instruction(Operation.STY, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x94] = Instruction(Operation.STY, AddressingMode.ZERO_PAGE_X, 4)
-        instructions[0x8C] = Instruction(Operation.STY, AddressingMode.ABSOLUTE, 4)
-
-        instructions[0xAA] = Instruction(Operation.TAX, AddressingMode.IMPLIED, 2)
-        instructions[0xA8] = Instruction(Operation.TAY, AddressingMode.IMPLIED, 2)
-        instructions[0x8A] = Instruction(Operation.TXA, AddressingMode.IMPLIED, 2)
-        instructions[0x98] = Instruction(Operation.TYA, AddressingMode.IMPLIED, 2)
-        instructions[0xBA] = Instruction(Operation.TSX, AddressingMode.IMPLIED, 2)
-        instructions[0x9A] = Instruction(Operation.TXS, AddressingMode.IMPLIED, 2)
-        instructions[0xE8] = Instruction(Operation.INX, AddressingMode.IMPLIED, 2)
-        instructions[0xC8] = Instruction(Operation.INY, AddressingMode.IMPLIED, 2)
-        instructions[0xCA] = Instruction(Operation.DEX, AddressingMode.IMPLIED, 2)
-        instructions[0x88] = Instruction(Operation.DEY, AddressingMode.IMPLIED, 2)
-
-        // CPX
-        instructions[0xE0] = Instruction(Operation.CPX, AddressingMode.IMMEDIATE, 2)
-        instructions[0xE4] = Instruction(Operation.CPX, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xEC] = Instruction(Operation.CPX, AddressingMode.ABSOLUTE, 4)
-
-        // CPY
-        instructions[0xC0] = Instruction(Operation.CPY, AddressingMode.IMMEDIATE, 2)
-        instructions[0xC4] = Instruction(Operation.CPY, AddressingMode.ZERO_PAGE, 3)
-        instructions[0xCC] = Instruction(Operation.CPY, AddressingMode.ABSOLUTE, 4)
-
-        // BIT
-        instructions[0x24] = Instruction(Operation.BIT, AddressingMode.ZERO_PAGE, 3)
-        instructions[0x2C] = Instruction(Operation.BIT, AddressingMode.ABSOLUTE, 4)
-
-        instructions[0x18] = Instruction(Operation.CLC, AddressingMode.IMPLIED, 2)
-        instructions[0x38] = Instruction(Operation.SEC, AddressingMode.IMPLIED, 2)
-        instructions[0x58] = Instruction(Operation.CLI, AddressingMode.IMPLIED, 2)
-        instructions[0x78] = Instruction(Operation.SEI, AddressingMode.IMPLIED, 2)
-        instructions[0xB8] = Instruction(Operation.CLV, AddressingMode.IMPLIED, 2)
-        instructions[0xD8] = Instruction(Operation.CLD, AddressingMode.IMPLIED, 2)
-        instructions[0xF8] = Instruction(Operation.SED, AddressingMode.IMPLIED, 2)
-
-        // INC
-        instructions[0xE6] = Instruction(Operation.INC, AddressingMode.ZERO_PAGE, 5)
-        instructions[0xF6] = Instruction(Operation.INC, AddressingMode.ZERO_PAGE_X, 6)
-        instructions[0xEE] = Instruction(Operation.INC, AddressingMode.ABSOLUTE, 6)
-        instructions[0xFE] = Instruction(Operation.INC, AddressingMode.ABSOLUTE_X, 7)
-
-        // DEC
-        instructions[0xC6] = Instruction(Operation.DEC, AddressingMode.ZERO_PAGE, 5)
-        instructions[0xD6] = Instruction(Operation.DEC, AddressingMode.ZERO_PAGE_X, 6)
-        instructions[0xCE] = Instruction(Operation.DEC, AddressingMode.ABSOLUTE, 6)
-        instructions[0xDE] = Instruction(Operation.DEC, AddressingMode.ABSOLUTE_X, 7)
-
-        // ASL
-        instructions[0x0A] = Instruction(Operation.ASL, AddressingMode.ACCUMULATOR, 2)
-        instructions[0x06] = Instruction(Operation.ASL, AddressingMode.ZERO_PAGE, 5)
-        instructions[0x16] = Instruction(Operation.ASL, AddressingMode.ZERO_PAGE_X, 6)
-        instructions[0x0E] = Instruction(Operation.ASL, AddressingMode.ABSOLUTE, 6)
-        instructions[0x1E] = Instruction(Operation.ASL, AddressingMode.ABSOLUTE_X, 7)
-
-        // LSR
-        instructions[0x4A] = Instruction(Operation.LSR, AddressingMode.ACCUMULATOR, 2)
-        instructions[0x46] = Instruction(Operation.LSR, AddressingMode.ZERO_PAGE, 5)
-        instructions[0x56] = Instruction(Operation.LSR, AddressingMode.ZERO_PAGE_X, 6)
-        instructions[0x4E] = Instruction(Operation.LSR, AddressingMode.ABSOLUTE, 6)
-        instructions[0x5E] = Instruction(Operation.LSR, AddressingMode.ABSOLUTE_X, 7)
-
-        // ROL
-        instructions[0x2A] = Instruction(Operation.ROL, AddressingMode.ACCUMULATOR, 2)
-        instructions[0x26] = Instruction(Operation.ROL, AddressingMode.ZERO_PAGE, 5)
-        instructions[0x36] = Instruction(Operation.ROL, AddressingMode.ZERO_PAGE_X, 6)
-        instructions[0x2E] = Instruction(Operation.ROL, AddressingMode.ABSOLUTE, 6)
-        instructions[0x3E] = Instruction(Operation.ROL, AddressingMode.ABSOLUTE_X, 7)
-
-        // ROR
-        instructions[0x6A] = Instruction(Operation.ROR, AddressingMode.ACCUMULATOR, 2)
-        instructions[0x66] = Instruction(Operation.ROR, AddressingMode.ZERO_PAGE, 5)
-        instructions[0x76] = Instruction(Operation.ROR, AddressingMode.ZERO_PAGE_X, 6)
-        instructions[0x6E] = Instruction(Operation.ROR, AddressingMode.ABSOLUTE, 6)
-        instructions[0x7E] = Instruction(Operation.ROR, AddressingMode.ABSOLUTE_X, 7)
-
-        // Branching
-        instructions[0x90] = Instruction(Operation.BCC, AddressingMode.RELATIVE, 2)
-        instructions[0xB0] = Instruction(Operation.BCS, AddressingMode.RELATIVE, 2)
-
-        instructions[0xF0] = Instruction(Operation.BEQ, AddressingMode.RELATIVE, 2)
-        instructions[0xD0] = Instruction(Operation.BNE, AddressingMode.RELATIVE, 2)
-
-        instructions[0x30] = Instruction(Operation.BMI, AddressingMode.RELATIVE, 2)
-        instructions[0x10] = Instruction(Operation.BPL, AddressingMode.RELATIVE, 2)
-
-        instructions[0x50] = Instruction(Operation.BVC, AddressingMode.RELATIVE, 2)
-        instructions[0x70] = Instruction(Operation.BVS, AddressingMode.RELATIVE, 2)
-
-        // JMP
-        instructions[0x4C] = Instruction(Operation.JMP, AddressingMode.ABSOLUTE, 3)
-        instructions[0x6C] = Instruction(Operation.JMP, AddressingMode.INDIRECT, 5)
-
-        // JSR
-        instructions[0x20] = Instruction(Operation.JSR, AddressingMode.ABSOLUTE, 6)
-
-        // RTS
-        instructions[0x60] = Instruction(Operation.RTS, AddressingMode.IMPLIED, 6)
-
-        // Stack
-        instructions[0x48] = Instruction(Operation.PHA, AddressingMode.IMPLIED, 3)
-        instructions[0x68] = Instruction(Operation.PLA, AddressingMode.IMPLIED, 4)
-        instructions[0x08] = Instruction(Operation.PHP, AddressingMode.IMPLIED, 3)
-        instructions[0x28] = Instruction(Operation.PLP, AddressingMode.IMPLIED, 4)
-
-        // BRK
-        instructions[0x00] = Instruction(Operation.BRK, AddressingMode.IMPLIED, 7)
-
-        // RTI
-        instructions[0x40] = Instruction(Operation.RTI, AddressingMode.IMPLIED, 6)
-
-        // NOP
-        instructions[0xEA] = Instruction(Operation.NOP, AddressingMode.IMPLIED, 2)
-    }
+    private var pagePenalty = 0
 
     override fun reset(): Int {
         state.a = 0
@@ -269,202 +52,737 @@ class Cpu6502(
         }
 
         val opcode = pcRead()
-        val instruction = instructions[opcode]
-
         val iBefore = state.i
-        val cycles = execute(instruction)
-        state.irqPollI = when (instruction.operation) {
-            Operation.CLI, Operation.SEI, Operation.PLP -> iBefore
+        val cycles = execute(opcode)
+        state.irqPollI = when (opcode) {
+            // CLI, SEI, and PLP affect IRQ polling one instruction later.
+            0x58, 0x78, 0x28 -> iBefore
             else -> state.i
         }
 
         return cycles
     }
 
-    // If performance is needed, use a plain INT and do all you need to do plainly without relying on
-    // data representation. It's ugly AF, but it is more performant.
-    private fun execute(instruction: Instruction): Int {
-        pageCrossed = false
-        var cyclesPenalty = 0
-        when (instruction.operation) {
-            Operation.ADC -> adc(value = readOperand(instruction.addressingMode, true))
-            Operation.AND -> and(value = readOperand(instruction.addressingMode, true))
-            Operation.ORA -> ora(value = readOperand(instruction.addressingMode, true))
-            Operation.EOR -> eor(value = readOperand(instruction.addressingMode, true))
-            Operation.LDA -> lda(value = readOperand(instruction.addressingMode, true))
-            Operation.CMP -> cmp(value = readOperand(instruction.addressingMode, true))
-            Operation.SBC -> sbc(value = readOperand(instruction.addressingMode, true))
-            Operation.LDX -> ldx(value = readOperand(instruction.addressingMode, true))
-            Operation.LDY -> ldy(value = readOperand(instruction.addressingMode, true))
-            Operation.STA -> sta(address = resolveAddress(instruction.addressingMode, false))
-            Operation.STX -> stx(address = resolveAddress(instruction.addressingMode, false))
-            Operation.STY -> sty(address = resolveAddress(instruction.addressingMode, false))
-            Operation.TAX -> tax()
-            Operation.TAY -> tay()
-            Operation.TXA -> txa()
-            Operation.TYA -> tya()
-            Operation.TSX -> tsx()
-            Operation.TXS -> txs()
-            Operation.INX -> inx()
-            Operation.INY -> iny()
-            Operation.DEX -> dex()
-            Operation.DEY -> dey()
-            Operation.CPX -> cpx(value = readOperand(instruction.addressingMode, false))
-            Operation.CPY -> cpy(value = readOperand(instruction.addressingMode, false))
-            Operation.BIT -> bit(value = readOperand(instruction.addressingMode, false))
-            Operation.CLC -> clc()
-            Operation.SEC -> sec()
-            Operation.CLI -> cli()
-            Operation.SEI -> sei()
-            Operation.CLV -> clv()
-            Operation.CLD -> cld()
-            Operation.SED -> sed()
-            Operation.INC -> inc(address = resolveAddress(instruction.addressingMode, false))
-            Operation.DEC -> dec(address = resolveAddress(instruction.addressingMode, false))
-            Operation.ASL -> asl(mode = instruction.addressingMode)
-            Operation.LSR -> lsr(mode = instruction.addressingMode)
-            Operation.ROL -> rol(mode = instruction.addressingMode)
-            Operation.ROR -> ror(mode = instruction.addressingMode)
-            Operation.BCC -> cyclesPenalty += branch(!state.c)
-            Operation.BCS -> cyclesPenalty += branch(state.c)
-            Operation.BEQ -> cyclesPenalty += branch(state.z)
-            Operation.BNE -> cyclesPenalty += branch(!state.z)
-            Operation.BMI -> cyclesPenalty += branch(state.n)
-            Operation.BPL -> cyclesPenalty += branch(!state.n)
-            Operation.BVC -> cyclesPenalty += branch(!state.v)
-            Operation.BVS -> cyclesPenalty += branch(state.v)
-            Operation.JMP -> jmp(mode = instruction.addressingMode)
-            Operation.JSR -> jsr()
-            Operation.RTS -> rts()
-            Operation.PHA -> pha()
-            Operation.PLA -> pla()
-            Operation.PHP -> php()
-            Operation.PLP -> plp()
-            Operation.BRK -> brk()
-            Operation.RTI -> rti()
-            Operation.NOP -> nop()
-        }
+    private fun execute(opcode: Int): Int {
+        pagePenalty = 0
 
-        return if (pageCrossed) {
-            instruction.baseCycles + cyclesPenalty + 1
-        } else {
-            instruction.baseCycles + cyclesPenalty
+        return when (opcode) {
+            // ADC
+            0x69 -> {
+                adc(immediate()); 2
+            }
+
+            0x65 -> {
+                adc(readZeroPage()); 3
+            }
+
+            0x75 -> {
+                adc(readZeroPageX()); 4
+            }
+
+            0x61 -> {
+                adc(readIndirectX()); 6
+            }
+
+            0x6D -> {
+                adc(readAbsolute()); 4
+            }
+
+            0x71 -> {
+                adc(readIndirectY()); 5 + pagePenalty
+            }
+
+            0x7D -> {
+                adc(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0x79 -> {
+                adc(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // AND
+            0x29 -> {
+                and(immediate()); 2
+            }
+
+            0x25 -> {
+                and(readZeroPage()); 3
+            }
+
+            0x35 -> {
+                and(readZeroPageX()); 4
+            }
+
+            0x21 -> {
+                and(readIndirectX()); 6
+            }
+
+            0x2D -> {
+                and(readAbsolute()); 4
+            }
+
+            0x31 -> {
+                and(readIndirectY()); 5 + pagePenalty
+            }
+
+            0x3D -> {
+                and(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0x39 -> {
+                and(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // ORA
+            0x09 -> {
+                ora(immediate()); 2
+            }
+
+            0x05 -> {
+                ora(readZeroPage()); 3
+            }
+
+            0x15 -> {
+                ora(readZeroPageX()); 4
+            }
+
+            0x01 -> {
+                ora(readIndirectX()); 6
+            }
+
+            0x0D -> {
+                ora(readAbsolute()); 4
+            }
+
+            0x11 -> {
+                ora(readIndirectY()); 5 + pagePenalty
+            }
+
+            0x1D -> {
+                ora(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0x19 -> {
+                ora(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // EOR
+            0x49 -> {
+                eor(immediate()); 2
+            }
+
+            0x45 -> {
+                eor(readZeroPage()); 3
+            }
+
+            0x55 -> {
+                eor(readZeroPageX()); 4
+            }
+
+            0x41 -> {
+                eor(readIndirectX()); 6
+            }
+
+            0x4D -> {
+                eor(readAbsolute()); 4
+            }
+
+            0x51 -> {
+                eor(readIndirectY()); 5 + pagePenalty
+            }
+
+            0x5D -> {
+                eor(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0x59 -> {
+                eor(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // LDA
+            0xA9 -> {
+                lda(immediate()); 2
+            }
+
+            0xA5 -> {
+                lda(readZeroPage()); 3
+            }
+
+            0xB5 -> {
+                lda(readZeroPageX()); 4
+            }
+
+            0xA1 -> {
+                lda(readIndirectX()); 6
+            }
+
+            0xAD -> {
+                lda(readAbsolute()); 4
+            }
+
+            0xB1 -> {
+                lda(readIndirectY()); 5 + pagePenalty
+            }
+
+            0xBD -> {
+                lda(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0xB9 -> {
+                lda(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // CMP
+            0xC9 -> {
+                cmp(immediate()); 2
+            }
+
+            0xC5 -> {
+                cmp(readZeroPage()); 3
+            }
+
+            0xD5 -> {
+                cmp(readZeroPageX()); 4
+            }
+
+            0xC1 -> {
+                cmp(readIndirectX()); 6
+            }
+
+            0xCD -> {
+                cmp(readAbsolute()); 4
+            }
+
+            0xD1 -> {
+                cmp(readIndirectY()); 5 + pagePenalty
+            }
+
+            0xDD -> {
+                cmp(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0xD9 -> {
+                cmp(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // SBC
+            0xE9 -> {
+                sbc(immediate()); 2
+            }
+
+            0xE5 -> {
+                sbc(readZeroPage()); 3
+            }
+
+            0xF5 -> {
+                sbc(readZeroPageX()); 4
+            }
+
+            0xE1 -> {
+                sbc(readIndirectX()); 6
+            }
+
+            0xED -> {
+                sbc(readAbsolute()); 4
+            }
+
+            0xF1 -> {
+                sbc(readIndirectY()); 5 + pagePenalty
+            }
+
+            0xFD -> {
+                sbc(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            0xF9 -> {
+                sbc(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // LDX
+            0xA2 -> {
+                ldx(immediate()); 2
+            }
+
+            0xA6 -> {
+                ldx(readZeroPage()); 3
+            }
+
+            0xB6 -> {
+                ldx(readZeroPageY()); 4
+            }
+
+            0xAE -> {
+                ldx(readAbsolute()); 4
+            }
+
+            0xBE -> {
+                ldx(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            // LDY
+            0xA0 -> {
+                ldy(immediate()); 2
+            }
+
+            0xA4 -> {
+                ldy(readZeroPage()); 3
+            }
+
+            0xB4 -> {
+                ldy(readZeroPageX()); 4
+            }
+
+            0xAC -> {
+                ldy(readAbsolute()); 4
+            }
+
+            0xBC -> {
+                ldy(readAbsoluteX()); 4 + pagePenalty
+            }
+
+            // STA
+            0x85 -> {
+                sta(addressZeroPage()); 3
+            }
+
+            0x95 -> {
+                sta(addressZeroPageX()); 4
+            }
+
+            0x8D -> {
+                sta(addressAbsolute()); 4
+            }
+
+            0x9D -> {
+                sta(addressAbsoluteX()); 5
+            }
+
+            0x99 -> {
+                sta(addressAbsoluteY()); 5
+            }
+
+            0x81 -> {
+                sta(addressIndirectX()); 6
+            }
+
+            0x91 -> {
+                sta(addressIndirectY()); 6
+            }
+
+            // STX
+            0x86 -> {
+                stx(addressZeroPage()); 3
+            }
+
+            0x96 -> {
+                stx(addressZeroPageY()); 4
+            }
+
+            0x8E -> {
+                stx(addressAbsolute()); 4
+            }
+
+            // STY
+            0x84 -> {
+                sty(addressZeroPage()); 3
+            }
+
+            0x94 -> {
+                sty(addressZeroPageX()); 4
+            }
+
+            0x8C -> {
+                sty(addressAbsolute()); 4
+            }
+
+            // Transfers, increments, decrements
+            0xAA -> {
+                tax(); 2
+            }
+
+            0xA8 -> {
+                tay(); 2
+            }
+
+            0x8A -> {
+                txa(); 2
+            }
+
+            0x98 -> {
+                tya(); 2
+            }
+
+            0xBA -> {
+                tsx(); 2
+            }
+
+            0x9A -> {
+                txs(); 2
+            }
+
+            0xE8 -> {
+                inx(); 2
+            }
+
+            0xC8 -> {
+                iny(); 2
+            }
+
+            0xCA -> {
+                dex(); 2
+            }
+
+            0x88 -> {
+                dey(); 2
+            }
+
+            // CPX, CPY, BIT
+            0xE0 -> {
+                cpx(immediate()); 2
+            }
+
+            0xE4 -> {
+                cpx(readZeroPage()); 3
+            }
+
+            0xEC -> {
+                cpx(readAbsolute()); 4
+            }
+
+            0xC0 -> {
+                cpy(immediate()); 2
+            }
+
+            0xC4 -> {
+                cpy(readZeroPage()); 3
+            }
+
+            0xCC -> {
+                cpy(readAbsolute()); 4
+            }
+
+            0x24 -> {
+                bit(readZeroPage()); 3
+            }
+
+            0x2C -> {
+                bit(readAbsolute()); 4
+            }
+
+            // Flags
+            0x18 -> {
+                clc(); 2
+            }
+
+            0x38 -> {
+                sec(); 2
+            }
+
+            0x58 -> {
+                cli(); 2
+            }
+
+            0x78 -> {
+                sei(); 2
+            }
+
+            0xB8 -> {
+                clv(); 2
+            }
+
+            0xD8 -> {
+                cld(); 2
+            }
+
+            0xF8 -> {
+                sed(); 2
+            }
+
+            // INC, DEC
+            0xE6 -> {
+                inc(addressZeroPage()); 5
+            }
+
+            0xF6 -> {
+                inc(addressZeroPageX()); 6
+            }
+
+            0xEE -> {
+                inc(addressAbsolute()); 6
+            }
+
+            0xFE -> {
+                inc(addressAbsoluteX()); 7
+            }
+
+            0xC6 -> {
+                dec(addressZeroPage()); 5
+            }
+
+            0xD6 -> {
+                dec(addressZeroPageX()); 6
+            }
+
+            0xCE -> {
+                dec(addressAbsolute()); 6
+            }
+
+            0xDE -> {
+                dec(addressAbsoluteX()); 7
+            }
+
+            // Shifts and rotates
+            0x0A -> {
+                state.a = aslValue(state.a); 2
+            }
+
+            0x06 -> {
+                rmw(addressZeroPage(), ::aslValue); 5
+            }
+
+            0x16 -> {
+                rmw(addressZeroPageX(), ::aslValue); 6
+            }
+
+            0x0E -> {
+                rmw(addressAbsolute(), ::aslValue); 6
+            }
+
+            0x1E -> {
+                rmw(addressAbsoluteX(), ::aslValue); 7
+            }
+
+            0x4A -> {
+                state.a = lsrValue(state.a); 2
+            }
+
+            0x46 -> {
+                rmw(addressZeroPage(), ::lsrValue); 5
+            }
+
+            0x56 -> {
+                rmw(addressZeroPageX(), ::lsrValue); 6
+            }
+
+            0x4E -> {
+                rmw(addressAbsolute(), ::lsrValue); 6
+            }
+
+            0x5E -> {
+                rmw(addressAbsoluteX(), ::lsrValue); 7
+            }
+
+            0x2A -> {
+                state.a = rolValue(state.a); 2
+            }
+
+            0x26 -> {
+                rmw(addressZeroPage(), ::rolValue); 5
+            }
+
+            0x36 -> {
+                rmw(addressZeroPageX(), ::rolValue); 6
+            }
+
+            0x2E -> {
+                rmw(addressAbsolute(), ::rolValue); 6
+            }
+
+            0x3E -> {
+                rmw(addressAbsoluteX(), ::rolValue); 7
+            }
+
+            0x6A -> {
+                state.a = rorValue(state.a); 2
+            }
+
+            0x66 -> {
+                rmw(addressZeroPage(), ::rorValue); 5
+            }
+
+            0x76 -> {
+                rmw(addressZeroPageX(), ::rorValue); 6
+            }
+
+            0x6E -> {
+                rmw(addressAbsolute(), ::rorValue); 6
+            }
+
+            0x7E -> {
+                rmw(addressAbsoluteX(), ::rorValue); 7
+            }
+
+            // Branches
+            0x90 -> 2 + branch(!state.c)
+            0xB0 -> 2 + branch(state.c)
+            0xF0 -> 2 + branch(state.z)
+            0xD0 -> 2 + branch(!state.z)
+            0x30 -> 2 + branch(state.n)
+            0x10 -> 2 + branch(!state.n)
+            0x50 -> 2 + branch(!state.v)
+            0x70 -> 2 + branch(state.v)
+
+            // Jumps and stack
+            0x4C -> {
+                jmpAbsolute(); 3
+            }
+
+            0x6C -> {
+                jmpIndirect(); 5
+            }
+
+            0x20 -> {
+                jsr(); 6
+            }
+
+            0x60 -> {
+                rts(); 6
+            }
+
+            0x48 -> {
+                pha(); 3
+            }
+
+            0x68 -> {
+                pla(); 4
+            }
+
+            0x08 -> {
+                php(); 3
+            }
+
+            0x28 -> {
+                plp(); 4
+            }
+
+            0x00 -> {
+                brk(); 7
+            }
+
+            0x40 -> {
+                rti(); 6
+            }
+
+            // NOP, including currently-unimplemented unofficial opcodes.
+            else -> {
+                nop(); 2
+            }
         }
     }
 
     // region Addressing modes
-    private fun readOperand(mode: AddressingMode, pageCrossPenalty: Boolean): Int {
-        return when (mode) {
-            AddressingMode.IMMEDIATE -> pcRead()
-            else -> bus.read(resolveAddress(mode, pageCrossPenalty))
-        }
+    private fun immediate(): Int = pcRead()
+
+    private fun readZeroPage(): Int = bus.read(addressZeroPage())
+
+    private fun readZeroPageX(): Int = bus.read(addressZeroPageX())
+
+    private fun readZeroPageY(): Int = bus.read(addressZeroPageY())
+
+    private fun readAbsolute(): Int = bus.read(addressAbsolute())
+
+    private fun readAbsoluteX(): Int = bus.read(addressAbsoluteXWithPagePenalty())
+
+    private fun readAbsoluteY(): Int = bus.read(addressAbsoluteYWithPagePenalty())
+
+    private fun readIndirectX(): Int = bus.read(addressIndirectX())
+
+    private fun readIndirectY(): Int = bus.read(addressIndirectYWithPagePenalty())
+
+    private fun addressZeroPage(): Int = pcRead()
+
+    private fun addressZeroPageX(): Int {
+        val baseAddress = pcRead()
+        bus.read(baseAddress)
+        return (baseAddress + state.x).low8Bits()
     }
 
-    private fun resolveAddress(mode: AddressingMode, pageCrossPenalty: Boolean): Int {
-        return when (mode) {
-            AddressingMode.ZERO_PAGE -> {
-                pcRead()
-            }
+    private fun addressZeroPageY(): Int {
+        val baseAddress = pcRead()
+        bus.read(baseAddress)
+        return (baseAddress + state.y).low8Bits()
+    }
 
-            AddressingMode.ZERO_PAGE_X -> {
-                val baseAddress = pcRead()
-                bus.read(baseAddress)
-                (baseAddress + state.x).low8Bits()
-            }
+    private fun addressAbsolute(): Int {
+        val lo = pcRead()
+        val hi = pcRead()
+        return lo or (hi shl 8)
+    }
 
-            AddressingMode.ZERO_PAGE_Y -> {
-                val baseAddress = pcRead()
-                bus.read(baseAddress)
-                (baseAddress + state.y).low8Bits()
-            }
+    private fun addressAbsoluteX(): Int {
+        val baseAddress = addressAbsolute()
+        val address = (baseAddress + state.x).low16Bits()
+        readSpeculativeIndexedAddress(baseAddress, address)
+        return address
+    }
 
-            AddressingMode.ABSOLUTE -> {
-                val lo = pcRead()
-                val hi = pcRead()
+    private fun addressAbsoluteY(): Int {
+        val baseAddress = addressAbsolute()
+        val address = (baseAddress + state.y).low16Bits()
+        readSpeculativeIndexedAddress(baseAddress, address)
+        return address
+    }
 
-                lo or (hi shl 8)
-            }
+    private fun addressAbsoluteXWithPagePenalty(): Int {
+        val baseAddress = addressAbsolute()
+        val address = (baseAddress + state.x).low16Bits()
+        readSpeculativeIndexedAddressIfPageCrossed(baseAddress, address)
+        return address
+    }
 
-            AddressingMode.ABSOLUTE_X -> {
-                val lo = pcRead()
-                val hi = pcRead()
+    private fun addressAbsoluteYWithPagePenalty(): Int {
+        val baseAddress = addressAbsolute()
+        val address = (baseAddress + state.y).low16Bits()
+        readSpeculativeIndexedAddressIfPageCrossed(baseAddress, address)
+        return address
+    }
 
-                val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.x).low16Bits()
-                val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
+    private fun addressIndirectX(): Int {
+        val basePointer = pcRead()
+        bus.read(basePointer)
 
-                if (pageCrossPenalty) {
-                    pageCrossed = (baseAddress xor address) and 0xFF00 != 0
-                    if (pageCrossed) {
-                        bus.read(speculativeAddress)
-                    }
-                } else {
-                    bus.read(speculativeAddress)
-                }
+        val pointer = (basePointer + state.x).low8Bits()
+        val lo = bus.read(pointer)
+        val hi = bus.read((pointer + 1).low8Bits())
 
-                address
-            }
+        return lo or (hi shl 8)
+    }
 
-            AddressingMode.ABSOLUTE_Y -> {
-                val lo = pcRead()
-                val hi = pcRead()
+    private fun addressIndirectY(): Int {
+        val pointer = pcRead()
+        val lo = bus.read(pointer)
+        val hi = bus.read((pointer + 1).low8Bits())
 
-                val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.y).low16Bits()
-                val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
+        val baseAddress = lo or (hi shl 8)
+        val address = (baseAddress + state.y).low16Bits()
+        readSpeculativeIndexedAddress(baseAddress, address)
 
-                if (pageCrossPenalty) {
-                    pageCrossed = (baseAddress xor address) and 0xFF00 != 0
-                    if (pageCrossed) {
-                        bus.read(speculativeAddress)
-                    }
-                } else {
-                    bus.read(speculativeAddress)
-                }
+        return address
+    }
 
-                address
-            }
+    private fun addressIndirectYWithPagePenalty(): Int {
+        val pointer = pcRead()
+        val lo = bus.read(pointer)
+        val hi = bus.read((pointer + 1).low8Bits())
 
-            AddressingMode.INDIRECT_X -> {
-                val basePointer = pcRead()
-                bus.read(basePointer)
-                val pointer = (basePointer + state.x).low8Bits()
+        val baseAddress = lo or (hi shl 8)
+        val address = (baseAddress + state.y).low16Bits()
+        readSpeculativeIndexedAddressIfPageCrossed(baseAddress, address)
 
-                val lo = bus.read(pointer)
-                val hi = bus.read((pointer + 1).low8Bits())
+        return address
+    }
 
-                lo or (hi shl 8)
-            }
+    private fun readSpeculativeIndexedAddress(baseAddress: Int, address: Int) {
+        val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
+        bus.read(speculativeAddress)
+    }
 
-            AddressingMode.INDIRECT_Y -> {
-                val pointer = pcRead()
-
-                val lo = bus.read(pointer)
-                val hi = bus.read((pointer + 1).low8Bits())
-
-                val baseAddress = lo or (hi shl 8)
-                val address = (baseAddress + state.y).low16Bits()
-                val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
-
-                if (pageCrossPenalty) {
-                    pageCrossed = (baseAddress xor address) and 0xFF00 != 0
-                    if (pageCrossed) {
-                        bus.read(speculativeAddress)
-                    }
-                } else {
-                    bus.read(speculativeAddress)
-                }
-
-                address
-            }
-
-            AddressingMode.IMMEDIATE,
-            AddressingMode.IMPLIED,
-            AddressingMode.ACCUMULATOR,
-            AddressingMode.RELATIVE,
-            AddressingMode.INDIRECT -> throw IllegalArgumentException(
-                "Addressing mode $mode cannot resolve a data address"
-            )
+    private fun readSpeculativeIndexedAddressIfPageCrossed(baseAddress: Int, address: Int) {
+        val crossedPage = (baseAddress xor address) and 0xFF00 != 0
+        if (crossedPage) {
+            pagePenalty = 1
+            val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
+            bus.read(speculativeAddress)
         }
     }
 
@@ -683,17 +1001,6 @@ class Cpu6502(
         state.n = result.isNegative8Bit()
     }
 
-    private fun asl(mode: AddressingMode) {
-        if (mode == AddressingMode.ACCUMULATOR) {
-            state.a = aslValue(state.a)
-        } else {
-            val address = resolveAddress(mode, false)
-            val oldValue = bus.read(address)
-            bus.write(address, oldValue)
-            bus.write(address, aslValue(oldValue))
-        }
-    }
-
     private fun aslValue(value: Int): Int {
         state.c = value.isNegative8Bit()
 
@@ -703,17 +1010,6 @@ class Cpu6502(
         state.n = result.isNegative8Bit()
 
         return result
-    }
-
-    private fun lsr(mode: AddressingMode) {
-        if (mode == AddressingMode.ACCUMULATOR) {
-            state.a = lsrValue(state.a)
-        } else {
-            val address = resolveAddress(mode, false)
-            val oldValue = bus.read(address)
-            bus.write(address, oldValue)
-            bus.write(address, lsrValue(oldValue))
-        }
     }
 
     private fun lsrValue(value: Int): Int {
@@ -727,17 +1023,6 @@ class Cpu6502(
         return result
     }
 
-    private fun rol(mode: AddressingMode) {
-        if (mode == AddressingMode.ACCUMULATOR) {
-            state.a = rolValue(state.a)
-        } else {
-            val address = resolveAddress(mode, false)
-            val oldValue = bus.read(address)
-            bus.write(address, oldValue)
-            bus.write(address, rolValue(oldValue))
-        }
-    }
-
     private fun rolValue(value: Int): Int {
         val carryIn = if (state.c) 1 else 0
         val carryOut = value.isNegative8Bit()
@@ -749,17 +1034,6 @@ class Cpu6502(
         state.n = result.isNegative8Bit()
 
         return result
-    }
-
-    private fun ror(mode: AddressingMode) {
-        if (mode == AddressingMode.ACCUMULATOR) {
-            state.a = rorValue(state.a)
-        } else {
-            val address = resolveAddress(mode, false)
-            val oldValue = bus.read(address)
-            bus.write(address, oldValue)
-            bus.write(address, rorValue(oldValue))
-        }
     }
 
     private fun rorValue(value: Int): Int {
@@ -796,40 +1070,31 @@ class Cpu6502(
         }
     }
 
-    private fun jmp(mode: AddressingMode) {
-        state.pc = when (mode) {
-            AddressingMode.ABSOLUTE -> {
-                val lo = pcRead()
-                val hi = pcRead()
+    private fun rmw(address: Int, transform: (Int) -> Int) {
+        val oldValue = bus.read(address)
+        bus.write(address, oldValue)
+        bus.write(address, transform(oldValue))
+    }
 
-                lo or (hi shl 8)
+    private fun jmpAbsolute() {
+        state.pc = addressAbsolute()
+    }
+
+    private fun jmpIndirect() {
+        val pointer = addressAbsolute()
+        val targetLo = bus.read(pointer)
+
+        val targetHiAddress =
+            if ((pointer and 0x00FF) == 0x00FF) {
+                // 6502 hardware bug: $12FF reads high byte from $1200, not $1300.
+                pointer and 0xFF00
+            } else {
+                (pointer + 1).low16Bits()
             }
 
-            AddressingMode.INDIRECT -> {
-                val lo = pcRead()
-                val hi = pcRead()
-                val pointer = lo or (hi shl 8)
+        val targetHi = bus.read(targetHiAddress)
 
-                val targetLo = bus.read(pointer)
-
-                val targetHiAddress =
-                    if ((pointer and 0x00FF) == 0x00FF) {
-                        // 6502 hardware bug:
-                        // $12FF reads high byte from $1200, not $1300.
-                        pointer and 0xFF00
-                    } else {
-                        (pointer + 1).low16Bits()
-                    }
-
-                val targetHi = bus.read(targetHiAddress)
-
-                targetLo or (targetHi shl 8)
-            }
-
-            else -> throw IllegalArgumentException(
-                "Unsupported JMP addressing mode: $mode"
-            )
-        }
+        state.pc = targetLo or (targetHi shl 8)
     }
 
     private fun jsr() {
