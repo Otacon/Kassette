@@ -54,6 +54,11 @@ class BranchTest : FreeSpec({
             // PC after operand = $8002
             // $8002 + 5 = $8007
             state.pc shouldBe 0x8007
+            bus.reads shouldBe listOf(
+                FakeBus.Read(0x8000),
+                FakeBus.Read(0x8001),
+                FakeBus.Read(0x8002),
+            )
             cycles shouldBe 3
         }
 
@@ -92,6 +97,12 @@ class BranchTest : FreeSpec({
             // PC after operand = $80FF
             // $80FF + 2 = $8101
             state.pc shouldBe 0x8101
+            bus.reads shouldBe listOf(
+                FakeBus.Read(0x80FD),
+                FakeBus.Read(0x80FE),
+                FakeBus.Read(0x80FF),
+                FakeBus.Read(0x8001),
+            )
             cycles shouldBe 4
         }
 

@@ -367,11 +367,15 @@ class Cpu6502(
             }
 
             AddressingMode.ZERO_PAGE_X -> {
-                (pcRead() + state.x).low8Bits()
+                val baseAddress = pcRead()
+                bus.read(baseAddress)
+                (baseAddress + state.x).low8Bits()
             }
 
             AddressingMode.ZERO_PAGE_Y -> {
-                (pcRead() + state.y).low8Bits()
+                val baseAddress = pcRead()
+                bus.read(baseAddress)
+                (baseAddress + state.y).low8Bits()
             }
 
             AddressingMode.ABSOLUTE -> {
@@ -387,9 +391,15 @@ class Cpu6502(
 
                 val baseAddress = lo or (hi shl 8)
                 val address = (baseAddress + state.x).low16Bits()
+                val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
 
                 if (pageCrossPenalty) {
                     pageCrossed = (baseAddress xor address) and 0xFF00 != 0
+                    if (pageCrossed) {
+                        bus.read(speculativeAddress)
+                    }
+                } else {
+                    bus.read(speculativeAddress)
                 }
 
                 address
@@ -401,16 +411,24 @@ class Cpu6502(
 
                 val baseAddress = lo or (hi shl 8)
                 val address = (baseAddress + state.y).low16Bits()
+                val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
 
                 if (pageCrossPenalty) {
                     pageCrossed = (baseAddress xor address) and 0xFF00 != 0
+                    if (pageCrossed) {
+                        bus.read(speculativeAddress)
+                    }
+                } else {
+                    bus.read(speculativeAddress)
                 }
 
                 address
             }
 
             AddressingMode.INDIRECT_X -> {
-                val pointer = (pcRead() + state.x).low8Bits()
+                val basePointer = pcRead()
+                bus.read(basePointer)
+                val pointer = (basePointer + state.x).low8Bits()
 
                 val lo = bus.read(pointer)
                 val hi = bus.read((pointer + 1).low8Bits())
@@ -426,9 +444,15 @@ class Cpu6502(
 
                 val baseAddress = lo or (hi shl 8)
                 val address = (baseAddress + state.y).low16Bits()
+                val speculativeAddress = (baseAddress and 0xFF00) or (address and 0x00FF)
 
                 if (pageCrossPenalty) {
                     pageCrossed = (baseAddress xor address) and 0xFF00 != 0
+                    if (pageCrossed) {
+                        bus.read(speculativeAddress)
+                    }
+                } else {
+                    bus.read(speculativeAddress)
                 }
 
                 address
@@ -760,10 +784,16 @@ class Cpu6502(
 
         val oldPc = state.pc
         val newPc = (oldPc + offset).low16Bits()
+        bus.read(oldPc)
 
         state.pc = newPc
 
-        return if (oldPc.pageBase() != newPc.pageBase()) 2 else 1
+        return if (oldPc.pageBase() != newPc.pageBase()) {
+            bus.read(oldPc.pageBase() or (newPc and 0x00FF))
+            2
+        } else {
+            1
+        }
     }
 
     private fun jmp(mode: AddressingMode) {

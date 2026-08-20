@@ -172,6 +172,12 @@ class STATest : FreeSpec({
 
         memory[0x1300] shouldBe 0x42
         state.pc shouldBe 0x8003
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x8002),
+            FakeBus.Read(0x1200),
+        )
 
         // No conditional +1 penalty for STA.
         cycles shouldBe 5
@@ -212,6 +218,12 @@ class STATest : FreeSpec({
 
         memory[0x1300] shouldBe 0x42
         state.pc shouldBe 0x8003
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x8002),
+            FakeBus.Read(0x1200),
+        )
 
         cycles shouldBe 5
     }
@@ -274,6 +286,13 @@ class STATest : FreeSpec({
 
         memory[0x1300] shouldBe 0x42
         state.pc shouldBe 0x8002
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x0020),
+            FakeBus.Read(0x0021),
+            FakeBus.Read(0x1200),
+        )
 
         cycles shouldBe 6
     }

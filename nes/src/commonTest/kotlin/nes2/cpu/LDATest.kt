@@ -162,6 +162,27 @@ class LDATest : FreeSpec({
         memory[0x0050] = case.value
     }
 
+    "zero page X performs dummy read before indexed read" {
+        state = CpuState(pc = 0x8000, x = 0x10)
+
+        memory[state.pc] = 0xB5
+        memory[state.pc + 1] = 0x40
+        memory[0x0050] = 0x42
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+
+        cpu.step() shouldBe 4
+
+        state.a shouldBe 0x42
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x0040),
+            FakeBus.Read(0x0050),
+        )
+    }
+
     testLdaMode(
         name = "absolute",
         instructionSize = 3,
@@ -209,6 +230,13 @@ class LDATest : FreeSpec({
         state.z shouldBe false
         state.n shouldBe true
         state.pc shouldBe 0x8003
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x8002),
+            FakeBus.Read(0x1200),
+            FakeBus.Read(0x1300),
+        )
         cycles shouldBe 5
     }
 
@@ -247,6 +275,13 @@ class LDATest : FreeSpec({
         state.z shouldBe false
         state.n shouldBe true
         state.pc shouldBe 0x8003
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x8002),
+            FakeBus.Read(0x1200),
+            FakeBus.Read(0x1300),
+        )
         cycles shouldBe 5
     }
 
@@ -266,6 +301,31 @@ class LDATest : FreeSpec({
         memory[0x0025] = 0x12
 
         memory[0x1234] = case.value
+    }
+
+    "indirect X performs dummy read before indexed pointer reads" {
+        state = CpuState(pc = 0x8000, x = 0x04)
+
+        memory[state.pc] = 0xA1
+        memory[state.pc + 1] = 0x20
+        memory[0x0024] = 0x34
+        memory[0x0025] = 0x12
+        memory[0x1234] = 0x42
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+
+        cpu.step() shouldBe 6
+
+        state.a shouldBe 0x42
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x0020),
+            FakeBus.Read(0x0024),
+            FakeBus.Read(0x0025),
+            FakeBus.Read(0x1234),
+        )
     }
 
     testLdaMode(
@@ -311,6 +371,14 @@ class LDATest : FreeSpec({
         state.z shouldBe false
         state.n shouldBe true
         state.pc shouldBe 0x8002
+        bus.reads shouldBe listOf(
+            FakeBus.Read(0x8000),
+            FakeBus.Read(0x8001),
+            FakeBus.Read(0x0020),
+            FakeBus.Read(0x0021),
+            FakeBus.Read(0x1200),
+            FakeBus.Read(0x1300),
+        )
         cycles shouldBe 6
     }
 })
