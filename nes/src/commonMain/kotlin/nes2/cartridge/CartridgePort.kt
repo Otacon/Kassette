@@ -13,6 +13,8 @@ interface CartridgePort {
     fun ppuRead(address: Int): Int
 
     fun ppuWrite(address: Int, value: Int)
+
+    fun irqPending(): Boolean
 }
 
 class CartridgePortNes : CartridgePort {
@@ -73,7 +75,7 @@ class CartridgePortNes : CartridgePort {
         mapper?.clockScanline()
     }
 
-    fun irqPending(): Boolean {
+    override fun irqPending(): Boolean {
         return mapper?.irqPending() ?: false
     }
 

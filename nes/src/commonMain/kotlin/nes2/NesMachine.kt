@@ -1,6 +1,7 @@
 package nes2
 
 import nes2.cpu.Cpu
+import nes2.cartridge.CartridgePort
 import nes2.ppu.Ppu
 
 interface NesMachine {
@@ -12,6 +13,7 @@ class NesMachineImpl(
     private val cpu: Cpu,
     private val ppu: Ppu,
     private val oamDma: OamDma,
+    private val cartridge: CartridgePort,
 ) : NesMachine {
 
     private var cpuCycles: Long = 0
@@ -46,6 +48,8 @@ class NesMachineImpl(
             tickPpu(dmaCycles)
             return
         }
+
+        cpu.setIrqLine(cartridge.irqPending())
 
         val cycles = cpu.step()
         cpuCycles += cycles

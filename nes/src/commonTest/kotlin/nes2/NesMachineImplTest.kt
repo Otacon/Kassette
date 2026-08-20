@@ -2,6 +2,7 @@ package nes2
 
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
+import nes2.fakes.FakeCartridgePort
 import nes2.fakes.FakeCpu
 import nes2.fakes.FakeOamDma
 import nes2.fakes.FakePpu
@@ -11,13 +12,15 @@ class NesMachineImplTest : FreeSpec({
     lateinit var cpu: FakeCpu
     lateinit var ppu: FakePpu
     lateinit var dma: FakeOamDma
+    lateinit var cartridge: FakeCartridgePort
     lateinit var machine: NesMachineImpl
 
     beforeTest {
         cpu = FakeCpu()
         ppu = FakePpu()
         dma = FakeOamDma()
-        machine = NesMachineImpl(cpu, ppu, dma)
+        cartridge = FakeCartridgePort()
+        machine = NesMachineImpl(cpu, ppu, dma, cartridge)
     }
 
     "reset advances PPU by CPU reset timing" {
@@ -102,5 +105,28 @@ class NesMachineImplTest : FreeSpec({
         dma.transfers shouldBe 1
         cpu.steps shouldBe 1
         (ppu.ticks - ticksBeforeDma) shouldBe 1542
+    }
+
+    "asserts CPU IRQ line when mapper IRQ is pending" {
+        cpu.cycles = 1
+        cartridge.irqPending = true
+        ppu.ticksUntilNextFrame = 3
+
+        machine.runUntilFrame()
+
+        cpu.irqLine shouldBe true
+        cpu.steps shouldBe 1
+    }
+
+    "clears CPU IRQ line when mapper IRQ is not pending" {
+        cpu.cycles = 1
+        cpu.setIrqLine(true)
+        cartridge.irqPending = false
+        ppu.ticksUntilNextFrame = 3
+
+        machine.runUntilFrame()
+
+        cpu.irqLine shouldBe false
+        cpu.steps shouldBe 1
     }
 })

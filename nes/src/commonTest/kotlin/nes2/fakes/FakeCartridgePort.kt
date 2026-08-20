@@ -11,6 +11,7 @@ class FakeCartridgePort : CartridgePort {
     var lastReadAddress: Int? = null
     var lastWriteAddress: Int? = null
     var lastWriteValue: Int? = null
+    var irqPending = false
 
     override fun ppuRead(address: Int): Int {
         lastReadAddress = address
@@ -22,5 +23,7 @@ class FakeCartridgePort : CartridgePort {
         lastWriteValue = value
         memory[address] = value
     }
+
+    override fun irqPending(): Boolean = irqPending
 
 }
