@@ -190,6 +190,15 @@ class Cpu6502(
             0x97 -> { sax(addressZeroPageY()); 4 }
             0x8F -> { sax(addressAbsolute()); 4 }
             0x83 -> { sax(addressIndirectX()); 6 }
+            // AHX
+            0x93 -> { ahxIndirectY(); 6 }
+            0x9F -> { ahxAbsoluteY(); 5 }
+            // SHY
+            0x9C -> { shyAbsoluteX(); 5 }
+            // SHX
+            0x9E -> { shxAbsoluteY(); 5 }
+            // TAS
+            0x9B -> { tasAbsoluteY(); 5 }
             // ANC
             0x0B, 0x2B -> { anc(immediate()); 2 }
             // ALR
@@ -554,6 +563,55 @@ class Cpu6502(
 
     private fun sax(address: Int) {
         bus.write(address, state.a and state.x)
+    }
+
+    private fun ahxIndirectY() {
+        val pointer = pcRead()
+        val lo = bus.read(pointer)
+        val hi = bus.read((pointer + 1).low8Bits())
+        val baseAddress = lo or (hi shl 8)
+        val targetAddress = (baseAddress + state.y).low16Bits()
+        unstableStore(baseAddress, targetAddress, state.a and state.x)
+    }
+
+    private fun ahxAbsoluteY() {
+        val baseAddress = addressAbsolute()
+        val targetAddress = (baseAddress + state.y).low16Bits()
+        unstableStore(baseAddress, targetAddress, state.a and state.x)
+    }
+
+    private fun shyAbsoluteX() {
+        val baseAddress = addressAbsolute()
+        val targetAddress = (baseAddress + state.x).low16Bits()
+        unstableStore(baseAddress, targetAddress, state.y)
+    }
+
+    private fun shxAbsoluteY() {
+        val baseAddress = addressAbsolute()
+        val targetAddress = (baseAddress + state.y).low16Bits()
+        unstableStore(baseAddress, targetAddress, state.x)
+    }
+
+    private fun tasAbsoluteY() {
+        val valueRegister = state.a and state.x
+        state.sp = valueRegister
+
+        val baseAddress = addressAbsolute()
+        val targetAddress = (baseAddress + state.y).low16Bits()
+        unstableStore(baseAddress, targetAddress, valueRegister)
+    }
+
+    private fun unstableStore(baseAddress: Int, targetAddress: Int, valueRegister: Int) {
+        readSpeculativeIndexedAddress(baseAddress, targetAddress)
+
+        val value = valueRegister and (((baseAddress ushr 8) + 1).low8Bits())
+        val destination = if (baseAddress.pageBase() != targetAddress.pageBase()) {
+            targetAddress.low8Bits() or (((targetAddress ushr 8) and valueRegister) shl 8)
+        } else {
+            targetAddress
+        }
+
+        bus.write(destination, value)
     }
 
     private fun las(value: Int) {
