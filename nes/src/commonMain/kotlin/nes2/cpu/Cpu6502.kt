@@ -188,6 +188,16 @@ class Cpu6502(
             0x97 -> { sax(addressZeroPageY()); 4 }
             0x8F -> { sax(addressAbsolute()); 4 }
             0x83 -> { sax(addressIndirectX()); 6 }
+            // ANC
+            0x0B, 0x2B -> { anc(immediate()); 2 }
+            // ALR
+            0x4B -> { alr(immediate()); 2 }
+            // ARR
+            0x6B -> { arr(immediate()); 2 }
+            // XAA
+            0x8B -> { xaa(immediate()); 2 }
+            // AXS/SBX
+            0xCB -> { axs(immediate()); 2 }
             // SLO
             0x03 -> { slo(addressIndirectX()); 8 }
             0x07 -> { slo(addressZeroPage()); 5 }
@@ -542,6 +552,36 @@ class Cpu6502(
 
     private fun sax(address: Int) {
         bus.write(address, state.a and state.x)
+    }
+
+    private fun anc(value: Int) {
+        and(value)
+        state.c = state.n
+    }
+
+    private fun alr(value: Int) {
+        state.a = lsrValue(state.a and value)
+    }
+
+    private fun arr(value: Int) {
+        state.a = rorValue(state.a and value)
+        state.c = (state.a and 0x40) != 0
+        state.v = (((state.a shr 6) xor (state.a shr 5)) and 1) != 0
+    }
+
+    private fun xaa(value: Int) {
+        state.a = ((state.a or 0xEE) and state.x and value).low8Bits()
+        state.z = state.a == 0
+        state.n = state.a.isNegative8Bit()
+    }
+
+    private fun axs(value: Int) {
+        val source = state.a and state.x
+        val result = (source - value).low8Bits()
+        state.x = result
+        state.c = source >= value
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
     }
 
     private fun slo(address: Int) {
