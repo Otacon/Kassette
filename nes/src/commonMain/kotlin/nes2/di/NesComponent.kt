@@ -8,6 +8,8 @@ import nes2.CpuBus
 import nes2.CpuBusNes
 import nes2.OamDma
 import nes2.OamDmaNes
+import nes2.apu.Apu
+import nes2.apu.ApuNes
 import nes2.cartridge.CartridgePort
 import nes2.cartridge.CartridgePortNes
 import nes2.controller.ControllerPort
@@ -59,12 +61,23 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun cpuBus(cartridgeSocket: CartridgeSocket, ppu: Ppu, controllerPort: ControllerPort, dma: OamDma): CpuBus =
+    fun apu(): Apu = ApuNes()
+
+    @NesScope
+    @Provides
+    fun cpuBus(
+        cartridgeSocket: CartridgeSocket,
+        ppu: Ppu,
+        controllerPort: ControllerPort,
+        dma: OamDma,
+        apu: Apu
+    ): CpuBus =
         CpuBusNes(
             ram = IntArray(2048),
             cartridge = cartridgeSocket,
             ppu = ppu,
             dma = dma,
+            apu = apu,
             controller1 = controllerPort,
             controller2 = controllerPort,
         )

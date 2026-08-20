@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import nes.cartridge.Cartridge
 import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mirroring
+import nes2.fakes.FakeApu
 import nes2.fakes.FakeController
 import nes2.fakes.FakeMapper
 import nes2.fakes.FakeOamDma
@@ -18,6 +19,7 @@ class CpuBusNesTest : FreeSpec({
     lateinit var cartridgeSocket: CartridgeSocket
     lateinit var bus: CpuBusNes
     lateinit var dma: FakeOamDma
+    lateinit var apu: FakeApu
     lateinit var controller1: FakeController
     lateinit var controller2: FakeController
 
@@ -27,6 +29,7 @@ class CpuBusNesTest : FreeSpec({
         ppu = FakePpu(registers = ppuRegisters)
         cartridgeSocket = CartridgeSocket()
         dma = FakeOamDma()
+        apu = FakeApu()
         controller1 = FakeController()
         controller2 = FakeController()
         bus = CpuBusNes(
@@ -34,6 +37,7 @@ class CpuBusNesTest : FreeSpec({
             ppu = ppu,
             cartridge = cartridgeSocket,
             dma = dma,
+            apu = apu,
             controller1 = controller1,
             controller2 = controller2
         )
@@ -150,6 +154,40 @@ class CpuBusNesTest : FreeSpec({
         bus.write(0x4014, 0x02)
 
         dma.page shouldBe 0x02
+    }
+
+    "reads APU status from 0x4015" {
+        apu.readValue = 0x42
+
+        bus.read(0x4015) shouldBe 0x42
+
+        apu.lastReadAddress shouldBe 0x4015
+    }
+
+    "writes APU registers" {
+        bus.write(0x4000, 0x42)
+
+        apu.lastWriteAddress shouldBe 0x4000
+        apu.lastWriteValue shouldBe 0x42
+
+        bus.write(0x4013, 0x24)
+
+        apu.lastWriteAddress shouldBe 0x4013
+        apu.lastWriteValue shouldBe 0x24
+    }
+
+    "writes APU status from 0x4015" {
+        bus.write(0x4015, 0x42)
+
+        apu.lastWriteAddress shouldBe 0x4015
+        apu.lastWriteValue shouldBe 0x42
+    }
+
+    "writes APU frame counter from 0x4017" {
+        bus.write(0x4017, 0xC0)
+
+        apu.lastWriteAddress shouldBe 0x4017
+        apu.lastWriteValue shouldBe 0xC0
     }
 
     "reads controller 1 from 0x4016" {
