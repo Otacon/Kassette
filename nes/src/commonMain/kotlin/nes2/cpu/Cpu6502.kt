@@ -183,6 +183,8 @@ class Cpu6502(
             0xBF -> { lax(readAbsoluteY()); 4 + pagePenalty }
             0xA3 -> { lax(readIndirectX()); 6 }
             0xB3 -> { lax(readIndirectY()); 5 + pagePenalty }
+            // LAS
+            0xBB -> { las(readAbsoluteY()); 4 + pagePenalty }
             // SAX
             0x87 -> { sax(addressZeroPage()); 3 }
             0x97 -> { sax(addressZeroPageY()); 4 }
@@ -552,6 +554,15 @@ class Cpu6502(
 
     private fun sax(address: Int) {
         bus.write(address, state.a and state.x)
+    }
+
+    private fun las(value: Int) {
+        val result = value and state.sp
+        state.a = result
+        state.x = result
+        state.sp = result
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
     }
 
     private fun anc(value: Int) {
