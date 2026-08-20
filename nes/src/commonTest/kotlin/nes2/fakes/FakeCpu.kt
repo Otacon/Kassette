@@ -18,8 +18,11 @@ class FakeCpu : Cpu {
     var nmiRequests = 0
         private set
 
-    override fun reset() {
+    var resetCycles = 0
+
+    override fun reset(): Int {
         resets++
+        return resetCycles
     }
 
     override fun setIrqLine(active: Boolean) {

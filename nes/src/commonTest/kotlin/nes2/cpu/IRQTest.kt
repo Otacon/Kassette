@@ -23,9 +23,11 @@ class IRQTest : FreeSpec({
         state = CpuState(
             pc = 0x8000,
             sp = 0xFD,
+            irqPollI = false,
             status = 0x20,
         )
 
+        memory[0x8000] = 0xEA
         memory[0xFFFE] = 0x34
         memory[0xFFFF] = 0x12
 
@@ -38,6 +40,82 @@ class IRQTest : FreeSpec({
 
         state.pc shouldBe 0x1234
         cycles shouldBe 7
+    }
+
+    "services IRQ instead of executing next opcode" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            irqPollI = false,
+            status = 0x20,
+        )
+
+        memory[0x8000] = 0xEA
+        memory[0xFFFE] = 0x00
+        memory[0xFFFF] = 0x90
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+
+        cpu.setIrqLine(true)
+
+        cpu.step() shouldBe 7
+
+        state.pc shouldBe 0x9000
+        memory[0x01FC] shouldBe 0x00
+    }
+
+    "CLI delays IRQ until after the following instruction" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            irqPollI = true,
+            status = 0x24,
+        )
+
+        memory[0x8000] = 0x58 // CLI
+        memory[0x8001] = 0xEA // NOP
+        memory[0x8002] = 0xEA // Would execute if IRQ were delayed too long.
+        memory[0xFFFE] = 0x00
+        memory[0xFFFF] = 0x90
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+
+        cpu.setIrqLine(true)
+
+        cpu.step() shouldBe 2
+        state.pc shouldBe 0x8001
+
+        cpu.step() shouldBe 2
+        state.pc shouldBe 0x8002
+
+        cpu.step() shouldBe 7
+        state.pc shouldBe 0x9000
+    }
+
+    "SEI prevents IRQ on the following instruction" {
+        state = CpuState(
+            pc = 0x8000,
+            sp = 0xFD,
+            irqPollI = false,
+            status = 0x20,
+        )
+
+        memory[0x8000] = 0x78 // SEI
+        memory[0x8001] = 0xEA // NOP
+        memory[0xFFFE] = 0x00
+        memory[0xFFFF] = 0x90
+
+        bus = FakeBus(memory = memory)
+        cpu = Cpu6502(bus = bus, state = state)
+
+        cpu.step() shouldBe 2
+
+        cpu.setIrqLine(true)
+
+        cpu.step() shouldBe 2
+        state.pc shouldBe 0x8002
     }
 
     "pushes current PC" {

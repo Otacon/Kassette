@@ -20,6 +20,29 @@ class NesMachineImplTest : FreeSpec({
         machine = NesMachineImpl(cpu, ppu, dma)
     }
 
+    "reset advances PPU by CPU reset timing" {
+        cpu.resetCycles = 7
+
+        machine.reset()
+
+        cpu.resets shouldBe 1
+        ppu.ticks shouldBe 21
+    }
+
+    "DMA after reset uses odd CPU cycle parity" {
+        cpu.resetCycles = 7
+
+        machine.reset()
+        ppu.ticksUntilNextFrame = ppu.ticks + (514 * 3)
+        dma.start(0x02)
+
+        machine.runUntilFrame()
+
+        dma.transfers shouldBe 1
+        cpu.steps shouldBe 0
+        ppu.ticks shouldBe 21 + (514 * 3)
+    }
+
     "runs CPU steps and advances PPU until next frame" {
         cpu.cycles = 4
         ppu.ticksUntilNextFrame = 24

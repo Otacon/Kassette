@@ -17,10 +17,11 @@ class NesMachineImpl(
     private var cpuCycles: Long = 0
 
     override fun reset() {
-        cpuCycles = 0
-        cpu.reset()
         ppu.reset()
         oamDma.reset()
+        val resetCycles = cpu.reset()
+        cpuCycles = resetCycles.toLong()
+        tickPpu(resetCycles)
     }
 
     override fun runUntilFrame() {

@@ -7,7 +7,7 @@ import nes.util.pageBase
 import nes2.CpuBus
 
 interface Cpu {
-    fun reset()
+    fun reset(): Int
     fun setIrqLine(active: Boolean)
     fun requestNmi()
     fun step(): Int
@@ -237,9 +237,17 @@ class Cpu6502(
         instructions[0xEA] = Instruction(Operation.NOP, AddressingMode.IMPLIED, 2)
     }
 
-    override fun reset() {
-        state = CpuState()
+    override fun reset(): Int {
+        state.a = 0
+        state.x = 0
+        state.y = 0
+        state.sp = 0xFD
+        state.status = 0x24
+        state.irqLine = false
+        state.nmiPending = false
+        state.irqPollI = true
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
+        return RESET_CYCLES
     }
 
     override fun setIrqLine(active: Boolean) {
@@ -256,7 +264,7 @@ class Cpu6502(
             return nmi()
         }
 
-        if (state.irqLine && !state.irqPollI) {
+        if (state.irqLine && !state.i && !state.irqPollI) {
             return irq()
         }
 
@@ -904,5 +912,7 @@ class Cpu6502(
 
     // endregion
 
+    private companion object {
+        const val RESET_CYCLES = 7
+    }
 }
-
