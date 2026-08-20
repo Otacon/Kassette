@@ -3,10 +3,14 @@ package nes2.fakes
 import nes2.OamDma
 
 class FakeOamDma : OamDma {
-    override var page: Int = 0
+
+    override var page = 0
         private set
 
-    override var active: Boolean = false
+    override var active = false
+        private set
+
+    var transfers = 0
         private set
 
     override fun start(page: Int) {
@@ -14,8 +18,8 @@ class FakeOamDma : OamDma {
         active = true
     }
 
-    override fun stop() {
+    override fun transfer() {
+        transfers++
         active = false
     }
-
 }

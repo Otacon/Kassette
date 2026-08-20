@@ -12,6 +12,7 @@ class FakePpu(
         private set
 
     var ticksUntilNextFrame: Int? = null
+    val oamWrites = mutableListOf<Int>()
 
     override fun cpuReadRegister(address: Int): Int {
         return registers[address - 0x2000]
@@ -21,7 +22,9 @@ class FakePpu(
         registers[address - 0x2000] = value and 0xFF
     }
 
-    override fun writeOamData(value: Int) = Unit
+    override fun writeOamData(value: Int) {
+        oamWrites += value and 0xFF
+    }
 
     override fun tick() {
         ticks++

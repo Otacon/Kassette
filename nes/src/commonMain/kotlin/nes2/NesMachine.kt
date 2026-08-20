@@ -10,7 +10,10 @@ interface NesMachine {
 class NesMachineImpl(
     private val cpu: Cpu,
     private val ppu: Ppu,
+    private val oamDma: OamDma,
 ) : NesMachine {
+
+    private var cpuCycles: Long = 0
 
     override fun runUntilFrame() {
         val currentFrame = ppu.frame
@@ -21,11 +24,30 @@ class NesMachineImpl(
     }
 
     private fun step() {
-        val cpuCycles = cpu.step()
-        var currentCycle = 0
-        while (currentCycle < cpuCycles * PPU_TICKS_PER_CPU_CYCLE) {
+        if (oamDma.active) {
+            oamDma.transfer()
+
+            val dmaCycles = if (cpuCycles and 1L == 0L) {
+                513
+            } else {
+                514
+            }
+
+            cpuCycles += dmaCycles
+            tickPpu(dmaCycles)
+            return
+        }
+
+        val cycles = cpu.step()
+        cpuCycles += cycles
+        tickPpu(cycles)
+    }
+
+    private fun tickPpu(cpuCycles: Int) {
+        var tick = 0
+        while (tick < cpuCycles * PPU_TICKS_PER_CPU_CYCLE) {
             ppu.tick()
-            currentCycle++
+            tick++
         }
     }
 

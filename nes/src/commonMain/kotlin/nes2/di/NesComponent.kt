@@ -52,18 +52,22 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun oamDma(ppu: Ppu): OamDma = OamDmaNes(ppu)
+    fun oamDma(ppu: Ppu, cpuBus: CpuBus): OamDma = OamDmaNes(
+        cpuBus = cpuBus,
+        ppu = ppu,
+    )
 
     @NesScope
     @Provides
-    fun cpuBus(cartridgeSocket: CartridgeSocket, ppu: Ppu, controllerPort: ControllerPort): CpuBus = CpuBusNes(
-        ram = IntArray(2048),
-        cartridge = cartridgeSocket,
-        ppu = ppu,
-        dma = OamDmaNes(ppu),
-        controller1 = controllerPort,
-        controller2 = controllerPort,
-    )
+    fun cpuBus(cartridgeSocket: CartridgeSocket, ppu: Ppu, controllerPort: ControllerPort, dma: OamDma): CpuBus =
+        CpuBusNes(
+            ram = IntArray(2048),
+            cartridge = cartridgeSocket,
+            ppu = ppu,
+            dma = dma,
+            controller1 = controllerPort,
+            controller2 = controllerPort,
+        )
 
     @NesScope
     @Provides
