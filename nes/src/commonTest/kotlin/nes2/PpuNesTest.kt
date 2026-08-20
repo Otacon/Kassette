@@ -14,16 +14,19 @@ class PpuNesTest : FreeSpec({
     lateinit var ppuBus: FakePpuBus
     lateinit var frameBuffer: FakeFrameBuffer
     var nmiRequested = false
+    var mapperScanlineClocks = 0
 
     beforeTest {
         state = PpuState()
         ppuBus = FakePpuBus()
         nmiRequested = false
+        mapperScanlineClocks = 0
         frameBuffer = FakeFrameBuffer()
         ppu = PpuNes(
             state = state,
             ppuBus = ppuBus,
             onNmi = { nmiRequested = true },
+            onMapperScanline = { mapperScanlineClocks++ },
             frameBuffer = frameBuffer
         )
     }
@@ -392,6 +395,35 @@ class PpuNesTest : FreeSpec({
 
         state.dot shouldBe 0
         state.scanline shouldBe 1
+    }
+
+    "clocks mapper scanline at dot 260 while rendering" {
+        state.mask = 0x08
+        state.scanline = 10
+        state.dot = 260
+
+        ppu.tick()
+
+        mapperScanlineClocks shouldBe 1
+    }
+
+    "does not clock mapper scanline when rendering is disabled" {
+        state.scanline = 10
+        state.dot = 260
+
+        ppu.tick()
+
+        mapperScanlineClocks shouldBe 0
+    }
+
+    "does not clock mapper scanline outside rendering scanlines" {
+        state.mask = 0x08
+        state.scanline = 241
+        state.dot = 260
+
+        ppu.tick()
+
+        mapperScanlineClocks shouldBe 0
     }
 
     "VBlank starts at scanline 241 dot 1" {
@@ -3179,6 +3211,7 @@ class PpuNesTest : FreeSpec({
             state = state,
             ppuBus = ppuBus,
             onNmi = { nmiCount++ },
+            onMapperScanline = {},
             frameBuffer = frameBuffer,
         )
 
@@ -3201,6 +3234,7 @@ class PpuNesTest : FreeSpec({
             state = state,
             ppuBus = ppuBus,
             onNmi = { nmiCount++ },
+            onMapperScanline = {},
             frameBuffer = frameBuffer,
         )
 

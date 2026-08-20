@@ -14,6 +14,8 @@ interface CartridgePort {
 
     fun ppuWrite(address: Int, value: Int)
 
+    fun clockScanline()
+
     fun irqPending(): Boolean
 }
 
@@ -71,7 +73,7 @@ class CartridgePortNes : CartridgePort {
         mapper?.ppuWrite(address, value)
     }
 
-    fun clockScanline() {
+    override fun clockScanline() {
         mapper?.clockScanline()
     }
 

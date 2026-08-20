@@ -16,6 +16,7 @@ class PpuNes(
     private var state: PpuState = PpuState(),
     private val ppuBus: PpuBus,
     private val onNmi: () -> Unit,
+    private val onMapperScanline: () -> Unit,
     private val frameBuffer: FrameBuffer,
 ) : Ppu {
 
@@ -171,7 +172,14 @@ class PpuNes(
             fetchBackground()
             updateScroll()
         }
+        clockMapperScanline()
         advanceTiming(isRenderingEnabled)
+    }
+
+    private fun clockMapperScanline() {
+        if (isRenderingEnabled && isRenderingScanline && state.dot == MAPPER_SCANLINE_DOT) {
+            onMapperScanline()
+        }
     }
 
     private fun updateStatusFlags() {
@@ -865,6 +873,7 @@ class PpuNes(
         const val STATUS_FLAGS = SPRITE_OVERFLOW_FLAG or SPRITE_ZERO_HIT_FLAG or VBLANK_FLAG
 
         const val NMI_ENABLED_FLAG = 0x80
+        const val MAPPER_SCANLINE_DOT = 260
         const val DOTS_PER_SCANLINE = 341
         const val SCANLINES_PER_FRAME = 262
     }

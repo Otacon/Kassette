@@ -41,10 +41,11 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun ppu(ppuBus: PpuBus, cpu6502: Cpu6502): Ppu = PpuNes(
+    fun ppu(ppuBus: PpuBus, cpu6502: Cpu6502, cartridgeSocket: CartridgePort): Ppu = PpuNes(
         state = PpuState(),
         ppuBus = ppuBus,
         onNmi = { cpu6502.requestNmi() },
+        onMapperScanline = { cartridgeSocket.clockScanline() },
         frameBuffer = FramebufferNes()
     )
 
