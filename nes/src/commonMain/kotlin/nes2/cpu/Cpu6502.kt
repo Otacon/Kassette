@@ -80,601 +80,220 @@ class Cpu6502(
         return cycles
     }
 
+    // @formatter:off
     private fun execute(opcode: Int): Int {
         pagePenalty = 0
-
         return when (opcode) {
             // ADC
-            0x69 -> {
-                adc(immediate()); 2
-            }
-
-            0x65 -> {
-                adc(readZeroPage()); 3
-            }
-
-            0x75 -> {
-                adc(readZeroPageX()); 4
-            }
-
-            0x61 -> {
-                adc(readIndirectX()); 6
-            }
-
-            0x6D -> {
-                adc(readAbsolute()); 4
-            }
-
-            0x71 -> {
-                adc(readIndirectY()); 5 + pagePenalty
-            }
-
-            0x7D -> {
-                adc(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0x79 -> {
-                adc(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0x69 -> { adc(immediate()); 2 }
+            0x65 -> { adc(readZeroPage()); 3 }
+            0x75 -> { adc(readZeroPageX()); 4 }
+            0x61 -> { adc(readIndirectX()); 6 }
+            0x6D -> { adc(readAbsolute()); 4 }
+            0x71 -> { adc(readIndirectY()); 5 + pagePenalty }
+            0x7D -> { adc(readAbsoluteX()); 4 + pagePenalty }
+            0x79 -> { adc(readAbsoluteY()); 4 + pagePenalty }
             // AND
-            0x29 -> {
-                and(immediate()); 2
-            }
-
-            0x25 -> {
-                and(readZeroPage()); 3
-            }
-
-            0x35 -> {
-                and(readZeroPageX()); 4
-            }
-
-            0x21 -> {
-                and(readIndirectX()); 6
-            }
-
-            0x2D -> {
-                and(readAbsolute()); 4
-            }
-
-            0x31 -> {
-                and(readIndirectY()); 5 + pagePenalty
-            }
-
-            0x3D -> {
-                and(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0x39 -> {
-                and(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0x29 -> { and(immediate()); 2 }
+            0x25 -> { and(readZeroPage()); 3 }
+            0x35 -> { and(readZeroPageX()); 4 }
+            0x21 -> { and(readIndirectX()); 6 }
+            0x2D -> { and(readAbsolute()); 4 }
+            0x31 -> { and(readIndirectY()); 5 + pagePenalty }
+            0x3D -> { and(readAbsoluteX()); 4 + pagePenalty }
+            0x39 -> { and(readAbsoluteY()); 4 + pagePenalty }
             // ORA
-            0x09 -> {
-                ora(immediate()); 2
-            }
-
-            0x05 -> {
-                ora(readZeroPage()); 3
-            }
-
-            0x15 -> {
-                ora(readZeroPageX()); 4
-            }
-
-            0x01 -> {
-                ora(readIndirectX()); 6
-            }
-
-            0x0D -> {
-                ora(readAbsolute()); 4
-            }
-
-            0x11 -> {
-                ora(readIndirectY()); 5 + pagePenalty
-            }
-
-            0x1D -> {
-                ora(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0x19 -> {
-                ora(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0x09 -> { ora(immediate()); 2 }
+            0x05 -> { ora(readZeroPage()); 3 }
+            0x15 -> { ora(readZeroPageX()); 4 }
+            0x01 -> { ora(readIndirectX()); 6 }
+            0x0D -> { ora(readAbsolute()); 4 }
+            0x11 -> { ora(readIndirectY()); 5 + pagePenalty }
+            0x1D -> { ora(readAbsoluteX()); 4 + pagePenalty }
+            0x19 -> { ora(readAbsoluteY()); 4 + pagePenalty }
             // EOR
-            0x49 -> {
-                eor(immediate()); 2
-            }
-
-            0x45 -> {
-                eor(readZeroPage()); 3
-            }
-
-            0x55 -> {
-                eor(readZeroPageX()); 4
-            }
-
-            0x41 -> {
-                eor(readIndirectX()); 6
-            }
-
-            0x4D -> {
-                eor(readAbsolute()); 4
-            }
-
-            0x51 -> {
-                eor(readIndirectY()); 5 + pagePenalty
-            }
-
-            0x5D -> {
-                eor(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0x59 -> {
-                eor(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0x49 -> { eor(immediate()); 2 }
+            0x45 -> { eor(readZeroPage()); 3 }
+            0x55 -> { eor(readZeroPageX()); 4 }
+            0x41 -> { eor(readIndirectX()); 6 }
+            0x4D -> { eor(readAbsolute()); 4 }
+            0x51 -> { eor(readIndirectY()); 5 + pagePenalty }
+            0x5D -> { eor(readAbsoluteX()); 4 + pagePenalty }
+            0x59 -> { eor(readAbsoluteY()); 4 + pagePenalty }
             // LDA
-            0xA9 -> {
-                lda(immediate()); 2
-            }
-
-            0xA5 -> {
-                lda(readZeroPage()); 3
-            }
-
-            0xB5 -> {
-                lda(readZeroPageX()); 4
-            }
-
-            0xA1 -> {
-                lda(readIndirectX()); 6
-            }
-
-            0xAD -> {
-                lda(readAbsolute()); 4
-            }
-
-            0xB1 -> {
-                lda(readIndirectY()); 5 + pagePenalty
-            }
-
-            0xBD -> {
-                lda(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0xB9 -> {
-                lda(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0xA9 -> { lda(immediate()); 2 }
+            0xA5 -> { lda(readZeroPage()); 3 }
+            0xB5 -> { lda(readZeroPageX()); 4 }
+            0xA1 -> { lda(readIndirectX()); 6 }
+            0xAD -> { lda(readAbsolute()); 4 }
+            0xB1 -> { lda(readIndirectY()); 5 + pagePenalty }
+            0xBD -> { lda(readAbsoluteX()); 4 + pagePenalty }
+            0xB9 -> { lda(readAbsoluteY()); 4 + pagePenalty }
             // CMP
-            0xC9 -> {
-                cmp(immediate()); 2
-            }
-
-            0xC5 -> {
-                cmp(readZeroPage()); 3
-            }
-
-            0xD5 -> {
-                cmp(readZeroPageX()); 4
-            }
-
-            0xC1 -> {
-                cmp(readIndirectX()); 6
-            }
-
-            0xCD -> {
-                cmp(readAbsolute()); 4
-            }
-
-            0xD1 -> {
-                cmp(readIndirectY()); 5 + pagePenalty
-            }
-
-            0xDD -> {
-                cmp(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0xD9 -> {
-                cmp(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0xC9 -> { cmp(immediate()); 2 }
+            0xC5 -> { cmp(readZeroPage()); 3 }
+            0xD5 -> { cmp(readZeroPageX()); 4 }
+            0xC1 -> { cmp(readIndirectX()); 6 }
+            0xCD -> { cmp(readAbsolute()); 4 }
+            0xD1 -> { cmp(readIndirectY()); 5 + pagePenalty }
+            0xDD -> { cmp(readAbsoluteX()); 4 + pagePenalty }
+            0xD9 -> { cmp(readAbsoluteY()); 4 + pagePenalty }
             // SBC
-            0xE9 -> {
-                sbc(immediate()); 2
-            }
-
-            0xE5 -> {
-                sbc(readZeroPage()); 3
-            }
-
-            0xF5 -> {
-                sbc(readZeroPageX()); 4
-            }
-
-            0xE1 -> {
-                sbc(readIndirectX()); 6
-            }
-
-            0xED -> {
-                sbc(readAbsolute()); 4
-            }
-
-            0xF1 -> {
-                sbc(readIndirectY()); 5 + pagePenalty
-            }
-
-            0xFD -> {
-                sbc(readAbsoluteX()); 4 + pagePenalty
-            }
-
-            0xF9 -> {
-                sbc(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0xE9 -> { sbc(immediate()); 2 }
+            0xE5 -> { sbc(readZeroPage()); 3 }
+            0xF5 -> { sbc(readZeroPageX()); 4 }
+            0xE1 -> { sbc(readIndirectX()); 6 }
+            0xED -> { sbc(readAbsolute()); 4 }
+            0xF1 -> { sbc(readIndirectY()); 5 + pagePenalty }
+            0xFD -> { sbc(readAbsoluteX()); 4 + pagePenalty }
+            0xF9 -> { sbc(readAbsoluteY()); 4 + pagePenalty }
             // LDX
-            0xA2 -> {
-                ldx(immediate()); 2
-            }
-
-            0xA6 -> {
-                ldx(readZeroPage()); 3
-            }
-
-            0xB6 -> {
-                ldx(readZeroPageY()); 4
-            }
-
-            0xAE -> {
-                ldx(readAbsolute()); 4
-            }
-
-            0xBE -> {
-                ldx(readAbsoluteY()); 4 + pagePenalty
-            }
-
+            0xA2 -> { ldx(immediate()); 2 }
+            0xA6 -> { ldx(readZeroPage()); 3 }
+            0xB6 -> { ldx(readZeroPageY()); 4 }
+            0xAE -> { ldx(readAbsolute()); 4 }
+            0xBE -> { ldx(readAbsoluteY()); 4 + pagePenalty }
             // LDY
-            0xA0 -> {
-                ldy(immediate()); 2
-            }
-
-            0xA4 -> {
-                ldy(readZeroPage()); 3
-            }
-
-            0xB4 -> {
-                ldy(readZeroPageX()); 4
-            }
-
-            0xAC -> {
-                ldy(readAbsolute()); 4
-            }
-
-            0xBC -> {
-                ldy(readAbsoluteX()); 4 + pagePenalty
-            }
-
+            0xA0 -> { ldy(immediate()); 2 }
+            0xA4 -> { ldy(readZeroPage()); 3 }
+            0xB4 -> { ldy(readZeroPageX()); 4 }
+            0xAC -> { ldy(readAbsolute()); 4 }
+            0xBC -> { ldy(readAbsoluteX()); 4 + pagePenalty }
             // STA
-            0x85 -> {
-                sta(addressZeroPage()); 3
-            }
-
-            0x95 -> {
-                sta(addressZeroPageX()); 4
-            }
-
-            0x8D -> {
-                sta(addressAbsolute()); 4
-            }
-
-            0x9D -> {
-                sta(addressAbsoluteX()); 5
-            }
-
-            0x99 -> {
-                sta(addressAbsoluteY()); 5
-            }
-
-            0x81 -> {
-                sta(addressIndirectX()); 6
-            }
-
-            0x91 -> {
-                sta(addressIndirectY()); 6
-            }
-
+            0x85 -> { sta(addressZeroPage()); 3 }
+            0x95 -> { sta(addressZeroPageX()); 4 }
+            0x8D -> { sta(addressAbsolute()); 4 }
+            0x9D -> { sta(addressAbsoluteX()); 5 }
+            0x99 -> { sta(addressAbsoluteY()); 5 }
+            0x81 -> { sta(addressIndirectX()); 6 }
+            0x91 -> { sta(addressIndirectY()); 6 }
             // STX
-            0x86 -> {
-                stx(addressZeroPage()); 3
-            }
-
-            0x96 -> {
-                stx(addressZeroPageY()); 4
-            }
-
-            0x8E -> {
-                stx(addressAbsolute()); 4
-            }
-
+            0x86 -> { stx(addressZeroPage()); 3 }
+            0x96 -> { stx(addressZeroPageY()); 4 }
+            0x8E -> { stx(addressAbsolute()); 4 }
             // STY
-            0x84 -> {
-                sty(addressZeroPage()); 3
-            }
-
-            0x94 -> {
-                sty(addressZeroPageX()); 4
-            }
-
-            0x8C -> {
-                sty(addressAbsolute()); 4
-            }
-
+            0x84 -> { sty(addressZeroPage()); 3 }
+            0x94 -> { sty(addressZeroPageX()); 4 }
+            0x8C -> { sty(addressAbsolute()); 4 }
             // LAX
-            0xAB -> {
-                lax(immediate()); 2
-            }
-
-            0xA7 -> {
-                lax(readZeroPage()); 3
-            }
-
-            0xB7 -> {
-                lax(readZeroPageY()); 4
-            }
-
-            0xAF -> {
-                lax(readAbsolute()); 4
-            }
-
-            0xBF -> {
-                lax(readAbsoluteY()); 4 + pagePenalty
-            }
-
-            0xA3 -> {
-                lax(readIndirectX()); 6
-            }
-
-            0xB3 -> {
-                lax(readIndirectY()); 5 + pagePenalty
-            }
-
+            0xAB -> { lax(immediate()); 2 }
+            0xA7 -> { lax(readZeroPage()); 3 }
+            0xB7 -> { lax(readZeroPageY()); 4 }
+            0xAF -> { lax(readAbsolute()); 4 }
+            0xBF -> { lax(readAbsoluteY()); 4 + pagePenalty }
+            0xA3 -> { lax(readIndirectX()); 6 }
+            0xB3 -> { lax(readIndirectY()); 5 + pagePenalty }
             // SAX
-            0x87 -> {
-                sax(addressZeroPage()); 3
-            }
-
-            0x97 -> {
-                sax(addressZeroPageY()); 4
-            }
-
-            0x8F -> {
-                sax(addressAbsolute()); 4
-            }
-
-            0x83 -> {
-                sax(addressIndirectX()); 6
-            }
-
+            0x87 -> { sax(addressZeroPage()); 3 }
+            0x97 -> { sax(addressZeroPageY()); 4 }
+            0x8F -> { sax(addressAbsolute()); 4 }
+            0x83 -> { sax(addressIndirectX()); 6 }
+            // SLO
+            0x03 -> { slo(addressIndirectX()); 8 }
+            0x07 -> { slo(addressZeroPage()); 5 }
+            0x0F -> { slo(addressAbsolute()); 6 }
+            0x13 -> { slo(addressIndirectY()); 8 }
+            0x17 -> { slo(addressZeroPageX()); 6 }
+            0x1B -> { slo(addressAbsoluteY()); 7 }
+            0x1F -> { slo(addressAbsoluteX()); 7 }
+            // RLA
+            0x23 -> { rla(addressIndirectX()); 8 }
+            0x27 -> { rla(addressZeroPage()); 5 }
+            0x2F -> { rla(addressAbsolute()); 6 }
+            0x33 -> { rla(addressIndirectY()); 8 }
+            0x37 -> { rla(addressZeroPageX()); 6 }
+            0x3B -> { rla(addressAbsoluteY()); 7 }
+            0x3F -> { rla(addressAbsoluteX()); 7 }
+            // SRE
+            0x43 -> { sre(addressIndirectX()); 8 }
+            0x47 -> { sre(addressZeroPage()); 5 }
+            0x4F -> { sre(addressAbsolute()); 6 }
+            0x53 -> { sre(addressIndirectY()); 8 }
+            0x57 -> { sre(addressZeroPageX()); 6 }
+            0x5B -> { sre(addressAbsoluteY()); 7 }
+            0x5F -> { sre(addressAbsoluteX()); 7 }
+            // RRA
+            0x63 -> { rra(addressIndirectX()); 8 }
+            0x67 -> { rra(addressZeroPage()); 5 }
+            0x6F -> { rra(addressAbsolute()); 6 }
+            0x73 -> { rra(addressIndirectY()); 8 }
+            0x77 -> { rra(addressZeroPageX()); 6 }
+            0x7B -> { rra(addressAbsoluteY()); 7 }
+            0x7F -> { rra(addressAbsoluteX()); 7 }
+            // DCP
+            0xC3 -> { dcp(addressIndirectX()); 8 }
+            0xC7 -> { dcp(addressZeroPage()); 5 }
+            0xCF -> { dcp(addressAbsolute()); 6 }
+            0xD3 -> { dcp(addressIndirectY()); 8 }
+            0xD7 -> { dcp(addressZeroPageX()); 6 }
+            0xDB -> { dcp(addressAbsoluteY()); 7 }
+            0xDF -> { dcp(addressAbsoluteX()); 7 }
+            // ISC/ISB
+            0xE3 -> { isc(addressIndirectX()); 8 }
+            0xE7 -> { isc(addressZeroPage()); 5 }
+            0xEF -> { isc(addressAbsolute()); 6 }
+            0xF3 -> { isc(addressIndirectY()); 8 }
+            0xF7 -> { isc(addressZeroPageX()); 6 }
+            0xFB -> { isc(addressAbsoluteY()); 7 }
+            0xFF -> { isc(addressAbsoluteX()); 7 }
             // Transfers, increments, decrements
-            0xAA -> {
-                tax(); 2
-            }
-
-            0xA8 -> {
-                tay(); 2
-            }
-
-            0x8A -> {
-                txa(); 2
-            }
-
-            0x98 -> {
-                tya(); 2
-            }
-
-            0xBA -> {
-                tsx(); 2
-            }
-
-            0x9A -> {
-                txs(); 2
-            }
-
-            0xE8 -> {
-                inx(); 2
-            }
-
-            0xC8 -> {
-                iny(); 2
-            }
-
-            0xCA -> {
-                dex(); 2
-            }
-
-            0x88 -> {
-                dey(); 2
-            }
-
+            0xAA -> { tax(); 2 }
+            0xA8 -> { tay(); 2 }
+            0x8A -> { txa(); 2 }
+            0x98 -> { tya(); 2 }
+            0xBA -> { tsx(); 2 }
+            0x9A -> { txs(); 2 }
+            0xE8 -> { inx(); 2 }
+            0xC8 -> { iny(); 2 }
+            0xCA -> { dex(); 2 }
+            0x88 -> { dey(); 2 }
             // CPX, CPY, BIT
-            0xE0 -> {
-                cpx(immediate()); 2
-            }
-
-            0xE4 -> {
-                cpx(readZeroPage()); 3
-            }
-
-            0xEC -> {
-                cpx(readAbsolute()); 4
-            }
-
-            0xC0 -> {
-                cpy(immediate()); 2
-            }
-
-            0xC4 -> {
-                cpy(readZeroPage()); 3
-            }
-
-            0xCC -> {
-                cpy(readAbsolute()); 4
-            }
-
-            0x24 -> {
-                bit(readZeroPage()); 3
-            }
-
-            0x2C -> {
-                bit(readAbsolute()); 4
-            }
-
+            0xE0 -> { cpx(immediate()); 2 }
+            0xE4 -> { cpx(readZeroPage()); 3 }
+            0xEC -> { cpx(readAbsolute()); 4 }
+            0xC0 -> { cpy(immediate()); 2 }
+            0xC4 -> { cpy(readZeroPage()); 3 }
+            0xCC -> { cpy(readAbsolute()); 4 }
+            0x24 -> { bit(readZeroPage()); 3 }
+            0x2C -> { bit(readAbsolute()); 4 }
             // Flags
-            0x18 -> {
-                clc(); 2
-            }
-
-            0x38 -> {
-                sec(); 2
-            }
-
-            0x58 -> {
-                cli(); 2
-            }
-
-            0x78 -> {
-                sei(); 2
-            }
-
-            0xB8 -> {
-                clv(); 2
-            }
-
-            0xD8 -> {
-                cld(); 2
-            }
-
-            0xF8 -> {
-                sed(); 2
-            }
-
+            0x18 -> { clc(); 2 }
+            0x38 -> { sec(); 2 }
+            0x58 -> { cli(); 2 }
+            0x78 -> { sei(); 2 }
+            0xB8 -> { clv(); 2 }
+            0xD8 -> { cld(); 2 }
+            0xF8 -> { sed(); 2 }
             // INC, DEC
-            0xE6 -> {
-                inc(addressZeroPage()); 5
-            }
-
-            0xF6 -> {
-                inc(addressZeroPageX()); 6
-            }
-
-            0xEE -> {
-                inc(addressAbsolute()); 6
-            }
-
-            0xFE -> {
-                inc(addressAbsoluteX()); 7
-            }
-
-            0xC6 -> {
-                dec(addressZeroPage()); 5
-            }
-
-            0xD6 -> {
-                dec(addressZeroPageX()); 6
-            }
-
-            0xCE -> {
-                dec(addressAbsolute()); 6
-            }
-
-            0xDE -> {
-                dec(addressAbsoluteX()); 7
-            }
-
+            0xE6 -> { inc(addressZeroPage()); 5 }
+            0xF6 -> { inc(addressZeroPageX()); 6 }
+            0xEE -> { inc(addressAbsolute()); 6 }
+            0xFE -> { inc(addressAbsoluteX()); 7 }
+            0xC6 -> { dec(addressZeroPage()); 5 }
+            0xD6 -> { dec(addressZeroPageX()); 6 }
+            0xCE -> { dec(addressAbsolute()); 6 }
+            0xDE -> { dec(addressAbsoluteX()); 7 }
             // Shifts and rotates
-            0x0A -> {
-                state.a = aslValue(state.a); 2
-            }
-
-            0x06 -> {
-                rmw(addressZeroPage(), ::aslValue); 5
-            }
-
-            0x16 -> {
-                rmw(addressZeroPageX(), ::aslValue); 6
-            }
-
-            0x0E -> {
-                rmw(addressAbsolute(), ::aslValue); 6
-            }
-
-            0x1E -> {
-                rmw(addressAbsoluteX(), ::aslValue); 7
-            }
-
-            0x4A -> {
-                state.a = lsrValue(state.a); 2
-            }
-
-            0x46 -> {
-                rmw(addressZeroPage(), ::lsrValue); 5
-            }
-
-            0x56 -> {
-                rmw(addressZeroPageX(), ::lsrValue); 6
-            }
-
-            0x4E -> {
-                rmw(addressAbsolute(), ::lsrValue); 6
-            }
-
-            0x5E -> {
-                rmw(addressAbsoluteX(), ::lsrValue); 7
-            }
-
-            0x2A -> {
-                state.a = rolValue(state.a); 2
-            }
-
-            0x26 -> {
-                rmw(addressZeroPage(), ::rolValue); 5
-            }
-
-            0x36 -> {
-                rmw(addressZeroPageX(), ::rolValue); 6
-            }
-
-            0x2E -> {
-                rmw(addressAbsolute(), ::rolValue); 6
-            }
-
-            0x3E -> {
-                rmw(addressAbsoluteX(), ::rolValue); 7
-            }
-
-            0x6A -> {
-                state.a = rorValue(state.a); 2
-            }
-
-            0x66 -> {
-                rmw(addressZeroPage(), ::rorValue); 5
-            }
-
-            0x76 -> {
-                rmw(addressZeroPageX(), ::rorValue); 6
-            }
-
-            0x6E -> {
-                rmw(addressAbsolute(), ::rorValue); 6
-            }
-
-            0x7E -> {
-                rmw(addressAbsoluteX(), ::rorValue); 7
-            }
-
+            0x0A -> { state.a = aslValue(state.a); 2 }
+            0x06 -> { rmw(addressZeroPage(), ::aslValue); 5 }
+            0x16 -> { rmw(addressZeroPageX(), ::aslValue); 6 }
+            0x0E -> { rmw(addressAbsolute(), ::aslValue); 6 }
+            0x1E -> { rmw(addressAbsoluteX(), ::aslValue); 7 }
+            0x4A -> { state.a = lsrValue(state.a); 2 }
+            0x46 -> { rmw(addressZeroPage(), ::lsrValue); 5 }
+            0x56 -> { rmw(addressZeroPageX(), ::lsrValue); 6 }
+            0x4E -> { rmw(addressAbsolute(), ::lsrValue); 6 }
+            0x5E -> { rmw(addressAbsoluteX(), ::lsrValue); 7 }
+            0x2A -> { state.a = rolValue(state.a); 2 }
+            0x26 -> { rmw(addressZeroPage(), ::rolValue); 5 }
+            0x36 -> { rmw(addressZeroPageX(), ::rolValue); 6 }
+            0x2E -> { rmw(addressAbsolute(), ::rolValue); 6 }
+            0x3E -> { rmw(addressAbsoluteX(), ::rolValue); 7 }
+            0x6A -> { state.a = rorValue(state.a); 2 }
+            0x66 -> { rmw(addressZeroPage(), ::rorValue); 5 }
+            0x76 -> { rmw(addressZeroPageX(), ::rorValue); 6 }
+            0x6E -> { rmw(addressAbsolute(), ::rorValue); 6 }
+            0x7E -> { rmw(addressAbsoluteX(), ::rorValue); 7 }
             // Branches
             0x90 -> 2 + branch(!state.c)
             0xB0 -> 2 + branch(state.c)
@@ -684,91 +303,36 @@ class Cpu6502(
             0x10 -> 2 + branch(!state.n)
             0x50 -> 2 + branch(!state.v)
             0x70 -> 2 + branch(state.v)
-
             // Jumps and stack
-            0x4C -> {
-                jmpAbsolute(); 3
-            }
-
-            0x6C -> {
-                jmpIndirect(); 5
-            }
-
-            0x20 -> {
-                jsr(); 6
-            }
-
-            0x60 -> {
-                rts(); 6
-            }
-
-            0x48 -> {
-                pha(); 3
-            }
-
-            0x68 -> {
-                pla(); 4
-            }
-
-            0x08 -> {
-                php(); 3
-            }
-
-            0x28 -> {
-                plp(); 4
-            }
-
-            0x00 -> {
-                brk(); 7
-            }
-
-            0x40 -> {
-                rti(); 6
-            }
-
+            0x4C -> { jmpAbsolute(); 3 }
+            0x6C -> { jmpIndirect(); 5 }
+            0x20 -> { jsr(); 6 }
+            0x60 -> { rts(); 6 }
+            0x48 -> { pha(); 3 }
+            0x68 -> { pla(); 4 }
+            0x08 -> { php(); 3 }
+            0x28 -> { plp(); 4 }
+            0x00 -> { brk(); 7 }
+            0x40 -> { rti(); 6 }
             // KIL/JAM
-            0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72,
-            0x92, 0xB2, 0xD2, 0xF2 -> {
-                kil(); 1
-            }
-
+            0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72, 0x92, 0xB2, 0xD2, 0xF2 -> { kil(); 1 }
             // NOP
-            0xEA, 0x1A, 0x3A, 0x5A, 0x7A, 0xDA, 0xFA -> {
-                nop(); 2
-            }
-
+            0xEA, 0x1A, 0x3A, 0x5A, 0x7A, 0xDA, 0xFA -> { nop(); 2 }
             // NOP #imm
-            0x80, 0x82, 0x89, 0xC2, 0xE2 -> {
-                immediate(); 2
-            }
-
+            0x80, 0x82, 0x89, 0xC2, 0xE2 -> { immediate(); 2 }
             // NOP zp
-            0x04, 0x44, 0x64 -> {
-                readZeroPage(); 3
-            }
-
+            0x04, 0x44, 0x64 -> { readZeroPage(); 3 }
             // NOP zp,X
-            0x14, 0x34, 0x54, 0x74, 0xD4, 0xF4 -> {
-                readZeroPageX(); 4
-            }
-
+            0x14, 0x34, 0x54, 0x74, 0xD4, 0xF4 -> { readZeroPageX(); 4 }
             // NOP abs
-            0x0C -> {
-                readAbsolute(); 4
-            }
-
+            0x0C -> { readAbsolute(); 4 }
             // NOP abs,X
-            0x1C, 0x3C, 0x5C, 0x7C, 0xDC, 0xFC -> {
-                readAbsoluteX(); 4 + pagePenalty
-            }
-
+            0x1C, 0x3C, 0x5C, 0x7C, 0xDC, 0xFC -> { readAbsoluteX(); 4 + pagePenalty }
             // Currently-unimplemented unofficial opcodes.
-            else -> {
-                nop(); 2
-            }
+            else -> { nop(); 2 }
         }
     }
-
+    // @formatter:on
     // region Addressing modes
     private fun immediate(): Int = pcRead()
 
@@ -980,6 +544,30 @@ class Cpu6502(
         bus.write(address, state.a and state.x)
     }
 
+    private fun slo(address: Int) {
+        ora(rmwValue(address, ::aslValue))
+    }
+
+    private fun rla(address: Int) {
+        and(rmwValue(address, ::rolValue))
+    }
+
+    private fun sre(address: Int) {
+        eor(rmwValue(address, ::lsrValue))
+    }
+
+    private fun rra(address: Int) {
+        adc(rmwValue(address, ::rorValue))
+    }
+
+    private fun dcp(address: Int) {
+        cmp(rmwValue(address) { (it - 1).low8Bits() })
+    }
+
+    private fun isc(address: Int) {
+        sbc(rmwValue(address) { (it + 1).low8Bits() })
+    }
+
     private fun tax() {
         state.x = state.a.low8Bits()
         state.z = state.x == 0
@@ -1182,9 +770,15 @@ class Cpu6502(
     }
 
     private fun rmw(address: Int, transform: (Int) -> Int) {
+        rmwValue(address, transform)
+    }
+
+    private fun rmwValue(address: Int, transform: (Int) -> Int): Int {
         val oldValue = bus.read(address)
         bus.write(address, oldValue)
-        bus.write(address, transform(oldValue))
+        val result = transform(oldValue)
+        bus.write(address, result)
+        return result
     }
 
     private fun jmpAbsolute() {
