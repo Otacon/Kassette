@@ -147,6 +147,7 @@ class Cpu6502(
             0xF1 -> { sbc(readIndirectY()); 5 + pagePenalty }
             0xFD -> { sbc(readAbsoluteX()); 4 + pagePenalty }
             0xF9 -> { sbc(readAbsoluteY()); 4 + pagePenalty }
+            0xEB -> { sbc(immediate()); 2 }
             // LDX
             0xA2 -> { ldx(immediate()); 2 }
             0xA6 -> { ldx(readZeroPage()); 3 }
@@ -349,7 +350,7 @@ class Cpu6502(
             0x0C -> { readAbsolute(); 4 }
             // NOP abs,X
             0x1C, 0x3C, 0x5C, 0x7C, 0xDC, 0xFC -> { readAbsoluteX(); 4 + pagePenalty }
-            // Currently-unimplemented unofficial opcodes.
+            // Fallback
             else -> { nop(); 2 }
         }
     }

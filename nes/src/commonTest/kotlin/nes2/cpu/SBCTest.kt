@@ -150,6 +150,15 @@ class SBCTest : FreeSpec({
     }
 
     testSbcMode(
+        name = "unofficial immediate",
+        instructionSize = 2,
+        expectedCycles = 2,
+    ) { memory, state, case ->
+        memory[state.pc] = 0xEB
+        memory[state.pc + 1] = case.value
+    }
+
+    testSbcMode(
         name = "zero page",
         instructionSize = 2,
         expectedCycles = 3,
