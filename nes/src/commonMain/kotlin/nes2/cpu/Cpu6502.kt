@@ -412,6 +412,52 @@ class Cpu6502(
                 sty(addressAbsolute()); 4
             }
 
+            // LAX
+            0xAB -> {
+                lax(immediate()); 2
+            }
+
+            0xA7 -> {
+                lax(readZeroPage()); 3
+            }
+
+            0xB7 -> {
+                lax(readZeroPageY()); 4
+            }
+
+            0xAF -> {
+                lax(readAbsolute()); 4
+            }
+
+            0xBF -> {
+                lax(readAbsoluteY()); 4 + pagePenalty
+            }
+
+            0xA3 -> {
+                lax(readIndirectX()); 6
+            }
+
+            0xB3 -> {
+                lax(readIndirectY()); 5 + pagePenalty
+            }
+
+            // SAX
+            0x87 -> {
+                sax(addressZeroPage()); 3
+            }
+
+            0x97 -> {
+                sax(addressZeroPageY()); 4
+            }
+
+            0x8F -> {
+                sax(addressAbsolute()); 4
+            }
+
+            0x83 -> {
+                sax(addressIndirectX()); 6
+            }
+
             // Transfers, increments, decrements
             0xAA -> {
                 tax(); 2
@@ -920,6 +966,18 @@ class Cpu6502(
 
     private fun sty(address: Int) {
         bus.write(address, state.y)
+    }
+
+    private fun lax(value: Int) {
+        val result = value.low8Bits()
+        state.a = result
+        state.x = result
+        state.z = result == 0
+        state.n = result.isNegative8Bit()
+    }
+
+    private fun sax(address: Int) {
+        bus.write(address, state.a and state.x)
     }
 
     private fun tax() {
