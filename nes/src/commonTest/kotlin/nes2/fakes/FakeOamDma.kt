@@ -4,22 +4,23 @@ import nes2.OamDma
 
 class FakeOamDma : OamDma {
 
-    override var page = 0
-        private set
-
-    override var active = false
-        private set
-
+    override var isActive = false
     var transfers = 0
-        private set
+    var page: Int = 0
+
+    override fun reset() {
+        isActive = false
+        transfers = 0
+        page = 0
+    }
 
     override fun start(page: Int) {
         this.page = page and 0xFF
-        active = true
+        isActive = true
     }
 
     override fun transfer() {
         transfers++
-        active = false
+        isActive = false
     }
 }

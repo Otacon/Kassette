@@ -3,29 +3,37 @@ package nes2
 import nes2.ppu.Ppu
 
 interface OamDma {
-    val page: Int
-    val active: Boolean
+    val isActive: Boolean
+    fun reset()
     fun start(page: Int)
     fun transfer()
 }
 
+data class OamDmaState(
+    var active: Boolean = false,
+    var page: Int = 0,
+)
+
 class OamDmaNes(
     private val cpuBus: CpuBus,
     private val ppu: Ppu,
+    private var state: OamDmaState = OamDmaState(),
 ) : OamDma {
-    override var active = false
-        private set
 
-    override var page = 0
-        private set
+    override val isActive
+        get() = state.active
+
+    override fun reset() {
+        state = OamDmaState()
+    }
 
     override fun start(page: Int) {
-        this.page = page and 0xFF
-        active = true
+        state.page = page and 0xFF
+        state.active = true
     }
 
     override fun transfer() {
-        val baseAddress = page shl 8
+        val baseAddress = state.page shl 8
 
         var offset = 0
         while (offset < 0x100) {
@@ -33,6 +41,6 @@ class OamDmaNes(
             offset++
         }
 
-        active = false
+        state.active = false
     }
 }

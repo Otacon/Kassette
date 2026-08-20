@@ -62,4 +62,22 @@ class NesMachineImplTest : FreeSpec({
         cpu.steps shouldBe 0
         ppu.ticks shouldBe 1539
     }
+
+    "stalls CPU for 514 cycles when DMA starts on an odd CPU cycle" {
+        cpu.cycles = 3
+        ppu.ticksUntilNextFrame = 9
+
+        machine.runUntilFrame()
+
+        val ticksBeforeDma = ppu.ticks
+
+        ppu.ticksUntilNextFrame = ticksBeforeDma + (514 * 3)
+        dma.start(0x02)
+
+        machine.runUntilFrame()
+
+        dma.transfers shouldBe 1
+        cpu.steps shouldBe 1
+        (ppu.ticks - ticksBeforeDma) shouldBe 1542
+    }
 })

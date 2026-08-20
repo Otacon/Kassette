@@ -5,6 +5,7 @@ import nes2.ppuBus.PpuBus
 
 interface Ppu {
     val frame: Long
+    fun reset()
     fun cpuReadRegister(address: Int): Int
     fun cpuWriteRegister(address: Int, value: Int)
     fun writeOamData(value: Int)
@@ -12,7 +13,7 @@ interface Ppu {
 }
 
 class PpuNes(
-    private val state: PpuState = PpuState(),
+    private var state: PpuState = PpuState(),
     private val ppuBus: PpuBus,
     private val onNmi: () -> Unit,
     private val frameBuffer: FrameBuffer,
@@ -105,6 +106,10 @@ class PpuNes(
 
     private val isGrayscaleEnabled: Boolean
         get() = state.mask and 0x01 != 0
+
+    override fun reset() {
+        state = PpuState()
+    }
 
     override fun cpuReadRegister(address: Int): Int {
         return when (address) {

@@ -4,6 +4,7 @@ import nes2.cpu.Cpu
 import nes2.ppu.Ppu
 
 interface NesMachine {
+    fun reset()
     fun runUntilFrame()
 }
 
@@ -15,6 +16,13 @@ class NesMachineImpl(
 
     private var cpuCycles: Long = 0
 
+    override fun reset() {
+        cpuCycles = 0
+        cpu.reset()
+        ppu.reset()
+        oamDma.reset()
+    }
+
     override fun runUntilFrame() {
         val currentFrame = ppu.frame
 
@@ -24,7 +32,7 @@ class NesMachineImpl(
     }
 
     private fun step() {
-        if (oamDma.active) {
+        if (oamDma.isActive) {
             oamDma.transfer()
 
             val dmaCycles = if (cpuCycles and 1L == 0L) {

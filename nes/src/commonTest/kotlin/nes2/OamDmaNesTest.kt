@@ -11,19 +11,21 @@ class OamDmaNesTest : FreeSpec({
     lateinit var cpuBus: FakeBus
     lateinit var memory: IntArray
     lateinit var ppu: FakePpu
+    lateinit var state: OamDmaState
 
     beforeTest {
+        state = OamDmaState()
         memory = IntArray(0x10_000)
         cpuBus = FakeBus(memory)
         ppu = FakePpu()
-        dma = OamDmaNes(cpuBus, ppu)
+        dma = OamDmaNes(cpuBus, ppu, state)
     }
 
     "starts DMA with an 8-bit page" {
         dma.start(0x102)
 
-        dma.active shouldBe true
-        dma.page shouldBe 0x02
+        state.active shouldBe true
+        state.page shouldBe 0x02
     }
 
     "transfers the selected CPU page to PPU OAM" {
@@ -45,7 +47,7 @@ class OamDmaNesTest : FreeSpec({
             value shouldBe index
         }
 
-        dma.active shouldBe false
+        state.active shouldBe false
     }
 
     "reads from the selected page" {

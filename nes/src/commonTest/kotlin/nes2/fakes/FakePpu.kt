@@ -7,12 +7,16 @@ class FakePpu(
 ) : Ppu {
 
     override var frame: Long = 0
-
     var ticks = 0
-        private set
-
     var ticksUntilNextFrame: Int? = null
     val oamWrites = mutableListOf<Int>()
+
+    override fun reset() {
+        frame = 0
+        ticks = 0
+        ticksUntilNextFrame = null
+        oamWrites.clear()
+    }
 
     override fun cpuReadRegister(address: Int): Int {
         return registers[address - 0x2000]

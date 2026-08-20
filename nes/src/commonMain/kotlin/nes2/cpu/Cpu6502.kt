@@ -238,6 +238,7 @@ class Cpu6502(
     }
 
     override fun reset() {
+        state = CpuState()
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
     }
 
