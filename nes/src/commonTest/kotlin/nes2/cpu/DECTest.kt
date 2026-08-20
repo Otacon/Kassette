@@ -31,6 +31,10 @@ class DECTest : FreeSpec({
         val cycles = cpu.step()
 
         memory[0x0020] shouldBe 0x42
+        bus.writes shouldBe listOf(
+            FakeBus.Write(address = 0x0020, value = 0x43),
+            FakeBus.Write(address = 0x0020, value = 0x42),
+        )
         state.z shouldBe false
         state.n shouldBe false
         state.pc shouldBe 0x8002

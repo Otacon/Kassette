@@ -636,7 +636,10 @@ class Cpu6502(
     }
 
     private fun inc(address: Int) {
-        val result = (bus.read(address) + 1).low8Bits()
+        val oldValue = bus.read(address)
+        bus.write(address, oldValue)
+
+        val result = (oldValue + 1).low8Bits()
 
         bus.write(address, result)
 
@@ -645,7 +648,10 @@ class Cpu6502(
     }
 
     private fun dec(address: Int) {
-        val result = (bus.read(address) - 1).low8Bits()
+        val oldValue = bus.read(address)
+        bus.write(address, oldValue)
+
+        val result = (oldValue - 1).low8Bits()
 
         bus.write(address, result)
 
@@ -658,7 +664,9 @@ class Cpu6502(
             state.a = aslValue(state.a)
         } else {
             val address = resolveAddress(mode, false)
-            bus.write(address, aslValue(bus.read(address)))
+            val oldValue = bus.read(address)
+            bus.write(address, oldValue)
+            bus.write(address, aslValue(oldValue))
         }
     }
 
@@ -678,7 +686,9 @@ class Cpu6502(
             state.a = lsrValue(state.a)
         } else {
             val address = resolveAddress(mode, false)
-            bus.write(address, lsrValue(bus.read(address)))
+            val oldValue = bus.read(address)
+            bus.write(address, oldValue)
+            bus.write(address, lsrValue(oldValue))
         }
     }
 
@@ -698,7 +708,9 @@ class Cpu6502(
             state.a = rolValue(state.a)
         } else {
             val address = resolveAddress(mode, false)
-            bus.write(address, rolValue(bus.read(address)))
+            val oldValue = bus.read(address)
+            bus.write(address, oldValue)
+            bus.write(address, rolValue(oldValue))
         }
     }
 
@@ -720,7 +732,9 @@ class Cpu6502(
             state.a = rorValue(state.a)
         } else {
             val address = resolveAddress(mode, false)
-            bus.write(address, rorValue(bus.read(address)))
+            val oldValue = bus.read(address)
+            bus.write(address, oldValue)
+            bus.write(address, rorValue(oldValue))
         }
     }
 

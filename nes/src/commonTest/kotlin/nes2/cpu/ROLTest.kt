@@ -35,6 +35,7 @@ class ROLTest : FreeSpec({
         state.a shouldBe 0x42
         state.c shouldBe false
         state.pc shouldBe 0x8001
+        bus.writes shouldBe emptyList<FakeBus.Write>()
         cycles shouldBe 2
     }
 
@@ -85,6 +86,10 @@ class ROLTest : FreeSpec({
         val cycles = cpu.step()
 
         memory[0x0020] shouldBe 0x42
+        bus.writes shouldBe listOf(
+            FakeBus.Write(address = 0x0020, value = 0x21),
+            FakeBus.Write(address = 0x0020, value = 0x42),
+        )
         cycles shouldBe 5
     }
 
