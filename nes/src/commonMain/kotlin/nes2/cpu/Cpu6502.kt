@@ -42,6 +42,7 @@ class Cpu6502(
         state.irqLine = false
         state.nmiPending = false
         state.irqPollI = true
+        state.halted = false
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
     }
 
@@ -54,6 +55,10 @@ class Cpu6502(
     }
 
     override fun step(): Int {
+        if (state.halted) {
+            return 1
+        }
+
         if (state.nmiPending) {
             state.nmiPending = false
             return nmi()
@@ -675,6 +680,12 @@ class Cpu6502(
                 rti(); 6
             }
 
+            // KIL/JAM
+            0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72,
+            0x92, 0xB2, 0xD2, 0xF2 -> {
+                kil(); 1
+            }
+
             // NOP, including currently-unimplemented unofficial opcodes.
             else -> {
                 nop(); 2
@@ -1179,6 +1190,13 @@ class Cpu6502(
     }
 
     private fun nop() = Unit
+
+    private fun kil() {
+        state.pc = (state.pc - 1).low16Bits()
+        state.halted = true
+        state.irqLine = false
+        state.nmiPending = false
+    }
 
     private fun irq(): Int {
         return interrupt(0xFFFE)

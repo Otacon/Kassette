@@ -10,6 +10,7 @@ data class CpuState(
     var irqLine: Boolean = false,
     var nmiPending: Boolean = false,
     var irqPollI: Boolean = true,
+    var halted: Boolean = false,
 ) {
 
     var c: Boolean

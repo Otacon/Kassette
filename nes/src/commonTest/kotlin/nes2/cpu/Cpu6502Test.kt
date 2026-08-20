@@ -76,4 +76,29 @@ class Cpu6502Test : FreeSpec({
         state.status shouldBe 0xED
         state.i shouldBe true
     }
+    "reset clears CPU halt" {
+        state.pc = 0x8000
+        memory[0x8000] = 0x02
+        memory[0xFFFC] = 0x34
+        memory[0xFFFD] = 0x12
+
+        cpu.step()
+        cpu.reset()
+
+        state.halted shouldBe false
+        state.pc shouldBe 0x1234
+    }
+
+    "soft reset clears CPU halt" {
+        state.pc = 0x8000
+        memory[0x8000] = 0x02
+        memory[0xFFFC] = 0x78
+        memory[0xFFFD] = 0x56
+
+        cpu.step()
+        cpu.softReset()
+
+        state.halted shouldBe false
+        state.pc shouldBe 0x5678
+    }
 })
