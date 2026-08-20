@@ -4,6 +4,7 @@ import nes.util.low8Bits
 import nes2.ppuBus.PpuBus
 
 interface Ppu {
+    val frame: Long
     fun cpuReadRegister(address: Int): Int
     fun cpuWriteRegister(address: Int, value: Int)
     fun writeOamData(value: Int)
@@ -16,6 +17,9 @@ class PpuNes(
     private val onNmi: () -> Unit,
     private val frameBuffer: FrameBuffer,
 ) : Ppu {
+
+    override val frame: Long
+        get() = state.frame
 
     private val isRenderingScanline: Boolean
         get() = isVisibleScanline || state.scanline == 261
@@ -475,6 +479,7 @@ class PpuNes(
             if (state.scanline >= SCANLINES_PER_FRAME) {
                 state.scanline = 0
                 state.oddFrame = !state.oddFrame
+                state.frame++
             }
         }
     }

@@ -7,7 +7,7 @@ class ControllerPortNesTest : FreeSpec({
 
     lateinit var controller: ControllerPortNes
 
-    beforeEach {
+    beforeTest {
         controller = ControllerPortNes()
     }
 

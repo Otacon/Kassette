@@ -40,6 +40,7 @@ data class PpuState(
     var t: Int = 0,
     var fineX: Int = 0,
 
+    var frame: Long = 0,
     var oddFrame: Boolean = false,
     var ioLatch: Int = 0,
     var writeToggle: Boolean = false,

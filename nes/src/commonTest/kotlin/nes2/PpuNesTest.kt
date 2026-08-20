@@ -3432,4 +3432,17 @@ class PpuNesTest : FreeSpec({
         state.oamDataBus shouldBe 0x07
     }
 
+    "increments frame counter when scanline wraps to zero" {
+        state.scanline = 261
+        state.dot = 340
+
+        val initialFrame = ppu.frame
+
+        ppu.tick()
+
+        ppu.frame shouldBe initialFrame + 1
+        state.scanline shouldBe 0
+        state.dot shouldBe 0
+    }
+
 })

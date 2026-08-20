@@ -6,10 +6,17 @@ import nes.util.low8Bits
 import nes.util.pageBase
 import nes2.CpuBus
 
+interface Cpu {
+    fun reset()
+    fun setIrqLine(active: Boolean)
+    fun requestNmi()
+    fun step(): Int
+}
+
 class Cpu6502(
     private val bus: CpuBus,
     private var state: CpuState = CpuState(),
-) {
+) : Cpu {
 
     private val instructions = Array(256) { Instruction(Operation.NOP, AddressingMode.IMPLIED, 2) }
     private var pageCrossed = false
@@ -230,19 +237,19 @@ class Cpu6502(
         instructions[0xEA] = Instruction(Operation.NOP, AddressingMode.IMPLIED, 2)
     }
 
-    fun reset() {
+    override fun reset() {
         state.pc = bus.read(0xFFFC) or (bus.read(0xFFFD) shl 8)
     }
 
-    fun setIrqLine(active: Boolean) {
+    override fun setIrqLine(active: Boolean) {
         state.irqLine = active
     }
 
-    fun requestNmi() {
+    override fun requestNmi() {
         state.nmiPending = true
     }
 
-    fun step(): Int {
+    override fun step(): Int {
         if (state.nmiPending) {
             state.nmiPending = false
             return nmi()
