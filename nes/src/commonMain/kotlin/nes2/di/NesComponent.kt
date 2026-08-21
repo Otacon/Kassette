@@ -89,10 +89,11 @@ interface NesComponent {
         ppu: Ppu,
         oamDma: OamDma,
         cartridgeSocket: CartridgePort,
+        controllerPort: ControllerPort,
     ): NesMachine {
         ppu.onNmi = { cpu6502.requestNmi() }
         oamDma.cpuBusRead = { cpuBus.read(it) }
-        return NesMachineImpl(cpu6502, ppu, oamDma, cartridgeSocket)
+        return NesMachineImpl(cpu6502, ppu, oamDma, cartridgeSocket, controllerPort, controllerPort)
     }
 
 }

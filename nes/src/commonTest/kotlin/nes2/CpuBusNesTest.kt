@@ -196,6 +196,14 @@ class CpuBusNesTest : FreeSpec({
         bus.read(0x4016) shouldBe 0x01
     }
 
+    "controller reads preserve open bus high bits" {
+        controller1.value = 0x01
+
+        bus.write(0x0000, 0xA0)
+
+        bus.read(0x4016) shouldBe 0xA1
+    }
+
     "reads controller 2 from 0x4017" {
         controller2.value = 0x01
 
@@ -208,4 +216,5 @@ class CpuBusNesTest : FreeSpec({
         controller1.lastWrittenValue shouldBe 0x01
         controller2.lastWrittenValue shouldBe 0x01
     }
+
 })

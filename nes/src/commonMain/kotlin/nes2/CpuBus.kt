@@ -30,8 +30,8 @@ class CpuBusNes(
             in PPU_REGISTERS_START..PPU_REGISTERS_END -> ppu.cpuReadRegister(PPU_REGISTERS_START + (address and PPU_REGISTER_MASK))
             in APU_REGISTERS_START..APU_REGISTERS_END -> apu.read(address)
             APU_STATUS -> apu.read(address)
-            CONTROLLER_1 -> controller1.read()
-            CONTROLLER_2 -> controller2.read()
+            CONTROLLER_1 -> controller1.readOpenBus()
+            CONTROLLER_2 -> controller2.readOpenBus()
             else -> openBus
         }.low8Bits()
         openBus = value
@@ -62,6 +62,10 @@ class CpuBusNes(
         }
     }
 
+    private fun ControllerPort.readOpenBus(): Int {
+        return (openBus and CONTROLLER_OPEN_BUS_MASK) or (read() and 0x01)
+    }
+
     companion object {
         private const val CPU_RAM_START = 0x0000
         private const val CPU_RAM_END = 0x1FFF
@@ -81,6 +85,7 @@ class CpuBusNes(
         private const val CONTROLLER_1 = 0x4016
         private const val CONTROLLER_2 = 0x4017
         private const val CONTROLLER_STROBE = 0x4016
+        private const val CONTROLLER_OPEN_BUS_MASK = 0xE0
 
         private const val CARTRIDGE_START = 0x4020
         private const val CPU_ADDRESS_MAX = 0xFFFF

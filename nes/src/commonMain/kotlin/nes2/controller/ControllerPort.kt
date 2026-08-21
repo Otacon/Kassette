@@ -1,6 +1,7 @@
 package nes2.controller
 
 interface ControllerPort {
+    fun reset()
     fun read(): Int
     fun write(value: Int)
 }
@@ -13,6 +14,11 @@ class ControllerPortNes : ControllerPort {
 
     fun update(buttons: Int) {
         state = buttons and 0xFF
+    }
+
+    override fun reset() {
+        shiftRegister = 0
+        strobe = false
     }
 
     override fun write(value: Int) {
@@ -36,6 +42,6 @@ class ControllerPortNes : ControllerPort {
             shiftRegister = (shiftRegister ushr 1) or 0x80
         }
 
-        return 0x40 or bit
+        return bit
     }
 }

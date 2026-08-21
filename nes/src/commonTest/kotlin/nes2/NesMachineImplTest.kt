@@ -7,6 +7,7 @@ import nes.cartridge.Cartridge
 import nes.cartridge.Mirroring
 import nes2.fakes.FakeCartridgePort
 import nes2.fakes.FakeCpu
+import nes2.fakes.FakeController
 import nes2.fakes.FakeOamDma
 import nes2.fakes.FakeMapper
 import nes2.fakes.FakePpu
@@ -17,6 +18,8 @@ class NesMachineImplTest : FreeSpec({
     lateinit var ppu: FakePpu
     lateinit var dma: FakeOamDma
     lateinit var cartridge: FakeCartridgePort
+    lateinit var controller1: FakeController
+    lateinit var controller2: FakeController
     lateinit var machine: NesMachineImpl
 
     beforeTest {
@@ -24,7 +27,9 @@ class NesMachineImplTest : FreeSpec({
         ppu = FakePpu()
         dma = FakeOamDma()
         cartridge = FakeCartridgePort()
-        machine = NesMachineImpl(cpu, ppu, dma, cartridge)
+        controller1 = FakeController()
+        controller2 = FakeController()
+        machine = NesMachineImpl(cpu, ppu, dma, cartridge, controller1, controller2)
     }
 
     "reset advances PPU by CPU reset timing" {
@@ -34,6 +39,13 @@ class NesMachineImplTest : FreeSpec({
 
         cpu.resets shouldBe 1
         ppu.ticks shouldBe 21
+    }
+
+    "reset resets controller ports" {
+        machine.reset()
+
+        controller1.resets shouldBe 1
+        controller2.resets shouldBe 1
     }
 
     "reset advances PPU using cartridge region timing" {

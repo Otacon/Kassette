@@ -8,6 +8,11 @@ class FakeController : ControllerPort {
 
     var lastWrittenValue: Int? = null
         private set
+    var resets = 0
+
+    override fun reset() {
+        resets++
+    }
 
     override fun read(): Int {
         return value

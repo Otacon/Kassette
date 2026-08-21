@@ -17,14 +17,14 @@ class ControllerPortNesTest : FreeSpec({
         controller.write(1)
         controller.write(0)
 
-        controller.read() shouldBe 0x41 // A      = 1
-        controller.read() shouldBe 0x40 // B      = 0
-        controller.read() shouldBe 0x41 // Select = 1
-        controller.read() shouldBe 0x40 // Start  = 0
-        controller.read() shouldBe 0x40 // Up     = 0
-        controller.read() shouldBe 0x41 // Down   = 1
-        controller.read() shouldBe 0x40 // Left   = 0
-        controller.read() shouldBe 0x41 // Right  = 1
+        controller.read() shouldBe 1 // A
+        controller.read() shouldBe 0 // B
+        controller.read() shouldBe 1 // Select
+        controller.read() shouldBe 0 // Start
+        controller.read() shouldBe 0 // Up
+        controller.read() shouldBe 1 // Down
+        controller.read() shouldBe 0 // Left
+        controller.read() shouldBe 1 // Right
     }
 
     "changing controller state does not affect an already latched read" {
@@ -35,8 +35,8 @@ class ControllerPortNesTest : FreeSpec({
 
         controller.update(0b0000_0010)
 
-        controller.read() shouldBe 0x41 // latched A
-        controller.read() shouldBe 0x40 // latched B
+        controller.read() shouldBe 1 // latched A
+        controller.read() shouldBe 0 // latched B
     }
 
     "returns one after all buttons have been shifted out" {
@@ -49,8 +49,8 @@ class ControllerPortNesTest : FreeSpec({
             controller.read()
         }
 
-        controller.read() shouldBe 0x41
-        controller.read() shouldBe 0x41
+        controller.read() shouldBe 1
+        controller.read() shouldBe 1
     }
 
     "reads the latched controller state serially" {
@@ -60,14 +60,14 @@ class ControllerPortNesTest : FreeSpec({
         controller.write(0)
 
         listOf(
-            0x41, // A
-            0x40, // B
-            0x41, // Select
-            0x40, // Start
-            0x40, // Up
-            0x41, // Down
-            0x40, // Left
-            0x41, // Right
+            1, // A
+            0, // B
+            1, // Select
+            0, // Start
+            0, // Up
+            1, // Down
+            0, // Left
+            1, // Right
         ).forEach {
             controller.read() shouldBe it
         }
@@ -81,8 +81,8 @@ class ControllerPortNesTest : FreeSpec({
 
         controller.update(0b0000_0010)
 
-        controller.read() shouldBe 0x41 // old A
-        controller.read() shouldBe 0x40 // old B
+        controller.read() shouldBe 1 // old A
+        controller.read() shouldBe 0 // old B
     }
 
     "reads return one after all eight buttons have been consumed" {
@@ -96,7 +96,7 @@ class ControllerPortNesTest : FreeSpec({
         }
 
         repeat(4) {
-            controller.read() shouldBe 0x41
+            controller.read() shouldBe 1
         }
     }
 
@@ -104,13 +104,13 @@ class ControllerPortNesTest : FreeSpec({
         controller.update(0b0000_0001)
         controller.write(1)
 
-        controller.read() shouldBe 0x41
-        controller.read() shouldBe 0x41
-        controller.read() shouldBe 0x41
+        controller.read() shouldBe 1
+        controller.read() shouldBe 1
+        controller.read() shouldBe 1
 
         controller.update(0b0000_0000)
 
-        controller.read() shouldBe 0x40
+        controller.read() shouldBe 0
     }
 
     "only bit zero controls the strobe" {
@@ -119,7 +119,33 @@ class ControllerPortNesTest : FreeSpec({
         controller.write(0xFF)
         controller.write(0xFE)
 
-        controller.read() shouldBe 0x41 // A
-        controller.read() shouldBe 0x41 // B
+        controller.read() shouldBe 1 // A
+        controller.read() shouldBe 1 // B
+    }
+
+    "preserves raw opposite directions" {
+        controller.update(0b1111_0000)
+
+        controller.write(1)
+        controller.write(0)
+
+        repeat(4) { controller.read() }
+        controller.read() shouldBe 1 // Up
+        controller.read() shouldBe 1 // Down
+        controller.read() shouldBe 1 // Left
+        controller.read() shouldBe 1 // Right
+    }
+
+    "reset clears serial state without clearing live buttons" {
+        controller.update(0b0000_0011)
+        controller.write(1)
+        controller.write(0)
+        controller.read() shouldBe 1
+
+        controller.reset()
+
+        controller.read() shouldBe 0
+        controller.write(1)
+        controller.read() shouldBe 1
     }
 })

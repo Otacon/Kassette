@@ -3,6 +3,7 @@ package nes2
 import nes.ConsoleRegion
 import nes.cartridge.Cartridge
 import nes2.cartridge.CartridgePort
+import nes2.controller.ControllerPort
 import nes2.cpu.Cpu
 import nes2.ppu.Ppu
 
@@ -18,6 +19,8 @@ class NesMachineImpl(
     private val ppu: Ppu,
     private val oamDma: OamDma,
     private val cartridge: CartridgePort,
+    private val controller1: ControllerPort,
+    private val controller2: ControllerPort,
 ) : NesMachine {
 
     override var frameNanos: Long = ConsoleRegion.NTSC.timing.frameNanos
@@ -34,6 +37,8 @@ class NesMachineImpl(
     }
 
     override fun reset() {
+        controller1.reset()
+        controller2.reset()
         ppu.reset()
         oamDma.reset()
         val resetCycles = cpu.reset()
