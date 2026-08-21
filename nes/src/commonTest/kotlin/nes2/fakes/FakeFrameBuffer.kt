@@ -11,8 +11,13 @@ class FakeFrameBuffer : FrameBuffer {
     )
 
     val writtenPixels = mutableListOf<WrittenPixel>()
+    var frameCompleted = false
 
     override fun writePixel(x: Int, y: Int, color: Int) {
         writtenPixels += WrittenPixel(x = x, y = y, color = color)
+    }
+
+    override fun frameCompleted() {
+        frameCompleted = true
     }
 }

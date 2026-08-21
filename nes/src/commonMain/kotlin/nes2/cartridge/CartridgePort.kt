@@ -10,6 +10,12 @@ interface CartridgePort {
 
     fun insert(cartridge: Cartridge)
 
+    fun cpuRead(address: Int): Int
+
+    fun cpuRead(address: Int, openBus: Int): Int
+
+    fun cpuWrite(address: Int, value: Int)
+
     fun ppuRead(address: Int): Int
 
     fun ppuWrite(address: Int, value: Int)
@@ -46,15 +52,15 @@ class CartridgePortNes : CartridgePort {
         mirroring = activeMapper.mirroring() ?: inserted.mirroring
     }
 
-    fun cpuRead(address: Int): Int {
+    override fun cpuRead(address: Int): Int {
         return mapper?.cpuRead(address) ?: 0
     }
 
-    fun cpuRead(address: Int, openBus: Int): Int {
+    override fun cpuRead(address: Int, openBus: Int): Int {
         return mapper?.cpuRead(address, openBus) ?: 0
     }
 
-    fun cpuWrite(address: Int, value: Int) {
+    override fun cpuWrite(address: Int, value: Int) {
         val inserted = cartridge ?: return
         val activeMapper = mapper ?: return
         activeMapper.cpuWrite(address, value)

@@ -4,6 +4,7 @@ import nes.util.low8Bits
 import nes2.ppuBus.PpuBus
 
 interface Ppu {
+    var onNmi: () -> Unit
     val frame: Long
     fun configureTiming(scanlinesPerFrame: Int, nmiScanline: Int, skipsOddFrameDot: Boolean)
     fun reset()
@@ -16,10 +17,11 @@ interface Ppu {
 class PpuNes(
     private var state: PpuState = PpuState(),
     private val ppuBus: PpuBus,
-    private val onNmi: () -> Unit,
     private val onMapperScanline: () -> Unit,
     private val frameBuffer: FrameBuffer,
 ) : Ppu {
+
+    override lateinit var onNmi: () -> Unit
 
     private var scanlinesPerFrame = 262
     private var nmiScanline = 241

@@ -6,6 +6,8 @@ class FakePpu(
     private val registers: IntArray = IntArray(8),
 ) : Ppu {
 
+    override var onNmi: () -> Unit = {}
+
     override var frame: Long = 0
     var scanlinesPerFrame = 262
         private set

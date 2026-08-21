@@ -3,9 +3,9 @@ package nes2
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import nes.cartridge.Cartridge
-import nes.cartridge.CartridgeSocket
 import nes.cartridge.Mirroring
 import nes2.fakes.FakeApu
+import nes2.fakes.FakeCartridgePort
 import nes2.fakes.FakeController
 import nes2.fakes.FakeMapper
 import nes2.fakes.FakeOamDma
@@ -16,7 +16,7 @@ class CpuBusNesTest : FreeSpec({
     lateinit var ram: IntArray
     lateinit var ppuRegisters: IntArray
     lateinit var ppu: FakePpu
-    lateinit var cartridgeSocket: CartridgeSocket
+    lateinit var cartridgeSocket: FakeCartridgePort
     lateinit var bus: CpuBusNes
     lateinit var dma: FakeOamDma
     lateinit var apu: FakeApu
@@ -27,7 +27,7 @@ class CpuBusNesTest : FreeSpec({
         ram = IntArray(0x800)
         ppuRegisters = IntArray(8)
         ppu = FakePpu(registers = ppuRegisters)
-        cartridgeSocket = CartridgeSocket()
+        cartridgeSocket = FakeCartridgePort()
         dma = FakeOamDma()
         apu = FakeApu()
         controller1 = FakeController()

@@ -25,10 +25,10 @@ class PpuNesTest : FreeSpec({
         ppu = PpuNes(
             state = state,
             ppuBus = ppuBus,
-            onNmi = { nmiRequested = true },
             onMapperScanline = { mapperScanlineClocks++ },
             frameBuffer = frameBuffer
         )
+        ppu.onNmi = { nmiRequested = true }
     }
 
     "can write PPUCTRL" {
@@ -3246,10 +3246,10 @@ class PpuNesTest : FreeSpec({
         ppu = PpuNes(
             state = state,
             ppuBus = ppuBus,
-            onNmi = { nmiCount++ },
             onMapperScanline = {},
             frameBuffer = frameBuffer,
         )
+        ppu.onNmi = { nmiCount++ }
 
         state.control = 0x80
         state.scanline = 241
@@ -3269,10 +3269,10 @@ class PpuNesTest : FreeSpec({
         ppu = PpuNes(
             state = state,
             ppuBus = ppuBus,
-            onNmi = { nmiCount++ },
             onMapperScanline = {},
             frameBuffer = frameBuffer,
         )
+        ppu.onNmi = { nmiCount++ }
 
         state.control = 0x80
         state.scanline = 241

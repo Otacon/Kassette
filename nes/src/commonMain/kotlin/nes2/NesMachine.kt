@@ -20,6 +20,10 @@ class NesMachineImpl(
     private val cartridge: CartridgePort,
 ) : NesMachine {
 
+    init {
+        ppu.onNmi = { cpu.requestNmi() }
+    }
+
     override var frameNanos: Long = ConsoleRegion.NTSC.timing.frameNanos
         private set
 
