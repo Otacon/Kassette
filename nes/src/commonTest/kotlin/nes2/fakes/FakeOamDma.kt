@@ -4,6 +4,8 @@ import nes2.OamDma
 
 class FakeOamDma : OamDma {
 
+    override var cpuBusRead: (Int) -> Int = { 0 }
+
     override var isActive = false
     var transfers = 0
     var page: Int = 0

@@ -3,6 +3,7 @@ package nes2
 import nes2.ppu.Ppu
 
 interface OamDma {
+    var cpuBusRead: (Int) -> Int
     val isActive: Boolean
     fun reset()
     fun start(page: Int)
@@ -15,10 +16,11 @@ data class OamDmaState(
 )
 
 class OamDmaNes(
-    private val cpuBus: CpuBus,
     private val ppu: Ppu,
     private var state: OamDmaState = OamDmaState(),
 ) : OamDma {
+
+    override lateinit var cpuBusRead: (Int) -> Int
 
     override val isActive
         get() = state.active
@@ -37,7 +39,8 @@ class OamDmaNes(
 
         var offset = 0
         while (offset < 0x100) {
-            ppu.writeOamData(cpuBus.read(baseAddress + offset))
+            val value = cpuBusRead(baseAddress + offset)
+            ppu.writeOamData(value)
             offset++
         }
 

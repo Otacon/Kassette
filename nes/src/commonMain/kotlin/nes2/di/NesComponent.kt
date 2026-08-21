@@ -3,10 +3,7 @@ package nes2.di
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import nes.di.NesScope
-import nes2.CpuBus
-import nes2.CpuBusNes
-import nes2.OamDma
-import nes2.OamDmaNes
+import nes2.*
 import nes2.apu.Apu
 import nes2.apu.ApuNes
 import nes2.cartridge.CartridgePort
@@ -53,10 +50,7 @@ interface NesComponent {
 
     @NesScope
     @Provides
-    fun oamDma(ppu: Ppu, cpuBus: CpuBus): OamDma = OamDmaNes(
-        cpuBus = cpuBus,
-        ppu = ppu,
-    )
+    fun oamDma(ppu: Ppu): OamDma = OamDmaNes(ppu = ppu)
 
     @NesScope
     @Provides
@@ -84,5 +78,19 @@ interface NesComponent {
     @NesScope
     @Provides
     fun cpu6502(cpuBus: CpuBus): Cpu6502 = Cpu6502(cpuBus)
+
+    @NesScope
+    @Provides
+    fun nesMachine(
+        cpu6502: Cpu6502,
+        cpuBus: CpuBus,
+        ppu: Ppu,
+        oamDma: OamDma,
+        cartridgeSocket: CartridgePort,
+    ): NesMachine {
+        ppu.onNmi = { cpu6502.requestNmi() }
+        oamDma.cpuBusRead = { cpuBus.read(it) }
+        return NesMachineImpl(cpu6502, ppu, oamDma, cartridgeSocket)
+    }
 
 }

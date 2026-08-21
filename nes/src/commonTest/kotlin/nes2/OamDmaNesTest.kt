@@ -18,7 +18,8 @@ class OamDmaNesTest : FreeSpec({
         memory = IntArray(0x10_000)
         cpuBus = FakeBus(memory)
         ppu = FakePpu()
-        dma = OamDmaNes(cpuBus, ppu, state)
+        dma = OamDmaNes(ppu, state)
+        dma.cpuBusRead = cpuBus::read
     }
 
     "starts DMA with an 8-bit page" {
