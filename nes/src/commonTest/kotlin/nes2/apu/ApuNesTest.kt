@@ -47,6 +47,61 @@ class ApuNesTest : FreeSpec({
 
         apu.samples shouldBeSameInstanceAs samples
     }
+
+    "reads channel status from 0x4015" {
+        state.pulse1.lengthCounter = 1
+        state.pulse2.lengthCounter = 1
+        state.triangle.lengthCounter = 1
+        state.noise.lengthCounter = 1
+        state.dmc.bytesRemaining = 1
+
+        apu.read(0x4015) shouldBe 0x1F
+    }
+
+    "status read clears frame IRQ but keeps DMC IRQ" {
+        state.frameIrqPending = true
+        state.dmc.irqPending = true
+
+        apu.read(0x4015) shouldBe 0xC0
+
+        state.frameIrqPending shouldBe false
+        state.dmc.irqPending shouldBe true
+        apu.irqPending shouldBe true
+    }
+
+    "writes channel enables from 0x4015" {
+        apu.write(0x4015, 0x1F)
+
+        state.pulse1.enabled shouldBe true
+        state.pulse2.enabled shouldBe true
+        state.triangle.enabled shouldBe true
+        state.noise.enabled shouldBe true
+        state.dmc.enabled shouldBe true
+    }
+
+    "disabling channels clears length counters and DMC bytes remaining" {
+        state.pulse1.lengthCounter = 1
+        state.pulse2.lengthCounter = 2
+        state.triangle.lengthCounter = 3
+        state.noise.lengthCounter = 4
+        state.dmc.bytesRemaining = 5
+
+        apu.write(0x4015, 0x00)
+
+        state.pulse1.lengthCounter shouldBe 0
+        state.pulse2.lengthCounter shouldBe 0
+        state.triangle.lengthCounter shouldBe 0
+        state.noise.lengthCounter shouldBe 0
+        state.dmc.bytesRemaining shouldBe 0
+    }
+
+    "status write clears DMC IRQ" {
+        state.dmc.irqPending = true
+
+        apu.write(0x4015, 0x10)
+
+        state.dmc.irqPending shouldBe false
+    }
 })
 
 private fun dirty(state: ApuState) {
