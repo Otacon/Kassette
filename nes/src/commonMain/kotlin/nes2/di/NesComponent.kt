@@ -2,7 +2,7 @@ package nes2.di
 
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
-import nes.di.NesScope
+import dev.zacsweers.metro.Scope
 import nes2.*
 import nes2.apu.Apu
 import nes2.apu.ApuNes
@@ -19,23 +19,25 @@ import nes2.ppuBus.PpuBus
 import nes2.ppuBus.PpuBusNes
 import nes2.ppuBus.PpuBusState
 
-@NesScope
+@Nes2Scope
 @DependencyGraph
 @Suppress("unused")
 interface NesComponent {
 
-    @NesScope
-    @Provides
-    fun cartridgeSocket(): CartridgePort = CartridgePortNes()
+    val nesMachine: NesMachine
 
-    @NesScope
+    @Nes2Scope
+    @Provides
+    fun cartridgePort(): CartridgePort = CartridgePortNes()
+
+    @Nes2Scope
     @Provides
     fun ppuBus(cartridgeSocket: CartridgePort): PpuBus = PpuBusNes(
         state = PpuBusState(),
         cartridge = cartridgeSocket,
     )
 
-    @NesScope
+    @Nes2Scope
     @Provides
     fun ppu(ppuBus: PpuBus, cartridgeSocket: CartridgePort): Ppu = PpuNes(
         state = PpuState(),
@@ -44,22 +46,22 @@ interface NesComponent {
         frameBuffer = FramebufferNes()
     )
 
-    @NesScope
+    @Nes2Scope
     @Provides
-    fun controllerPort(controllerPort: ControllerPort): ControllerPort = ControllerPortNes()
+    fun controllerPort(): ControllerPort = ControllerPortNes()
 
-    @NesScope
+    @Nes2Scope
     @Provides
     fun oamDma(ppu: Ppu): OamDma = OamDmaNes(ppu = ppu)
 
-    @NesScope
+    @Nes2Scope
     @Provides
     fun apu(): Apu = ApuNes()
 
-    @NesScope
+    @Nes2Scope
     @Provides
     fun cpuBus(
-        cartridgeSocket: CartridgePortNes,
+        cartridgeSocket: CartridgePort,
         ppu: Ppu,
         controllerPort: ControllerPort,
         dma: OamDma,
@@ -75,11 +77,11 @@ interface NesComponent {
             controller2 = controllerPort,
         )
 
-    @NesScope
+    @Nes2Scope
     @Provides
     fun cpu6502(cpuBus: CpuBus): Cpu6502 = Cpu6502(cpuBus)
 
-    @NesScope
+    @Nes2Scope
     @Provides
     fun nesMachine(
         cpu6502: Cpu6502,
@@ -94,3 +96,6 @@ interface NesComponent {
     }
 
 }
+
+@Scope
+annotation class Nes2Scope
