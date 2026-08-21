@@ -1,8 +1,8 @@
 package nes2
 
-import nes.cartridge.CartridgeSocket
 import nes.util.low8Bits
 import nes2.apu.Apu
+import nes2.cartridge.CartridgePortNes
 import nes2.controller.ControllerPort
 import nes2.ppu.Ppu
 
@@ -13,7 +13,7 @@ interface CpuBus {
 
 class CpuBusNes(
     private val ram: IntArray,
-    private val cartridge: CartridgeSocket,
+    private val cartridge: CartridgePortNes,
     private val ppu: Ppu,
     private val dma: OamDma,
     private val apu: Apu,

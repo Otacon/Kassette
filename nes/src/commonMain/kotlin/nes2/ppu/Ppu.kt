@@ -507,6 +507,7 @@ class PpuNes(
                 state.scanline = 0
                 state.oddFrame = !state.oddFrame
                 state.frame++
+                frameBuffer.frameCompleted()
             }
         }
     }

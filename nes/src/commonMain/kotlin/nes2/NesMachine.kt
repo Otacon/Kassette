@@ -7,6 +7,7 @@ import nes2.cpu.Cpu
 import nes2.ppu.Ppu
 
 interface NesMachine {
+    val frameNanos: Long
     fun insertCartridge(cartridge: Cartridge)
     fun reset()
     fun runUntilFrame()
@@ -18,6 +19,9 @@ class NesMachineImpl(
     private val oamDma: OamDma,
     private val cartridge: CartridgePort,
 ) : NesMachine {
+
+    override var frameNanos: Long = ConsoleRegion.NTSC.timing.frameNanos
+        private set
 
     private var cpuCycles: Long = 0
     private var ppuCycleRemainder = 0
@@ -81,6 +85,7 @@ class NesMachineImpl(
     }
 
     private fun applyRegion(region: ConsoleRegion) {
+        frameNanos = region.timing.frameNanos
         when (region) {
             ConsoleRegion.PAL -> {
                 ppuCyclesPerCpuNumerator = 16
