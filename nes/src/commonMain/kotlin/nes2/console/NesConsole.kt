@@ -1,10 +1,12 @@
 package nes2.console
 
+import nes2.apu.NesApu
 import nes2.cpu.ConsoleRegion
 import nes2.cpu.MemoryOperationType
 import nes2.cpu.NesCpu
 import nes2.cpu.NesCpuApuBridge
 import nes2.cpu.NesCpuHost
+import nes2.input.NesControlManager
 import nes2.memory.INesMemoryHandler
 import nes2.memory.NesMemoryManager
 import nes2.memory.NesMemoryManagerHost
@@ -14,8 +16,8 @@ import nes2.input.NesConsoleType
 class NesConsole(
     val mapper: NesConsoleMapper,
     val ppu: NesConsolePpu,
-    private val apuDevice: NesCpuApuBridge,
-    private val controlManager: NesConsoleControlManager,
+    private val apuDevice: NesCpuApuBridge = NesApu(),
+    private val controlManager: NesConsoleControlManager = NesControlManager(),
     val options: NesConsoleOptions = NesConsoleOptions(),
 ) : NesCpuHost, NesMemoryManagerHost {
     override val memoryManager: NesMemoryManager = NesMemoryManager(this, mapper)
