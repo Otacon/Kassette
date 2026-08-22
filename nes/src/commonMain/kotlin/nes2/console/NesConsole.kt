@@ -9,6 +9,7 @@ import nes2.memory.INesMemoryHandler
 import nes2.memory.NesMemoryManager
 import nes2.memory.NesMemoryManagerHost
 import nes2.memory.NesMemoryMapper
+import nes2.input.NesConsoleType
 
 class NesConsole(
     val mapper: NesConsoleMapper,
@@ -29,6 +30,7 @@ class NesConsole(
     init {
         mapper.initConsole(this)
         ppu.initConsole(this)
+        (apuDevice as? NesConsoleApu)?.initConsole(this)
         controlManager.initConsole(this)
 
         registerOptionalIODevice(mapper.epsm)
@@ -150,6 +152,7 @@ data class NesConsoleOptions(
     val processMemoryWrite: (addr: Int, value: Int, operationType: MemoryOperationType) -> Boolean = { _, _, _ -> true },
     val onCpuCrash: () -> Unit = {},
     val ppu: NesPpuOptions = NesPpuOptions(),
+    val controllerType: NesConsoleType = NesConsoleType.Nes001,
 )
 
 data class NesPpuOptions(

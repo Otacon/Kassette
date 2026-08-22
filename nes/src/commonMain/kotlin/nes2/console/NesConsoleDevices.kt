@@ -1,6 +1,7 @@
 package nes2.console
 
 import nes2.cpu.ConsoleRegion
+import nes2.cpu.NesCpuApuBridge
 import nes2.memory.INesMemoryHandler
 import nes2.memory.NesMemoryMapper
 
@@ -17,6 +18,11 @@ interface NesConsoleMapper : NesMemoryMapper {
 
 interface NesConsoleExpansionAudio : INesMemoryHandler {
     fun reset() {}
+    fun write(openBus: Int, value: Int) {}
+}
+
+interface NesConsoleApu : NesCpuApuBridge {
+    fun initConsole(console: NesConsole) {}
 }
 
 interface NesConsolePpu : INesMemoryHandler {
@@ -31,6 +37,8 @@ interface NesConsolePpu : INesMemoryHandler {
 interface NesConsoleControlManager : INesMemoryHandler {
     fun initConsole(console: NesConsole) {}
     fun reset(softReset: Boolean) {}
+    fun updateControlDevices() {}
+    fun updateInputState() {}
     fun hasPendingWrites(): Boolean = false
     fun processWrites() {}
     fun getOpenBusMask(port: Int): Int = 0xFF
