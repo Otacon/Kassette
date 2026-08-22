@@ -9,13 +9,23 @@ enum class MemoryOperation {
 }
 
 class MemoryRanges {
-    private val ramReadAddresses = mutableListOf<Int>()
-    private val ramWriteAddresses = mutableListOf<Int>()
+    private val ramReadAddresses = IntArray(0x10000)
+    private val ramWriteAddresses = IntArray(0x10000)
+    private var ramReadAddressCount = 0
+    private var ramWriteAddressCount = 0
     private var allowOverride = false
 
-    fun getRAMReadAddresses(): List<Int> = ramReadAddresses
-    fun getRAMWriteAddresses(): List<Int> = ramWriteAddresses
     fun getAllowOverride(): Boolean = allowOverride
+
+    fun forEachRAMReadAddress(action: (Int) -> Unit) {
+        var i = 0
+        while (i < ramReadAddressCount) action(ramReadAddresses[i++])
+    }
+
+    fun forEachRAMWriteAddress(action: (Int) -> Unit) {
+        var i = 0
+        while (i < ramWriteAddressCount) action(ramWriteAddresses[i++])
+    }
 
     fun setAllowOverride() {
         allowOverride = true
@@ -26,7 +36,7 @@ class MemoryRanges {
         if (operation == MemoryOperation.Read || operation == MemoryOperation.Any) {
             var i = start
             while (i <= last) {
-                ramReadAddresses += i and 0xFFFF
+                ramReadAddresses[ramReadAddressCount++] = i and 0xFFFF
                 i++
             }
         }
@@ -34,7 +44,7 @@ class MemoryRanges {
         if (operation == MemoryOperation.Write || operation == MemoryOperation.Any) {
             var i = start
             while (i <= last) {
-                ramWriteAddresses += i and 0xFFFF
+                ramWriteAddresses[ramWriteAddressCount++] = i and 0xFFFF
                 i++
             }
         }

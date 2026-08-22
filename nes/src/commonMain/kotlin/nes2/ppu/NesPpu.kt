@@ -21,6 +21,12 @@ abstract class NesPpu : BaseNesPpu() {
         )
     }
 
+    private val reusableFrame = NesPpuFrame(
+        pixels = currentOutputBuffer,
+        frameCount = 0,
+        videoPhase = 0,
+    )
+
     override fun initConsole(console: NesConsole) {
         super.initConsole(console)
         masterClock = 0
@@ -56,10 +62,13 @@ abstract class NesPpu : BaseNesPpu() {
         spriteRamAddr = 0
         xScroll = 0
         writeToggle = false
-        copyControl(PpuControlFlags())
-        copyMask(PpuMaskFlags())
-        if (!softReset) copyStatus(PPUStatusFlags())
-        tile = TileInfo()
+        resetControl()
+        resetMask()
+        if (!softReset) resetStatus()
+        tile.tileAddr = 0
+        tile.lowByte = 0
+        tile.highByte = 0
+        tile.paletteOffset = 0
         currentTilePalette = 0
         previousTilePalette = 0
         ppuBusAddress = 0
@@ -156,9 +165,14 @@ abstract class NesPpu : BaseNesPpu() {
                 returnValue = statusByte()
                 if (scanline == nmiScanline && cycle < 3) returnValue = returnValue and 0x7F
                 openBusMask = 0x1F
-                val processed = processStatusRegOpenBus(openBusMask, returnValue)
-                openBusMask = processed.first
-                returnValue = processed.second
+                when (getPpuModel()) {
+                    PpuModel.Ppu2C05A -> { openBusMask = 0x00; returnValue = returnValue or 0x1B }
+                    PpuModel.Ppu2C05B -> { openBusMask = 0x00; returnValue = returnValue or 0x3D }
+                    PpuModel.Ppu2C05C -> { openBusMask = 0x00; returnValue = returnValue or 0x1C }
+                    PpuModel.Ppu2C05D -> { openBusMask = 0x00; returnValue = returnValue or 0x1B }
+                    PpuModel.Ppu2C05E -> openBusMask = 0x00
+                    else -> {}
+                }
             }
             PpuRegisters.SpriteData -> {
                 if (!console.options.ppu.disablePpu2004Reads) {
@@ -193,9 +207,14 @@ abstract class NesPpu : BaseNesPpu() {
                 returnValue = statusByte()
                 updateStatusFlag()
                 openBusMask = 0x1F
-                val processed = processStatusRegOpenBus(openBusMask, returnValue)
-                openBusMask = processed.first
-                returnValue = processed.second
+                when (getPpuModel()) {
+                    PpuModel.Ppu2C05A -> { openBusMask = 0x00; returnValue = returnValue or 0x1B }
+                    PpuModel.Ppu2C05B -> { openBusMask = 0x00; returnValue = returnValue or 0x3D }
+                    PpuModel.Ppu2C05C -> { openBusMask = 0x00; returnValue = returnValue or 0x1C }
+                    PpuModel.Ppu2C05D -> { openBusMask = 0x00; returnValue = returnValue or 0x1B }
+                    PpuModel.Ppu2C05E -> openBusMask = 0x00
+                    else -> {}
+                }
             }
             PpuRegisters.SpriteData -> {
                 if (!console.options.ppu.disablePpu2004Reads) {
@@ -805,13 +824,7 @@ abstract class NesPpu : BaseNesPpu() {
         if (region != ConsoleRegion.Ntsc || console.options.ppu.extraScanlinesAfterNmi != 0 || console.options.ppu.extraScanlinesBeforeNmi != 0) {
             videoPhase = frameCountValue and 0x01
         }
-        console.notifyPpuFrame(
-            NesPpuFrame(
-                pixels = currentOutputBuffer,
-                frameCount = frameCountValue,
-                videoPhase = videoPhase,
-            )
-        )
+        console.notifyPpuFrame(reusableFrame.update(currentOutputBuffer, frameCountValue, videoPhase))
         enableOamDecay = console.options.ppu.enableOamDecay
     }
 
@@ -905,7 +918,10 @@ abstract class NesPpu : BaseNesPpu() {
         ppuBusAddress = snapshot.ppuBusAddress and 0x3FFF
         masterClock = snapshot.masterClock
         currentTilePalette = snapshot.currentTilePalette and 0xFF
-        tile = snapshot.tile.copy()
+        tile.tileAddr = snapshot.tile.tileAddr
+        tile.lowByte = snapshot.tile.lowByte
+        tile.highByte = snapshot.tile.highByte
+        tile.paletteOffset = snapshot.tile.paletteOffset
         previousTilePalette = snapshot.previousTilePalette and 0xFF
         spriteIndex = snapshot.spriteIndex
         spriteCount = snapshot.spriteCount
@@ -939,12 +955,20 @@ abstract class NesPpu : BaseNesPpu() {
         ppuMemoryDataWriteStateMachine = snapshot.ppuMemoryDataWriteStateMachine
         ppuMemoryDataWriteLatch = snapshot.ppuMemoryDataWriteLatch and 0xFF
         for (i in spriteTiles.indices) {
-            val source = snapshot.spriteTiles.getOrNull(i) ?: NesSpriteInfo()
-            spriteTiles[i].backgroundPriority = source.backgroundPriority
-            spriteTiles[i].spriteX = source.spriteX
-            spriteTiles[i].lowByte = source.lowByte
-            spriteTiles[i].highByte = source.highByte
-            spriteTiles[i].paletteOffset = source.paletteOffset
+            if (i < snapshot.spriteTiles.size) {
+                val source = snapshot.spriteTiles[i]
+                spriteTiles[i].backgroundPriority = source.backgroundPriority
+                spriteTiles[i].spriteX = source.spriteX
+                spriteTiles[i].lowByte = source.lowByte
+                spriteTiles[i].highByte = source.highByte
+                spriteTiles[i].paletteOffset = source.paletteOffset
+            } else {
+                spriteTiles[i].backgroundPriority = false
+                spriteTiles[i].spriteX = 0
+                spriteTiles[i].lowByte = 0
+                spriteTiles[i].highByte = 0
+                spriteTiles[i].paletteOffset = 0
+            }
         }
         firstVisibleSpriteAddr = snapshot.firstVisibleSpriteAddr and 0xFF
         lastVisibleSpriteAddr = snapshot.lastVisibleSpriteAddr and 0xFF
@@ -1036,15 +1060,6 @@ abstract class NesPpu : BaseNesPpu() {
     protected fun applyOpenBus(mask: Int, value: Int): Int {
         setOpenBus(mask.inv(), value)
         return (value or (openBus and mask)) and 0xFF
-    }
-
-    protected fun processStatusRegOpenBus(openBusMask: Int, returnValue: Int): Pair<Int, Int> = when (getPpuModel()) {
-        PpuModel.Ppu2C05A -> 0x00 to (returnValue or 0x1B)
-        PpuModel.Ppu2C05B -> 0x00 to (returnValue or 0x3D)
-        PpuModel.Ppu2C05C -> 0x00 to (returnValue or 0x1C)
-        PpuModel.Ppu2C05D -> 0x00 to (returnValue or 0x1B)
-        PpuModel.Ppu2C05E -> 0x00 to returnValue
-        else -> openBusMask to returnValue
     }
 
     protected fun processTmpAddrScrollGlitch(normalAddr: Int, value: Int, mask: Int) {
@@ -1172,5 +1187,31 @@ abstract class NesPpu : BaseNesPpu() {
         statusFlags.spriteOverflow = source.spriteOverflow
         statusFlags.sprite0Hit = source.sprite0Hit
         statusFlags.verticalBlank = source.verticalBlank
+    }
+
+    private fun resetControl() {
+        control.backgroundPatternAddr = 0
+        control.spritePatternAddr = 0
+        control.verticalWrite = false
+        control.largeSprites = false
+        control.secondaryPpu = false
+        control.nmiOnVerticalBlank = false
+    }
+
+    private fun resetMask() {
+        mask.grayscale = false
+        mask.backgroundMask = false
+        mask.spriteMask = false
+        mask.backgroundEnabled = false
+        mask.spritesEnabled = false
+        mask.intensifyRed = false
+        mask.intensifyGreen = false
+        mask.intensifyBlue = false
+    }
+
+    private fun resetStatus() {
+        statusFlags.spriteOverflow = false
+        statusFlags.sprite0Hit = false
+        statusFlags.verticalBlank = false
     }
 }

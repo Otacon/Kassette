@@ -41,26 +41,24 @@ class NesMemoryManager(
         mapper.reset(softReset)
     }
 
-    private fun initializeMemoryHandlers(
+    private fun initializeMemoryHandler(
         memoryHandlers: Array<INesMemoryHandler>,
         handler: INesMemoryHandler,
-        addresses: List<Int>,
+        address: Int,
         allowOverride: Boolean,
     ) {
-        for (address in addresses) {
             val addr = address and 0xFFFF
             if (!allowOverride && memoryHandlers[addr] !== openBusHandler && memoryHandlers[addr] !== handler) {
                 error("Can't override existing mapping")
             }
             memoryHandlers[addr] = handler
-        }
     }
 
     fun registerIODevice(handler: INesMemoryHandler) {
         val ranges = MemoryRanges()
         handler.getMemoryRanges(ranges)
-        initializeMemoryHandlers(ramReadHandlers, handler, ranges.getRAMReadAddresses(), ranges.getAllowOverride())
-        initializeMemoryHandlers(ramWriteHandlers, handler, ranges.getRAMWriteAddresses(), ranges.getAllowOverride())
+        ranges.forEachRAMReadAddress { initializeMemoryHandler(ramReadHandlers, handler, it, ranges.getAllowOverride()) }
+        ranges.forEachRAMWriteAddress { initializeMemoryHandler(ramWriteHandlers, handler, it, ranges.getAllowOverride()) }
     }
 
     fun registerWriteHandler(handler: INesMemoryHandler, start: Int, end: Int) {
@@ -82,10 +80,10 @@ class NesMemoryManager(
     fun unregisterIODevice(handler: INesMemoryHandler) {
         val ranges = MemoryRanges()
         handler.getMemoryRanges(ranges)
-        for (address in ranges.getRAMReadAddresses()) {
+        ranges.forEachRAMReadAddress { address ->
             ramReadHandlers[address and 0xFFFF] = openBusHandler
         }
-        for (address in ranges.getRAMWriteAddresses()) {
+        ranges.forEachRAMWriteAddress { address ->
             ramWriteHandlers[address and 0xFFFF] = openBusHandler
         }
     }

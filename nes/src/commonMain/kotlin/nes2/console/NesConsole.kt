@@ -184,13 +184,20 @@ data class NesPpuOptions(
     val onFrame: (NesPpuFrame) -> Unit = {},
 )
 
-data class NesPpuFrame(
-    val pixels: IntArray,
+class NesPpuFrame(
+    var pixels: IntArray,
     val width: Int = NesConstants.ScreenWidth,
     val height: Int = NesConstants.ScreenHeight,
-    val frameCount: Int,
-    val videoPhase: Int,
+    var frameCount: Int,
+    var videoPhase: Int,
 ) {
+    fun update(pixels: IntArray, frameCount: Int, videoPhase: Int): NesPpuFrame {
+        this.pixels = pixels
+        this.frameCount = frameCount
+        this.videoPhase = videoPhase
+        return this
+    }
+
     override fun equals(other: Any?): Boolean = other is NesPpuFrame &&
         width == other.width &&
         height == other.height &&
