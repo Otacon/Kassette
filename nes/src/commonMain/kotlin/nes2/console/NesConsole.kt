@@ -11,11 +11,11 @@ import nes2.memory.NesMemoryManagerHost
 import nes2.memory.NesMemoryMapper
 
 class NesConsole(
-    private val mapper: NesConsoleMapper,
+    val mapper: NesConsoleMapper,
     private val ppu: NesConsolePpu,
     private val apuDevice: NesCpuApuBridge,
     private val controlManager: NesConsoleControlManager,
-    private val options: NesConsoleOptions = NesConsoleOptions(),
+    val options: NesConsoleOptions = NesConsoleOptions(),
 ) : NesCpuHost, NesMemoryManagerHost {
     override val memoryManager: NesMemoryManager = NesMemoryManager(this, mapper)
     override val region: ConsoleRegion get() = currentRegion
@@ -147,6 +147,25 @@ data class NesConsoleOptions(
     val processMemoryRead: (addr: Int, value: Int, operationType: MemoryOperationType) -> Unit = { _, _, _ -> },
     val processMemoryWrite: (addr: Int, value: Int, operationType: MemoryOperationType) -> Boolean = { _, _, _ -> true },
     val onCpuCrash: () -> Unit = {},
+    val ppu: NesPpuOptions = NesPpuOptions(),
+)
+
+data class NesPpuOptions(
+    val backgroundEnabled: Boolean = true,
+    val spritesEnabled: Boolean = true,
+    val forceBackgroundFirstColumn: Boolean = false,
+    val forceSpritesFirstColumn: Boolean = false,
+    val removeSpriteLimit: Boolean = false,
+    val adaptiveSpriteLimit: Boolean = false,
+    val enableOamDecay: Boolean = false,
+    val disablePpuReset: Boolean = false,
+    val restrictPpuAccessOnFirstFrame: Boolean = false,
+    val disablePaletteRead: Boolean = false,
+    val disablePpu2004Reads: Boolean = false,
+    val enablePpuOamRowCorruption: Boolean = false,
+    val enablePpu2000ScrollGlitch: Boolean = true,
+    val extraScanlinesBeforeNmi: Int = 0,
+    val extraScanlinesAfterNmi: Int = 0,
 )
 
 object NesConstants {

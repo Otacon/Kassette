@@ -51,6 +51,11 @@ enum class GameInputType {
 
 enum class PpuModel {
     Ppu2C02,
+    Ppu2C05A,
+    Ppu2C05B,
+    Ppu2C05C,
+    Ppu2C05D,
+    Ppu2C05E,
 }
 
 enum class VsSystemType {
