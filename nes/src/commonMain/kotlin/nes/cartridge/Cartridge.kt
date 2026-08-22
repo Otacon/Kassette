@@ -14,4 +14,7 @@ class Cartridge(
     val trainerPresent: Boolean,
     val mapper: Mapper,
     val region: ConsoleRegion = ConsoleRegion.NTSC,
+    val mapperId: Int = 0,
+    val submapperId: Int = 0,
+    val prgRamSize: Int = 0,
 )

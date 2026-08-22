@@ -100,6 +100,9 @@ class InesParserUtils {
             isChrRam = isChrRam,
             trainerPresent = trainer,
             region = region,
+            mapperId = mapper,
+            submapperId = submapper,
+            prgRamSize = prgRamSize,
             mapper = createMapper(mapper, submapper, prg, chr, isChrRam, prgRamSize),
         )
     }

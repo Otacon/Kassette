@@ -16,7 +16,9 @@ import nes2.console.NesPpuFrame
 import nes2.cpu.ConsoleRegion as ConsoleRegion2
 import nes2.input.NesControlDevice
 import nes2.input.NesControlManager
-import nes2.mapper.Mapper0
+import nes2.mapper.BusConflictType
+import nes2.mapper.GameInfo
+import nes2.mapper.createMapper
 import nes2.mapper.MirroringType
 import nes2.mapper.NesRomInfo
 import nes2.mapper.RomData as RomData2
@@ -53,7 +55,14 @@ class Nes2FrontendMachine {
         val chrRom = if (cartridge.isChrRam) ByteArray(0) else cartridge.chr
         val rom = RomData2(
             info = NesRomInfo(
-                mapperID = 0,
+                mapperID = cartridge.mapperId,
+                subMapperID = cartridge.submapperId,
+                hasTrainer = cartridge.trainerPresent,
+                busConflicts = if (cartridge.submapperId == 2) BusConflictType.Yes else BusConflictType.Default,
+                databaseInfo = GameInfo(
+                    mapperID = cartridge.mapperId,
+                    hasBattery = false,
+                ),
                 mirroring = when (cartridge.mirroring) {
                     Mirroring.VERTICAL -> MirroringType.Vertical
                     Mirroring.SINGLE_SCREEN_LOWER -> MirroringType.ScreenAOnly
@@ -62,11 +71,12 @@ class Nes2FrontendMachine {
                 },
             ),
             chrRamSize = if (cartridge.isChrRam) cartridge.chr.size else -1,
+            workRamSize = cartridge.prgRamSize,
             prgRom = cartridge.prgRom,
             chrRom = chrRom,
         )
 
-        val mapper = Mapper0(rom)
+        val mapper = createMapper(rom)
         val ppuDevice = DefaultNesPpu()
         val apuDevice = NesApu()
         apu = apuDevice
