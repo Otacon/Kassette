@@ -1,5 +1,8 @@
 package nes2.mapper
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class PrgMemoryType {
     PrgRom,
     SaveRam,
@@ -7,6 +10,7 @@ enum class PrgMemoryType {
     MapperRam,
 }
 
+@Serializable
 enum class ChrMemoryType {
     Default,
     ChrRom,
@@ -23,6 +27,7 @@ object MemoryAccessType {
     const val ReadWrite = 0x03
 }
 
+@Serializable
 enum class MirroringType {
     Horizontal,
     Vertical,
@@ -31,12 +36,14 @@ enum class MirroringType {
     FourScreens,
 }
 
+@Serializable
 enum class BusConflictType {
     Default,
     Yes,
     No,
 }
 
+@Serializable
 enum class GameSystem {
     Unknown,
     NesNtsc,
@@ -45,10 +52,12 @@ enum class GameSystem {
     VsSystem,
 }
 
+@Serializable
 enum class GameInputType {
     Unspecified,
 }
 
+@Serializable
 enum class PpuModel {
     Ppu2C02,
     Ppu2C05A,
@@ -58,11 +67,13 @@ enum class PpuModel {
     Ppu2C05E,
 }
 
+@Serializable
 enum class VsSystemType {
     Default,
     VsDualSystem,
 }
 
+@Serializable
 enum class RomFormat {
     Unknown,
     INes,
@@ -73,20 +84,24 @@ enum class RomFormat {
     StudyBox,
 }
 
+@Serializable
 enum class RomHeaderVersion {
     iNes,
     Nes2_0,
     OldiNes,
 }
 
+@Serializable
 data class NesHeader(
     val version: RomHeaderVersion = RomHeaderVersion.iNes,
 )
 
+@Serializable
 data class HashInfo(
     val crc: UInt = 0u,
 )
 
+@Serializable
 data class GameInfo(
     val crc: UInt = 0u,
     val system: String = "",
@@ -108,10 +123,12 @@ data class GameInfo(
     val vsPpuModel: PpuModel = PpuModel.Ppu2C02,
 )
 
+@Serializable
 data class NsfHeader(
     val version: Int = 0,
 )
 
+@Serializable
 data class NesRomInfo(
     val romName: String = "",
     val filename: String = "",
@@ -138,6 +155,7 @@ data class NesRomInfo(
     val databaseInfo: GameInfo = GameInfo(),
 )
 
+@Serializable
 data class RomData(
     val info: NesRomInfo = NesRomInfo(),
     val chrRamSize: Int = -1,
@@ -171,6 +189,7 @@ data class RomData(
     }
 }
 
+@Serializable
 enum class MapperStateValueType {
     None,
     String,
@@ -180,6 +199,7 @@ enum class MapperStateValueType {
     Number32,
 }
 
+@Serializable
 data class MapperStateEntry(
     val address: String = "",
     val name: String = "",
@@ -188,6 +208,7 @@ data class MapperStateEntry(
     val type: MapperStateValueType = MapperStateValueType.Number8,
 )
 
+@Serializable
 data class CartridgeState(
     var prgRomSize: Int = 0,
     var chrRomSize: Int = 0,
@@ -209,3 +230,71 @@ data class CartridgeState(
     var hasBattery: Boolean = false,
     var customEntries: List<MapperStateEntry> = emptyList(),
 )
+
+@Serializable
+data class MapperSnapshot(
+    val saveRam: ByteArray = ByteArray(0),
+    val workRam: ByteArray = ByteArray(0),
+    val chrRam: ByteArray = ByteArray(0),
+    val mapperRam: ByteArray = ByteArray(0),
+    val nametableRam: ByteArray = ByteArray(0),
+    val prgMemoryOffset: IntArray = IntArray(0x100),
+    val prgMemoryType: Array<PrgMemoryType> = Array(0x100) { PrgMemoryType.PrgRom },
+    val prgMemoryAccess: IntArray = IntArray(0x100),
+    val chrMemoryOffset: IntArray = IntArray(0x40),
+    val chrMemoryType: Array<ChrMemoryType> = Array(0x40) { ChrMemoryType.Default },
+    val chrMemoryAccess: IntArray = IntArray(0x40),
+    val mirroring: MirroringType = MirroringType.Horizontal,
+    val extra: MapperExtraSnapshot = MapperExtraSnapshot(),
+) {
+    override fun equals(other: Any?): Boolean = other is MapperSnapshot &&
+        saveRam.contentEquals(other.saveRam) &&
+        workRam.contentEquals(other.workRam) &&
+        chrRam.contentEquals(other.chrRam) &&
+        mapperRam.contentEquals(other.mapperRam) &&
+        nametableRam.contentEquals(other.nametableRam) &&
+        prgMemoryOffset.contentEquals(other.prgMemoryOffset) &&
+        prgMemoryType.contentEquals(other.prgMemoryType) &&
+        prgMemoryAccess.contentEquals(other.prgMemoryAccess) &&
+        chrMemoryOffset.contentEquals(other.chrMemoryOffset) &&
+        chrMemoryType.contentEquals(other.chrMemoryType) &&
+        chrMemoryAccess.contentEquals(other.chrMemoryAccess) &&
+        mirroring == other.mirroring &&
+        extra == other.extra
+
+    override fun hashCode(): Int {
+        var result = saveRam.contentHashCode()
+        result = 31 * result + workRam.contentHashCode()
+        result = 31 * result + chrRam.contentHashCode()
+        result = 31 * result + mapperRam.contentHashCode()
+        result = 31 * result + nametableRam.contentHashCode()
+        result = 31 * result + prgMemoryOffset.contentHashCode()
+        result = 31 * result + prgMemoryType.contentHashCode()
+        result = 31 * result + prgMemoryAccess.contentHashCode()
+        result = 31 * result + chrMemoryOffset.contentHashCode()
+        result = 31 * result + chrMemoryType.contentHashCode()
+        result = 31 * result + chrMemoryAccess.contentHashCode()
+        result = 31 * result + mirroring.hashCode()
+        result = 31 * result + extra.hashCode()
+        return result
+    }
+}
+
+@Serializable
+data class MapperExtraSnapshot(
+    val ints: IntArray = IntArray(0),
+    val longs: LongArray = LongArray(0),
+    val booleans: BooleanArray = BooleanArray(0),
+) {
+    override fun equals(other: Any?): Boolean = other is MapperExtraSnapshot &&
+        ints.contentEquals(other.ints) &&
+        longs.contentEquals(other.longs) &&
+        booleans.contentEquals(other.booleans)
+
+    override fun hashCode(): Int {
+        var result = ints.contentHashCode()
+        result = 31 * result + longs.contentHashCode()
+        result = 31 * result + booleans.contentHashCode()
+        return result
+    }
+}

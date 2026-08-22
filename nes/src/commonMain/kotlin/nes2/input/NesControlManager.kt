@@ -1,5 +1,6 @@
 package nes2.input
 
+import kotlinx.serialization.Serializable
 import nes2.console.NesConsole
 import nes2.console.NesConsoleControlManager
 import nes2.memory.MemoryOperation
@@ -135,6 +136,7 @@ enum class NesConsoleType {
     Hvc101,
 }
 
+@Serializable
 data class NesControlManagerSnapshot(
     val writeAddr: Int = 0,
     val writeValue: Int = 0,

@@ -67,6 +67,58 @@ class MMC3(romData: RomData) : BaseMapper(romData) {
         }
     }
 
+    override fun captureExtraSnapshot(): MapperExtraSnapshot = MapperExtraSnapshot(
+        ints = intArrayOf(
+            currentRegister,
+            reg8000,
+            regA000,
+            regA001,
+            irqReloadValue,
+            irqCounter,
+            prgMode,
+            chrMode,
+            registers[0],
+            registers[1],
+            registers[2],
+            registers[3],
+            registers[4],
+            registers[5],
+            registers[6],
+            registers[7],
+        ),
+        longs = longArrayOf(a12LowClock),
+        booleans = booleanArrayOf(wramEnabled, wramWriteProtected, forceMmc3RevAIrqs, irqReload, irqEnabled),
+    )
+
+    override fun restoreExtraSnapshot(snapshot: MapperExtraSnapshot) {
+        val ints = snapshot.ints
+        val longs = snapshot.longs
+        val booleans = snapshot.booleans
+        if (ints.size >= 16) {
+            currentRegister = ints[0]
+            reg8000 = ints[1]
+            regA000 = ints[2]
+            regA001 = ints[3]
+            irqReloadValue = ints[4]
+            irqCounter = ints[5]
+            prgMode = ints[6]
+            chrMode = ints[7]
+            var i = 0
+            while (i < registers.size) {
+                registers[i] = ints[8 + i]
+                i++
+            }
+        }
+        if (longs.isNotEmpty()) a12LowClock = longs[0]
+        if (booleans.size >= 5) {
+            wramEnabled = booleans[0]
+            wramWriteProtected = booleans[1]
+            forceMmc3RevAIrqs = booleans[2]
+            irqReload = booleans[3]
+            irqEnabled = booleans[4]
+        }
+    }
+
     private fun resetMmc3() {
         reg8000 = getPowerOnByte()
         regA000 = getPowerOnByte()

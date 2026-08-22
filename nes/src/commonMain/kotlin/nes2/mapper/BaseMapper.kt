@@ -97,6 +97,8 @@ abstract class BaseMapper(private val romData: RomData? = null) : NesConsoleMapp
     protected open fun writeRegister(addr: Int, value: Int) {}
     protected open fun readRegister(addr: Int): Int = 0
     protected open fun getMapperStateEntries(): List<MapperStateEntry> = emptyList()
+    protected open fun captureExtraSnapshot(): MapperExtraSnapshot = MapperExtraSnapshot()
+    protected open fun restoreExtraSnapshot(snapshot: MapperExtraSnapshot) {}
 
     override fun initConsole(console: NesConsole) {
         this.console = console
@@ -655,6 +657,39 @@ abstract class BaseMapper(private val romData: RomData? = null) : NesConsoleMapp
         hasBattery = romInfoState.hasBattery,
         customEntries = getMapperStateEntries(),
     )
+
+    fun captureSnapshot(): MapperSnapshot = MapperSnapshot(
+        saveRam = saveRam.copyOf(),
+        workRam = workRam.copyOf(),
+        chrRam = chrRam.copyOf(),
+        mapperRam = mapperRam.copyOf(),
+        nametableRam = nametableRam.copyOf(),
+        prgMemoryOffset = prgMemoryOffset.copyOf(),
+        prgMemoryType = prgMemoryType.copyOf(),
+        prgMemoryAccess = prgMemoryAccess.copyOf(),
+        chrMemoryOffset = chrMemoryOffset.copyOf(),
+        chrMemoryType = chrMemoryType.copyOf(),
+        chrMemoryAccess = chrMemoryAccess.copyOf(),
+        mirroring = mirroringType,
+        extra = captureExtraSnapshot(),
+    )
+
+    fun restoreSnapshot(snapshot: MapperSnapshot) {
+        snapshot.saveRam.copyInto(saveRam, endIndex = minOf(snapshot.saveRam.size, saveRam.size))
+        snapshot.workRam.copyInto(workRam, endIndex = minOf(snapshot.workRam.size, workRam.size))
+        snapshot.chrRam.copyInto(chrRam, endIndex = minOf(snapshot.chrRam.size, chrRam.size))
+        snapshot.mapperRam.copyInto(mapperRam, endIndex = minOf(snapshot.mapperRam.size, mapperRam.size))
+        snapshot.nametableRam.copyInto(nametableRam, endIndex = minOf(snapshot.nametableRam.size, nametableRam.size))
+        snapshot.prgMemoryOffset.copyInto(prgMemoryOffset, endIndex = minOf(snapshot.prgMemoryOffset.size, prgMemoryOffset.size))
+        snapshot.prgMemoryType.copyInto(prgMemoryType, endIndex = minOf(snapshot.prgMemoryType.size, prgMemoryType.size))
+        snapshot.prgMemoryAccess.copyInto(prgMemoryAccess, endIndex = minOf(snapshot.prgMemoryAccess.size, prgMemoryAccess.size))
+        snapshot.chrMemoryOffset.copyInto(chrMemoryOffset, endIndex = minOf(snapshot.chrMemoryOffset.size, chrMemoryOffset.size))
+        snapshot.chrMemoryType.copyInto(chrMemoryType, endIndex = minOf(snapshot.chrMemoryType.size, chrMemoryType.size))
+        snapshot.chrMemoryAccess.copyInto(chrMemoryAccess, endIndex = minOf(snapshot.chrMemoryAccess.size, chrMemoryAccess.size))
+        mirroringType = snapshot.mirroring
+        restorePrgChrState()
+        restoreExtraSnapshot(snapshot.extra)
+    }
 
     private fun validateAddressRange(startAddr: Int, endAddr: Int): Boolean = (startAddr and 0xFF) == 0 && (endAddr and 0xFF) == 0xFF
     private fun updatePageSizes() {

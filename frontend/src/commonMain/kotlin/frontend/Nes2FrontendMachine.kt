@@ -4,25 +4,31 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.yield
-import nes.NesHardwareState
 import nes.Timing
 import nes.cartridge.Cartridge
 import nes.cartridge.Mirroring
 import nes.input.NesController
+import nes2.apu.NesApuSnapshot
 import nes2.apu.NesApu
 import nes2.console.NesConsole
 import nes2.console.NesConsoleOptions
 import nes2.console.NesPpuFrame
+import nes2.cpu.NesCpuSnapshot
 import nes2.cpu.ConsoleRegion as ConsoleRegion2
 import nes2.input.NesControlDevice
 import nes2.input.NesControlManager
+import nes2.input.NesControlManagerSnapshot
+import nes2.mapper.BaseMapper
 import nes2.mapper.BusConflictType
 import nes2.mapper.GameInfo
+import nes2.mapper.MapperSnapshot
 import nes2.mapper.createMapper
 import nes2.mapper.MirroringType
 import nes2.mapper.NesRomInfo
 import nes2.mapper.RomData as RomData2
+import nes2.memory.NesMemoryManagerSnapshot
 import nes2.ppu.DefaultNesPpu
+import nes2.ppu.NesPpuSnapshot
 
 class Nes2FrontendMachine {
     val controller = NesController()
@@ -34,6 +40,8 @@ class Nes2FrontendMachine {
 
     private val poweredOn = MutableStateFlow(false)
     private var oldRegion = nes.ConsoleRegion.NTSC
+    private var ppuDevice: DefaultNesPpu? = null
+    private var controlManager: NesControlManager? = null
     private var console: NesConsole? = null
 
     fun powerOff() {
@@ -79,10 +87,12 @@ class Nes2FrontendMachine {
         val mapper = createMapper(rom)
         val ppuDevice = DefaultNesPpu()
         val apuDevice = NesApu()
+        val controlManager = NesControlManager { listOf(ControllerDevice(controller)) }
+        this.ppuDevice = ppuDevice
+        this.controlManager = controlManager
         apu = apuDevice
         ppu.setFrameBuffer(ppuDevice.frameColorIds)
         ppu.clear()
-        val controlManager = NesControlManager { listOf(ControllerDevice(controller)) }
         console = NesConsole(
             mapper = mapper,
             ppu = ppuDevice,
@@ -111,8 +121,42 @@ class Nes2FrontendMachine {
         c.apu.endFrame()
     }
 
-    fun captureState(): NesHardwareState = error("nes2 savestates are not wired in the quick frontend adapter")
-    fun restoreState(state: NesHardwareState) { error("nes2 savestates are not wired in the quick frontend adapter") }
+    fun captureState(): Nes2FrontendState {
+        val c = console ?: error("Cannot capture state without a loaded console")
+        val p = ppuDevice ?: error("Cannot capture state without a PPU")
+        val controls = controlManager ?: error("Cannot capture state without controls")
+        val mapper = c.mapper as? BaseMapper ?: error("Unsupported mapper state type")
+        return Nes2FrontendState(
+            oldRegion = oldRegion,
+            poweredOn = poweredOn.value,
+            nextFrameOverclockDisabled = c.getNextFrameOverclockStatus(),
+            cpu = c.cpu.captureSnapshot(),
+            memory = c.memoryManager.captureSnapshot(),
+            ppu = p.captureSnapshot(),
+            apu = apu.captureInternalSnapshot(),
+            mapper = mapper.captureSnapshot(),
+            controls = controls.captureSnapshot(),
+            completedFrameColorIds = ppu.completedFrameColorIds.copyOf(),
+            completedFrameCount = ppu.frameCount,
+        )
+    }
+
+    fun restoreState(state: Nes2FrontendState) {
+        val c = console ?: error("Cannot restore state without a loaded console")
+        val p = ppuDevice ?: error("Cannot restore state without a PPU")
+        val controls = controlManager ?: error("Cannot restore state without controls")
+        val mapper = c.mapper as? BaseMapper ?: error("Unsupported mapper state type")
+        oldRegion = state.oldRegion
+        c.setNextFrameOverclockStatus(state.nextFrameOverclockDisabled)
+        mapper.restoreSnapshot(state.mapper)
+        c.memoryManager.restoreSnapshot(state.memory)
+        p.restoreSnapshot(state.ppu)
+        apu.restoreSnapshot(state.apu)
+        controls.restoreSnapshot(state.controls)
+        c.cpu.restoreSnapshot(state.cpu)
+        ppu.restoreSnapshot(state.completedFrameColorIds, state.completedFrameCount)
+        poweredOn.value = state.poweredOn
+    }
 
     class FrameOutput {
         var completedFrameColorIds = ByteArray(256 * 240)
@@ -132,6 +176,11 @@ class Nes2FrontendMachine {
         fun onFrame(frame: NesPpuFrame) {
             frameCount = frame.frameCount
         }
+
+        fun restoreSnapshot(colorIds: ByteArray, frameCount: Int) {
+            colorIds.copyInto(completedFrameColorIds, endIndex = minOf(colorIds.size, completedFrameColorIds.size))
+            this.frameCount = frameCount
+        }
     }
 
     private class ControllerDevice(private val controller: NesController) : NesControlDevice {
@@ -146,5 +195,47 @@ class Nes2FrontendMachine {
     private companion object {
         const val INPUT_POLL_INTERVAL = 15_000
         const val CPU_CYCLES_PER_YIELD = 2_000
+    }
+}
+
+data class Nes2FrontendState(
+    val oldRegion: nes.ConsoleRegion,
+    val poweredOn: Boolean,
+    val nextFrameOverclockDisabled: Boolean,
+    val cpu: NesCpuSnapshot,
+    val memory: NesMemoryManagerSnapshot,
+    val ppu: NesPpuSnapshot,
+    val apu: NesApuSnapshot,
+    val mapper: MapperSnapshot,
+    val controls: NesControlManagerSnapshot,
+    val completedFrameColorIds: ByteArray,
+    val completedFrameCount: Int,
+) {
+    override fun equals(other: Any?): Boolean = other is Nes2FrontendState &&
+        oldRegion == other.oldRegion &&
+        poweredOn == other.poweredOn &&
+        nextFrameOverclockDisabled == other.nextFrameOverclockDisabled &&
+        cpu == other.cpu &&
+        memory == other.memory &&
+        ppu == other.ppu &&
+        apu == other.apu &&
+        mapper == other.mapper &&
+        controls == other.controls &&
+        completedFrameColorIds.contentEquals(other.completedFrameColorIds) &&
+        completedFrameCount == other.completedFrameCount
+
+    override fun hashCode(): Int {
+        var result = oldRegion.hashCode()
+        result = 31 * result + poweredOn.hashCode()
+        result = 31 * result + nextFrameOverclockDisabled.hashCode()
+        result = 31 * result + cpu.hashCode()
+        result = 31 * result + memory.hashCode()
+        result = 31 * result + ppu.hashCode()
+        result = 31 * result + apu.hashCode()
+        result = 31 * result + mapper.hashCode()
+        result = 31 * result + controls.hashCode()
+        result = 31 * result + completedFrameColorIds.contentHashCode()
+        result = 31 * result + completedFrameCount
+        return result
     }
 }

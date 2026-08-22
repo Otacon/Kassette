@@ -1,5 +1,6 @@
 package nes2.memory
 
+import kotlinx.serialization.Serializable
 import nes2.cpu.MemoryOperationType
 import nes2.cpu.NesCpuBusType
 import nes2.cpu.NesCpuMemoryManager
@@ -90,6 +91,16 @@ class NesMemoryManager(
 
     fun getInternalRam(): ByteArray = internalRam
 
+    fun captureSnapshot(): NesMemoryManagerSnapshot = NesMemoryManagerSnapshot(
+        internalRam = internalRam.copyOf(),
+        openBus = openBusHandler.getOpenBus(),
+    )
+
+    fun restoreSnapshot(snapshot: NesMemoryManagerSnapshot) {
+        snapshot.internalRam.copyInto(internalRam, endIndex = minOf(snapshot.internalRam.size, internalRam.size))
+        openBusHandler.setOpenBus(snapshot.openBus)
+    }
+
     override fun debugRead(addr: Int): Int {
         val address = addr and 0xFFFF
         var value = ramReadHandlers[address].peekRam(address) and 0xFF
@@ -150,4 +161,16 @@ class NesMemoryManager(
     override fun setOpenBus(value: Int, busType: NesCpuBusType) {
         openBusHandler.setOpenBus(value, busType)
     }
+}
+
+@Serializable
+data class NesMemoryManagerSnapshot(
+    val internalRam: ByteArray = ByteArray(0),
+    val openBus: Int = 0,
+) {
+    override fun equals(other: Any?): Boolean = other is NesMemoryManagerSnapshot &&
+        internalRam.contentEquals(other.internalRam) &&
+        openBus == other.openBus
+
+    override fun hashCode(): Int = 31 * internalRam.contentHashCode() + openBus
 }

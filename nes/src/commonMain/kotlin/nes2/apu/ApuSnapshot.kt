@@ -1,5 +1,8 @@
 package nes2.apu
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class NesApuSnapshot(
     val ApuEnabled: Boolean = true,
     val NeedToRun: Boolean = false,
@@ -14,6 +17,7 @@ data class NesApuSnapshot(
     val FrameCounter: ApuFrameCounterSnapshot = ApuFrameCounterSnapshot(),
 )
 
+@Serializable
 data class ApuTimerSnapshot(
     val PreviousCycle: Int = 0,
     val Timer: Int = 0,
@@ -21,6 +25,7 @@ data class ApuTimerSnapshot(
     val LastOutput: Int = 0,
 )
 
+@Serializable
 data class ApuLengthCounterSnapshot(
     val Enabled: Boolean = false,
     val Halt: Boolean = false,
@@ -30,6 +35,7 @@ data class ApuLengthCounterSnapshot(
     val NewHaltValue: Boolean = false,
 )
 
+@Serializable
 data class ApuEnvelopeSnapshot(
     val LengthCounter: ApuLengthCounterSnapshot = ApuLengthCounterSnapshot(),
     val ConstantVolume: Boolean = false,
@@ -39,6 +45,7 @@ data class ApuEnvelopeSnapshot(
     val Counter: Int = 0,
 )
 
+@Serializable
 data class SquareChannelSnapshot(
     val Envelope: ApuEnvelopeSnapshot = ApuEnvelopeSnapshot(),
     val Timer: ApuTimerSnapshot = ApuTimerSnapshot(),
@@ -54,6 +61,7 @@ data class SquareChannelSnapshot(
     val RealPeriod: Int = 0,
 )
 
+@Serializable
 data class TriangleChannelSnapshot(
     val LengthCounter: ApuLengthCounterSnapshot = ApuLengthCounterSnapshot(),
     val Timer: ApuTimerSnapshot = ApuTimerSnapshot(),
@@ -64,6 +72,7 @@ data class TriangleChannelSnapshot(
     val SequencePosition: Int = 0,
 )
 
+@Serializable
 data class NoiseChannelSnapshot(
     val Envelope: ApuEnvelopeSnapshot = ApuEnvelopeSnapshot(),
     val Timer: ApuTimerSnapshot = ApuTimerSnapshot(),
@@ -71,6 +80,7 @@ data class NoiseChannelSnapshot(
     val ModeFlag: Boolean = false,
 )
 
+@Serializable
 data class DeltaModulationChannelSnapshot(
     val Timer: ApuTimerSnapshot = ApuTimerSnapshot(),
     val SampleAddr: Int = 0xC000,
@@ -91,6 +101,7 @@ data class DeltaModulationChannelSnapshot(
     val LastValue4011: Int = 0,
 )
 
+@Serializable
 data class ApuFrameCounterSnapshot(
     val PreviousCycle: Int = 0,
     val CurrentStep: Int = 0,

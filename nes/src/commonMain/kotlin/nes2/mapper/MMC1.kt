@@ -35,6 +35,34 @@ class MMC1(romData: RomData) : BaseMapper(romData) {
         lastWriteCycle = currentCycle
     }
 
+    override fun captureExtraSnapshot(): MapperExtraSnapshot = MapperExtraSnapshot(
+        ints = intArrayOf(writeBuffer, shiftCount, chrReg0, chrReg1, prgReg, lastChrReg),
+        longs = longArrayOf(lastWriteCycle),
+        booleans = booleanArrayOf(wramDisable, chrMode, prgMode, slotSelect, forceWramOn),
+    )
+
+    override fun restoreExtraSnapshot(snapshot: MapperExtraSnapshot) {
+        val ints = snapshot.ints
+        val longs = snapshot.longs
+        val booleans = snapshot.booleans
+        if (ints.size >= 6) {
+            writeBuffer = ints[0]
+            shiftCount = ints[1]
+            chrReg0 = ints[2]
+            chrReg1 = ints[3]
+            prgReg = ints[4]
+            lastChrReg = ints[5]
+        }
+        if (longs.isNotEmpty()) lastWriteCycle = longs[0]
+        if (booleans.size >= 5) {
+            wramDisable = booleans[0]
+            chrMode = booleans[1]
+            prgMode = booleans[2]
+            slotSelect = booleans[3]
+            forceWramOn = booleans[4]
+        }
+    }
+
     private fun resetBuffer() {
         shiftCount = 0
         writeBuffer = 0

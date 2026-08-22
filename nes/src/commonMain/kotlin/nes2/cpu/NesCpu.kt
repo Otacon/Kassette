@@ -83,6 +83,56 @@ class NesCpu(private val host: NesCpuHost) {
     fun getPC(): Int = state.PC
     fun setState(value: NesCpuState) { state = value.copy() }
 
+    fun captureSnapshot(): NesCpuSnapshot = NesCpuSnapshot(
+        state = state.copy(),
+        masterClock = masterClock,
+        ppuOffset = ppuOffset,
+        startClockCount = startClockCount,
+        endClockCount = endClockCount,
+        operand = operand,
+        instAddrMode = instAddrMode,
+        needHalt = needHalt,
+        spriteDmaTransfer = spriteDmaTransfer,
+        dmcDmaRunning = dmcDmaRunning,
+        abortDmcDma = abortDmcDma,
+        needDummyRead = needDummyRead,
+        spriteDmaOffset = spriteDmaOffset,
+        cpuWrite = cpuWrite,
+        irqMask = irqMask,
+        prevRunIrq = prevRunIrq,
+        runIrq = runIrq,
+        prevNmiFlag = prevNmiFlag,
+        prevNeedNmi = prevNeedNmi,
+        needNmi = needNmi,
+        crashed = crashed,
+        isDmcDmaRead = isDmcDmaRead,
+    )
+
+    fun restoreSnapshot(snapshot: NesCpuSnapshot) {
+        state = snapshot.state.copy()
+        masterClock = snapshot.masterClock
+        ppuOffset = snapshot.ppuOffset
+        startClockCount = snapshot.startClockCount
+        endClockCount = snapshot.endClockCount
+        operand = snapshot.operand
+        instAddrMode = snapshot.instAddrMode
+        needHalt = snapshot.needHalt
+        spriteDmaTransfer = snapshot.spriteDmaTransfer
+        dmcDmaRunning = snapshot.dmcDmaRunning
+        abortDmcDma = snapshot.abortDmcDma
+        needDummyRead = snapshot.needDummyRead
+        spriteDmaOffset = snapshot.spriteDmaOffset
+        cpuWrite = snapshot.cpuWrite
+        irqMask = snapshot.irqMask
+        prevRunIrq = snapshot.prevRunIrq
+        runIrq = snapshot.runIrq
+        prevNmiFlag = snapshot.prevNmiFlag
+        prevNeedNmi = snapshot.prevNeedNmi
+        needNmi = snapshot.needNmi
+        crashed = snapshot.crashed
+        isDmcDmaRead = snapshot.isDmcDmaRead
+    }
+
     fun reset(softReset: Boolean, region: ConsoleRegion = host.region) {
         state.NmiFlag = false
         state.IrqFlag = 0

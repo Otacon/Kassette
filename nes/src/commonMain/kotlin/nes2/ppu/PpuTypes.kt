@@ -1,11 +1,15 @@
 package nes2.ppu
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class PPUStatusFlags(
     var spriteOverflow: Boolean = false,
     var sprite0Hit: Boolean = false,
     var verticalBlank: Boolean = false,
 )
 
+@Serializable
 data class PpuControlFlags(
     var backgroundPatternAddr: Int = 0,
     var spritePatternAddr: Int = 0,
@@ -15,6 +19,7 @@ data class PpuControlFlags(
     var nmiOnVerticalBlank: Boolean = false,
 )
 
+@Serializable
 data class PpuMaskFlags(
     var grayscale: Boolean = false,
     var backgroundMask: Boolean = false,
@@ -26,6 +31,7 @@ data class PpuMaskFlags(
     var intensifyBlue: Boolean = false,
 )
 
+@Serializable
 data class TileInfo(
     var tileAddr: Int = 0,
     var lowByte: Int = 0,
@@ -33,6 +39,7 @@ data class TileInfo(
     var paletteOffset: Int = 0,
 )
 
+@Serializable
 data class NesSpriteInfo(
     var backgroundPriority: Boolean = false,
     var spriteX: Int = 0,
@@ -41,6 +48,7 @@ data class NesSpriteInfo(
     var paletteOffset: Int = 0,
 )
 
+@Serializable
 data class NesPpuState(
     var statusFlags: PPUStatusFlags = PPUStatusFlags(),
     var mask: PpuMaskFlags = PpuMaskFlags(),
@@ -61,6 +69,7 @@ data class NesPpuState(
     var writeToggle: Boolean = false,
 )
 
+@Serializable
 data class NesPpuSnapshot(
     var paletteRam: IntArray = IntArray(0x20),
     var spriteRam: IntArray = IntArray(0x100),

@@ -85,6 +85,8 @@ class NesConsole(
         nextFrameOverclockDisabled = disabled
     }
 
+    fun getNextFrameOverclockStatus(): Boolean = nextFrameOverclockDisabled
+
     fun updateRegion(forceUpdate: Boolean = false) {
         val newRegion = options.regionProvider?.invoke() ?: options.region
         if (currentRegion != newRegion || forceUpdate) {

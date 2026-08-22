@@ -1,11 +1,15 @@
 package nes2.cpu
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class ConsoleRegion {
     Ntsc,
     Pal,
     Dendy,
 }
 
+@Serializable
 enum class MemoryOperationType {
     Read,
     Write,
@@ -17,12 +21,14 @@ enum class MemoryOperationType {
     DmaWrite,
 }
 
+@Serializable
 enum class NesCpuBusType {
     Internal,
     External,
     Both,
 }
 
+@Serializable
 enum class NesAddrMode {
     None,
     Acc,
@@ -63,6 +69,7 @@ enum class IRQSource(val mask: Int) {
     Mapper(0x10),
 }
 
+@Serializable
 data class NesCpuState(
     var PC: Int = 0,
     var SP: Int = 0,
@@ -73,6 +80,32 @@ data class NesCpuState(
     var CycleCount: Long = 0,
     var NmiFlag: Boolean = false,
     var IrqFlag: Int = 0,
+)
+
+@Serializable
+data class NesCpuSnapshot(
+    val state: NesCpuState = NesCpuState(),
+    val masterClock: Long = 0,
+    val ppuOffset: Int = 0,
+    val startClockCount: Int = 6,
+    val endClockCount: Int = 6,
+    val operand: Int = 0,
+    val instAddrMode: NesAddrMode = NesAddrMode.None,
+    val needHalt: Boolean = false,
+    val spriteDmaTransfer: Boolean = false,
+    val dmcDmaRunning: Boolean = false,
+    val abortDmcDma: Boolean = false,
+    val needDummyRead: Boolean = false,
+    val spriteDmaOffset: Int = 0,
+    val cpuWrite: Boolean = false,
+    val irqMask: Int = 0,
+    val prevRunIrq: Boolean = false,
+    val runIrq: Boolean = false,
+    val prevNmiFlag: Boolean = false,
+    val prevNeedNmi: Boolean = false,
+    val needNmi: Boolean = false,
+    val crashed: Boolean = false,
+    val isDmcDmaRead: Boolean = false,
 )
 
 interface NesCpuMemoryManager {

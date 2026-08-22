@@ -21,4 +21,12 @@ class BF909x(romData: RomData) : BaseMapper(romData) {
             setMirroringType(if ((value and 0x10) != 0) MirroringType.ScreenAOnly else MirroringType.ScreenBOnly)
         }
     }
+
+    override fun captureExtraSnapshot(): MapperExtraSnapshot = MapperExtraSnapshot(
+        booleans = booleanArrayOf(bf9097Mode),
+    )
+
+    override fun restoreExtraSnapshot(snapshot: MapperExtraSnapshot) {
+        if (snapshot.booleans.isNotEmpty()) bf9097Mode = snapshot.booleans[0]
+    }
 }
