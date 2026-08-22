@@ -209,6 +209,9 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     internal fun clearIrq(source: IRQSource) = console.cpu.clearIrqSource(source)
     internal fun hasIrq(source: IRQSource): Boolean = console.cpu.hasIrqSource(source)
     internal fun setNextFrameOverclockStatus(disabled: Boolean) = console.setNextFrameOverclockStatus(disabled)
+    internal fun enableDmcSampleDuplicationGlitch(): Boolean = console.options.apu.enableDmcSampleDuplicationGlitch
+    internal fun reduceDmcPopping(): Boolean = console.options.apu.reduceDmcPopping
+    internal fun reverseDpcmBitOrder(): Boolean = console.options.apu.reverseDpcmBitOrder
 
     private fun exec() {
         currentCycle++

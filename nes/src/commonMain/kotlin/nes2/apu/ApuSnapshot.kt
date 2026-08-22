@@ -88,6 +88,7 @@ data class DeltaModulationChannelSnapshot(
     val NeedToRun: Boolean = false,
     val DisableDelay: Int = 0,
     val TransferStartDelay: Int = 0,
+    val LastValue4011: Int = 0,
 )
 
 data class ApuFrameCounterSnapshot(

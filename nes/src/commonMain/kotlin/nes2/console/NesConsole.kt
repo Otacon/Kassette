@@ -154,7 +154,14 @@ data class NesConsoleOptions(
     val processMemoryWrite: (addr: Int, value: Int, operationType: MemoryOperationType) -> Boolean = { _, _, _ -> true },
     val onCpuCrash: () -> Unit = {},
     val ppu: NesPpuOptions = NesPpuOptions(),
+    val apu: NesApuOptions = NesApuOptions(),
     val controllerType: NesConsoleType = NesConsoleType.Nes001,
+)
+
+data class NesApuOptions(
+    val enableDmcSampleDuplicationGlitch: Boolean = false,
+    val reduceDmcPopping: Boolean = false,
+    val reverseDpcmBitOrder: Boolean = false,
 )
 
 data class NesPpuOptions(
