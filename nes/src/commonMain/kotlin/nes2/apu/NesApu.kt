@@ -8,38 +8,21 @@ import nes2.cpu.IRQSource
 import nes2.memory.INesMemoryHandler
 import nes2.memory.MemoryOperation
 import nes2.memory.MemoryRanges
-import kotlin.math.PI
-import kotlin.math.exp
 
 class NesApu : NesConsoleApu, INesMemoryHandler {
     companion object {
         const val DEFAULT_SAMPLE_RATE = 44_100
         const val MAX_FRAME_SAMPLES = 2048
+        private const val MIXER_CYCLE_LENGTH = 120_000
+        private const val CHANNEL_COUNT = 5
 
-        private val PULSE_MIX = DoubleArray(31) { sum ->
-            if (sum == 0) 0.0 else 95.88 / ((8128.0 / sum) + 100.0)
+        private fun channelIndex(channel: ApuAudioChannel): Int = when (channel) {
+            ApuAudioChannel.Square1 -> 0
+            ApuAudioChannel.Square2 -> 1
+            ApuAudioChannel.Triangle -> 2
+            ApuAudioChannel.Noise -> 3
+            ApuAudioChannel.Dmc -> 4
         }
-        private val TND_MIX = DoubleArray(16 * 16 * 128).also { table ->
-            var triangle = 0
-            while (triangle < 16) {
-                var noise = 0
-                while (noise < 16) {
-                    var dmc = 0
-                    while (dmc < 128) {
-                        val input = triangle / 8227.0 + noise / 12241.0 + dmc / 22638.0
-                        table[tndIndex(triangle, noise, dmc)] = if (input == 0.0) 0.0 else 159.79 / (1.0 / input + 100.0)
-                        dmc++
-                    }
-                    noise++
-                }
-                triangle++
-            }
-        }
-        private const val HIGH_PASS_90_HZ_CUTOFF = 90.0
-        private const val HIGH_PASS_440_HZ_CUTOFF = 440.0
-        private const val LOW_PASS_14_KHZ_CUTOFF = 14_000.0
-
-        private fun tndIndex(triangle: Int, noise: Int, dmc: Int): Int = ((triangle shl 4) or noise) * 128 + dmc
     }
 
     val samples = ShortArray(MAX_FRAME_SAMPLES)
@@ -54,14 +37,8 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     private var currentCycle = 0
     private var apuDisabledStamp = 0L
     private var samplePhase = 0
-    private var highPass90Input = 0.0
-    private var highPass90Output = 0.0
-    private var highPass440Input = 0.0
-    private var highPass440Output = 0.0
-    private var lowPass14kOutput = 0.0
-    private var highPass90 = 0.0
-    private var highPass440 = 0.0
-    private var lowPass14k = 0.0
+    private val channelDeltas = IntArray(CHANNEL_COUNT * MIXER_CYCLE_LENGTH)
+    private val currentOutput = IntArray(CHANNEL_COUNT)
 
     private val square1 = SquareChannel(isChannel1 = true, apu = this)
     private val square2 = SquareChannel(isChannel1 = false, apu = this)
@@ -92,9 +69,9 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
                 console.cpu.clearIrqSource(IRQSource.FrameCounter)
                 status and 0xFF
             }
-            0x4018 -> square1.output or (square2.output shl 4)
-            0x4019 -> triangle.output or (noise.output shl 4)
-            0x401A -> dmc.output
+            0x4018 -> if (console.options.apu.cpuTestMode) square1.output or (square2.output shl 4) else console.getOpenBus()
+            0x4019 -> if (console.options.apu.cpuTestMode) triangle.output or (noise.output shl 4) else console.getOpenBus()
+            0x401A -> if (console.options.apu.cpuTestMode) dmc.output else console.getOpenBus()
             else -> console.getOpenBus()
         }
     }
@@ -104,13 +81,13 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     override fun writeRam(addr: Int, value: Int) {
         val address = addr and 0xFFFF
         val v = value and 0xFF
-        when (address) {
-            in 0x4000..0x4003 -> square1.writeRam(address, v)
-            in 0x4004..0x4007 -> square2.writeRam(address, v)
-            in 0x4008..0x400B -> triangle.writeRam(address, v)
-            in 0x400C..0x400F -> noise.writeRam(address, v)
-            in 0x4010..0x4013 -> dmc.writeRam(address, v)
-            0x4015 -> {
+        when {
+            address >= 0x4000 && address <= 0x4003 -> square1.writeRam(address, v)
+            address >= 0x4004 && address <= 0x4007 -> square2.writeRam(address, v)
+            address >= 0x4008 && address <= 0x400B -> triangle.writeRam(address, v)
+            address >= 0x400C && address <= 0x400F -> noise.writeRam(address, v)
+            address >= 0x4010 && address <= 0x4013 -> dmc.writeRam(address, v)
+            address == 0x4015 -> {
                 run()
                 console.cpu.clearIrqSource(IRQSource.Dmc)
                 square1.setEnabled((v and 0x01) != 0)
@@ -119,7 +96,7 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
                 noise.setEnabled((v and 0x08) != 0)
                 dmc.setEnabled((v and 0x10) != 0)
             }
-            0x4017 -> frameCounter.writeRam(v)
+            address == 0x4017 -> frameCounter.writeRam(v)
         }
     }
 
@@ -130,11 +107,8 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         needToRun = false
         samplePhase = 0
         sampleCount = 0
-        highPass90Input = 0.0
-        highPass90Output = 0.0
-        highPass440Input = 0.0
-        highPass440Output = 0.0
-        lowPass14kOutput = 0.0
+        currentOutput.fill(0)
+        channelDeltas.fill(0)
         square1.reset(softReset)
         square2.reset(softReset)
         triangle.reset(softReset)
@@ -144,10 +118,8 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     }
 
     override fun setRegion(region: ConsoleRegion) {
+        run()
         this.region = if (region == ConsoleRegion.Dendy) ConsoleRegion.Ntsc else region
-        highPass90 = exp(-2.0 * PI * HIGH_PASS_90_HZ_CUTOFF / DEFAULT_SAMPLE_RATE)
-        highPass440 = exp(-2.0 * PI * HIGH_PASS_440_HZ_CUTOFF / DEFAULT_SAMPLE_RATE)
-        lowPass14k = 1.0 - exp(-2.0 * PI * LOW_PASS_14_KHZ_CUTOFF / DEFAULT_SAMPLE_RATE)
         samplePhase %= clockRate()
         frameCounter.setRegion(this.region)
         noise.setRegion(this.region)
@@ -156,12 +128,6 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
 
     override fun processCpuClock() {
         if (apuEnabled) exec()
-        samplePhase += DEFAULT_SAMPLE_RATE
-        if (samplePhase >= clockRate()) {
-            samplePhase -= clockRate()
-            run()
-            appendSample(mix())
-        }
     }
 
     override fun endFrame() {
@@ -171,6 +137,7 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         triangle.endFrame()
         noise.endFrame()
         dmc.endFrame()
+        renderMixerFrame(currentCycle)
         currentCycle = 0
         previousCycle = 0
     }
@@ -230,6 +197,12 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         noise.restoreSnapshot(snapshot.Noise)
         dmc.restoreSnapshot(snapshot.Dmc)
         frameCounter.restoreSnapshot(snapshot.FrameCounter)
+        currentOutput[0] = square1.output
+        currentOutput[1] = square2.output
+        currentOutput[2] = triangle.output
+        currentOutput[3] = noise.output
+        currentOutput[4] = dmc.output
+        channelDeltas.fill(0)
     }
 
     internal fun setNeedToRun() {
@@ -279,30 +252,63 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     internal fun enableDmcSampleDuplicationGlitch(): Boolean = console.options.apu.enableDmcSampleDuplicationGlitch
     internal fun reduceDmcPopping(): Boolean = console.options.apu.reduceDmcPopping
     internal fun reverseDpcmBitOrder(): Boolean = console.options.apu.reverseDpcmBitOrder
+    internal fun swapDutyCycles(): Boolean = console.options.apu.swapDutyCycles
+    internal fun silenceTriangleHighFrequency(): Boolean = console.options.apu.silenceTriangleHighFrequency
+    internal fun disableNoiseModeFlag(): Boolean = console.options.apu.disableNoiseModeFlag
+
+    internal fun addDelta(channel: ApuAudioChannel, time: Int, delta: Int) {
+        if (delta == 0 || time < 0 || time >= MIXER_CYCLE_LENGTH) return
+        val index = channelIndex(channel) * MIXER_CYCLE_LENGTH + time
+        channelDeltas[index] += delta
+    }
 
     private fun exec() {
         currentCycle++
-        if (needToRun(currentCycle)) run()
+        if (currentCycle >= MIXER_CYCLE_LENGTH - 1) {
+            dmc.processClock()
+            endFrame()
+        } else if (needToRun(currentCycle)) run()
     }
 
-    private fun mix(): Double {
-        val mixed = PULSE_MIX[square1.output + square2.output] + TND_MIX[tndIndex(triangle.output, noise.output, dmc.output)]
-        highPass90Output = highPass90 * (highPass90Output + mixed - highPass90Input)
-        highPass90Input = mixed
-        highPass440Output = highPass440 * (highPass440Output + highPass90Output - highPass440Input)
-        highPass440Input = highPass90Output
-        lowPass14kOutput += lowPass14k * (highPass440Output - lowPass14kOutput)
-        return lowPass14kOutput
-    }
-
-    private fun appendSample(value: Double) {
+    private fun appendSample(value: Int) {
         if (sampleCount >= samples.size) return
         val clamped = when {
-            value > 1.0 -> 1.0
-            value < -1.0 -> -1.0
+            value > Short.MAX_VALUE -> Short.MAX_VALUE.toInt()
+            value < Short.MIN_VALUE -> Short.MIN_VALUE.toInt()
             else -> value
         }
-        samples[sampleCount++] = (clamped * Short.MAX_VALUE).toInt().toShort()
+        samples[sampleCount++] = clamped.toShort()
+    }
+
+    private fun renderMixerFrame(time: Int) {
+        val end = if (time < MIXER_CYCLE_LENGTH) time else MIXER_CYCLE_LENGTH - 1
+        var cycle = 0
+        while (cycle <= end) {
+            var channel = 0
+            while (channel < CHANNEL_COUNT) {
+                val index = channel * MIXER_CYCLE_LENGTH + cycle
+                val delta = channelDeltas[index]
+                if (delta != 0) {
+                    currentOutput[channel] += delta
+                    channelDeltas[index] = 0
+                }
+                channel++
+            }
+            samplePhase += DEFAULT_SAMPLE_RATE
+            if (samplePhase >= clockRate()) {
+                samplePhase -= clockRate()
+                appendSample(getOutputVolume() * 4)
+            }
+            cycle++
+        }
+    }
+
+    private fun getOutputVolume(): Int {
+        val squareOutput = currentOutput[0] + currentOutput[1]
+        val tndOutput = currentOutput[4] + 2.7516713261 * currentOutput[2] + 1.8493587125 * currentOutput[3]
+        val squareVolume = if (squareOutput == 0) 0.0 else (95.88 * 5000.0) / (8128.0 / squareOutput + 100.0)
+        val tndVolume = if (tndOutput == 0.0) 0.0 else (159.79 * 5000.0) / (22638.0 / tndOutput + 100.0)
+        return (squareVolume + tndVolume).toInt()
     }
 
     private fun needToRun(cycle: Int): Boolean {

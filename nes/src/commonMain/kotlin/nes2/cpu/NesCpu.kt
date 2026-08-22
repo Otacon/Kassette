@@ -433,8 +433,8 @@ class NesCpu(private val host: NesCpuHost) {
                     processCycle()
                     isDmcDmaRead = true
                     val result = processDmaRead(host.apu.getDmcReadAddress(), prevReadAddress, enableInternalRegReads)
-                    readValue = result.first
-                    prevReadAddress = result.second
+                    readValue = result shr 16
+                    prevReadAddress = result and 0xFFFF
                     isDmcDmaRead = false
                     endCpuCycle(true)
                     dmcDmaRunning = false
@@ -444,8 +444,8 @@ class NesCpu(private val host: NesCpuHost) {
                 } else if (spriteDmaTransfer) {
                     processCycle()
                     val result = processDmaRead(spriteDmaOffset * 0x100 + spriteReadAddr, prevReadAddress, enableInternalRegReads)
-                    readValue = result.first
-                    prevReadAddress = result.second
+                    readValue = result shr 16
+                    prevReadAddress = result and 0xFFFF
                     endCpuCycle(true)
                     spriteReadAddr = (spriteReadAddr + 1).u8()
                     spriteDmaCounter++
@@ -470,11 +470,11 @@ class NesCpu(private val host: NesCpuHost) {
         }
     }
 
-    private fun processDmaRead(addr: Int, prevReadAddress: Int, enableInternalRegReads: Boolean): Pair<Int, Int> {
+    private fun processDmaRead(addr: Int, prevReadAddress: Int, enableInternalRegReads: Boolean): Int {
         var valRead: Int
         if (!enableInternalRegReads) {
-            valRead = if (addr in 0x4015..0x401A) host.memoryManager.getOpenBus() else host.memoryManager.read(addr, MemoryOperationType.DmaRead)
-            return valRead.u8() to addr.u16()
+            valRead = if (addr >= 0x4015 && addr <= 0x401A) host.memoryManager.getOpenBus() else host.memoryManager.read(addr, MemoryOperationType.DmaRead)
+            return (valRead.u8() shl 16) or addr.u16()
         } else {
             val internalAddr = 0x4000 or (addr and 0x1F)
             val isSameAddress = internalAddr == addr
@@ -495,7 +495,7 @@ class NesCpu(private val host: NesCpuHost) {
                 else -> valRead = host.memoryManager.read(addr, MemoryOperationType.DmaRead)
             }
             @Suppress("UNUSED_VARIABLE") val ignored = prevReadAddress
-            return valRead.u8() to internalAddr.u16()
+            return (valRead.u8() shl 16) or internalAddr.u16()
         }
     }
 }

@@ -5,7 +5,9 @@ internal val LENGTH_LOOKUP = intArrayOf(
     12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30,
 )
 
-internal class ApuTimer {
+internal enum class ApuAudioChannel { Square1, Square2, Triangle, Noise, Dmc }
+
+internal class ApuTimer(private val channel: ApuAudioChannel, private val mixer: NesApu) {
     var previousCycle = 0
     var timer = 0
     var period = 0
@@ -19,7 +21,11 @@ internal class ApuTimer {
     }
 
     fun addOutput(output: Int) {
-        lastOutput = output and 0xFF
+        val newOutput = output and 0xFF
+        if (newOutput != lastOutput) {
+            mixer.addDelta(channel, previousCycle, newOutput - lastOutput)
+            lastOutput = newOutput
+        }
     }
 
     fun run(targetCycle: Int): Boolean {

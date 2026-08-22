@@ -8,7 +8,7 @@ internal class SquareChannel(private val isChannel1: Boolean, private val apu: N
         intArrayOf(1, 1, 1, 1, 1, 1, 0, 0),
     )
     private val envelope = ApuEnvelope(apu)
-    private val timer = ApuTimer()
+    private val timer = ApuTimer(if (isChannel1) ApuAudioChannel.Square1 else ApuAudioChannel.Square2, apu)
     private var duty = 0
     private var dutyPos = 0
     private var sweepEnabled = false
@@ -24,7 +24,7 @@ internal class SquareChannel(private val isChannel1: Boolean, private val apu: N
     fun writeRam(addr: Int, value: Int) {
         apu.run()
         when (addr and 3) {
-            0 -> { envelope.initialize(value); duty = (value and 0xC0) shr 6 }
+            0 -> { envelope.initialize(value); duty = (value and 0xC0) shr 6; if (apu.swapDutyCycles() && duty == 1) duty = 2 else if (apu.swapDutyCycles() && duty == 2) duty = 1 }
             1 -> initializeSweep(value)
             2 -> setPeriod((realPeriod and 0x700) or value)
             3 -> { envelope.lengthCounter.load(value shr 3); setPeriod((realPeriod and 0xFF) or ((value and 7) shl 8)); dutyPos = 0; envelope.resetEnvelope() }

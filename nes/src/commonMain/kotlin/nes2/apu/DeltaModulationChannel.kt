@@ -6,7 +6,7 @@ import nes2.cpu.IRQSource
 internal class DeltaModulationChannel(private val apu: NesApu) {
     private val ntsc = intArrayOf(428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54)
     private val pal = intArrayOf(398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50)
-    private val timer = ApuTimer()
+    private val timer = ApuTimer(ApuAudioChannel.Dmc, apu)
     private var periods = ntsc
     private var sampleAddr = 0xC000
     private var sampleLength = 1
@@ -181,9 +181,9 @@ internal class DeltaModulationChannel(private val apu: NesApu) {
 
         outputLevel = newLevel and 0x7F
         timer.addOutput(outputLevel)
-        if (lastValue4011 != value && outputLevel > 0) {
+        if (lastValue4011 != (value and 0x7F) && outputLevel > 0) {
             apu.setNextFrameOverclockStatus(true)
         }
-        lastValue4011 = outputLevel
+        lastValue4011 = value and 0x7F
     }
 }

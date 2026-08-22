@@ -34,7 +34,15 @@ abstract class NesPpu : BaseNesPpu() {
         currentOutputBuffer = outputBuffers[0]
         outputBuffers[0].fill(0)
         outputBuffers[1].fill(0)
-        paletteRamBootValues.copyInto(paletteRam)
+        if (console.options.ppu.randomizePowerOnState) {
+            var i = 0
+            while (i < paletteRam.size) {
+                paletteRam[i] = console.randomInt(0x40)
+                i++
+            }
+        } else {
+            paletteRamBootValues.copyInto(paletteRam)
+        }
         videoRamAddr = 0
         console.initializeRam(intArrayAsByteArray(spriteRam))
         console.initializeRam(intArrayAsByteArray(secondarySpriteRam))
@@ -64,7 +72,10 @@ abstract class NesPpu : BaseNesPpu() {
         writeToggle = false
         resetControl()
         resetMask()
-        if (!softReset) resetStatus()
+        if (!softReset) {
+            resetStatus()
+            if (console.options.ppu.randomizePowerOnState) statusFlags.verticalBlank = console.randomInt(2) != 0
+        }
         tile.tileAddr = 0
         tile.lowByte = 0
         tile.highByte = 0
@@ -177,7 +188,7 @@ abstract class NesPpu : BaseNesPpu() {
             PpuRegisters.SpriteData -> {
                 if (!console.options.ppu.disablePpu2004Reads) {
                     returnValue = if (scanline <= 239 && isRenderingEnabled()) {
-                        if ((cycle in 257..340) || cycle == 0) secondarySpriteRam[secondaryOamAddr and 0x1F] else oamCopybuffer
+                        if ((cycle >= 257 && cycle <= 340) || cycle == 0) secondarySpriteRam[secondaryOamAddr and 0x1F] else oamCopybuffer
                     } else {
                         spriteRam[spriteRamAddr]
                     }
@@ -219,7 +230,7 @@ abstract class NesPpu : BaseNesPpu() {
             PpuRegisters.SpriteData -> {
                 if (!console.options.ppu.disablePpu2004Reads) {
                     returnValue = if (scanline <= 239 && isRenderingEnabled()) {
-                        if ((cycle in 257..340) || cycle == 0) oamCopybuffer = secondarySpriteRam[secondaryOamAddr and 0x1F]
+                        if ((cycle >= 257 && cycle <= 340) || cycle == 0) oamCopybuffer = secondarySpriteRam[secondaryOamAddr and 0x1F]
                         oamCopybuffer
                     } else {
                         readSpriteRam(spriteRamAddr)
@@ -258,7 +269,16 @@ abstract class NesPpu : BaseNesPpu() {
             PpuRegisters.Control -> if (isPpu2C05()) setMaskRegister(v) else setControlRegister(v)
             PpuRegisters.Mask -> if (isPpu2C05()) setControlRegister(v) else setMaskRegister(v)
             PpuRegisters.Status -> {}
-            PpuRegisters.SpriteAddr -> spriteRamAddr = v
+            PpuRegisters.SpriteAddr -> {
+                if (console.options.ppu.enablePpuOamRowCorruption && region == ConsoleRegion.Ntsc && (!prevRenderingEnabled || scanline >= 240 || (cycle < 257 && (cycle and 1) != 0))) {
+                    val sourceRow = spriteRamAddr shr 3
+                    val openBusRow = console.getOpenBus() shr 3
+                    val destRow = v shr 3
+                    corruptOamRow(sourceRow, openBusRow)
+                    corruptOamRow(openBusRow, destRow)
+                }
+                spriteRamAddr = v
+            }
             PpuRegisters.SpriteData -> {
                 if (scanline >= 240 || !isRenderingEnabled()) {
                     if ((spriteRamAddr and 0x03) == 0x02) v = v and 0xE3
@@ -348,7 +368,7 @@ abstract class NesPpu : BaseNesPpu() {
             } else {
                 processRenderingDisabledPixel()
             }
-        } else if (cycle in 257..320) {
+        } else if (cycle >= 257 && cycle <= 320) {
             if (prevRenderingEnabled) {
                 sprite0Visible = sprite0Added
                 spriteRamAddr = 0
@@ -357,7 +377,7 @@ abstract class NesPpu : BaseNesPpu() {
                     2 -> readVram(getNameTableAddr())
                     4 -> loadSpriteTileInfo()
                 }
-                if (scanline == -1 && cycle in 280..304) videoRamAddr = (videoRamAddr and 0x7BE0.inv()) or (tmpVideoRamAddr and 0x7BE0)
+                if (scanline == -1 && cycle >= 280 && cycle <= 304) videoRamAddr = (videoRamAddr and 0x7BE0.inv()) or (tmpVideoRamAddr and 0x7BE0)
                 if (cycle == 320) loadExtraSprites()
                 if (((cycle - 1) and 4) == 0) secondaryOamAddr = (secondaryOamAddr + 1) and 0xFF
             }
@@ -369,7 +389,7 @@ abstract class NesPpu : BaseNesPpu() {
                     secondaryOamAddr = 0
                 }
             }
-        } else if (cycle in 321..336) {
+        } else if (cycle >= 321 && cycle <= 336) {
             if (prevRenderingEnabled) {
                 if (cycle == 321) secondaryOamAddr = (secondaryOamAddr + 1) and 0xFF
                 else if (cycle == 328 || cycle == 336) incHorizontalScrolling()
@@ -427,6 +447,7 @@ abstract class NesPpu : BaseNesPpu() {
                 statusFlags.verticalBlank = false
                 console.cpu.clearNmiFlag()
                 allowFullPpuAccess = true
+                if (isRenderingEnabled() && !console.options.ppu.disableOamAddrBug) corruptOamRow(spriteRamAddr shr 3, secondaryOamAddr and 0x1F)
                 currentOutputBuffer = if (currentOutputBuffer === outputBuffers[0]) outputBuffers[1] else outputBuffers[0]
             } else if (prevRenderingEnabled) {
                 secondaryOamAddr = 0
@@ -460,7 +481,17 @@ abstract class NesPpu : BaseNesPpu() {
         if (updateVramAddrDelay > 0) {
             updateVramAddrDelay--
             if (updateVramAddrDelay == 0) {
-                videoRamAddr = updateVramAddr and 0x7FFF
+                videoRamAddr = if (console.options.ppu.enablePpu2006ScrollGlitch && scanline < 240 && isRenderingEnabled()) {
+                    if (cycle == 257) {
+                        videoRamAddr and updateVramAddr
+                    } else if (cycle > 0 && (cycle and 0x07) == 0 && (cycle <= 256 || cycle > 320)) {
+                        (updateVramAddr and 0x041F.inv()) or (videoRamAddr and updateVramAddr and 0x041F)
+                    } else {
+                        updateVramAddr
+                    }
+                } else {
+                    updateVramAddr
+                } and 0x7FFF
                 tmpVideoRamAddr = videoRamAddr
                 if (scanline >= 240 || !isRenderingEnabled()) setBusAddress(videoRamAddr and 0x3FFF)
             } else {
@@ -516,7 +547,7 @@ abstract class NesPpu : BaseNesPpu() {
             }
             if (scanline < 240 && !prevRenderingEnabled) {
                 setBusAddress(videoRamAddr and 0x3FFF)
-                if (cycle in 65..256) spriteRamAddr = (spriteRamAddr + 1) and 0xFF
+                if (cycle >= 65 && cycle <= 256) spriteRamAddr = (spriteRamAddr + 1) and 0xFF
             }
         }
         val newRenderingEnabled = mask.backgroundEnabled || mask.spritesEnabled
@@ -799,7 +830,7 @@ abstract class NesPpu : BaseNesPpu() {
                     while (spriteIndexValue < spriteCount) {
                         val sprite = spriteTiles[spriteIndexValue]
                         val shift = cycle - sprite.spriteX - 1
-                        if (shift in 0..7) {
+                        if (shift >= 0 && shift <= 7) {
                             lastSprite = sprite
                             spriteColor = (((sprite.lowByte shl shift) and 0x80) shr 7) or (((sprite.highByte shl shift) and 0x80) shr 6)
                             if (spriteColor != 0) break
@@ -1134,7 +1165,17 @@ abstract class NesPpu : BaseNesPpu() {
     protected fun writeVram(addr: Int, value: Int) { setBusAddress(addr); mapper.writeVram(addr and 0x3FFF, value and 0xFF) }
     protected fun readSpriteRam(addr: Int): Int = spriteRam[addr and 0xFF] and 0xFF
     protected fun writeSpriteRam(addr: Int, value: Int) { spriteRam[addr and 0xFF] = value and 0xFF; oamDecayCycles[(addr and 0xFF) shr 3] = masterClock }
-    protected fun corruptOamRow(sourceRow: Int, destRow: Int) { for (i in 0 until 8) spriteRam[((destRow and 0x1F) shl 3) + i] = spriteRam[((sourceRow and 0x1F) shl 3) + i] }
+    protected fun corruptOamRow(sourceRow: Int, destRow: Int) {
+        val source = sourceRow and 0x1F
+        val dest = destRow and 0x1F
+        if (source == dest || region == ConsoleRegion.Pal) return
+        var i = 0
+        while (i < 8) {
+            spriteRam[(dest shl 3) + i] = spriteRam[(source shl 3) + i]
+            i++
+        }
+        secondarySpriteRam[dest] = secondarySpriteRam[source]
+    }
     protected fun getRegisterID(addr: Int): PpuRegisters = if ((addr and 0xFFFF) == 0x4014) PpuRegisters.SpriteDMA else when (addr and 0x07) {
         0 -> PpuRegisters.Control
         1 -> PpuRegisters.Mask
@@ -1147,7 +1188,10 @@ abstract class NesPpu : BaseNesPpu() {
     }
 
     protected fun statusByte(): Int = (if (statusFlags.spriteOverflow) 0x20 else 0) or (if (statusFlags.sprite0Hit) 0x40 else 0) or (if (statusFlags.verticalBlank) 0x80 else 0)
-    private fun isPpu2C05(): Boolean = getPpuModel().ordinal in PpuModel.Ppu2C05A.ordinal..PpuModel.Ppu2C05E.ordinal
+    private fun isPpu2C05(): Boolean {
+        val ordinal = getPpuModel().ordinal
+        return ordinal >= PpuModel.Ppu2C05A.ordinal && ordinal <= PpuModel.Ppu2C05E.ordinal
+    }
     private fun reverseByte(value: Int): Int {
         var v = value and 0xFF
         var r = 0

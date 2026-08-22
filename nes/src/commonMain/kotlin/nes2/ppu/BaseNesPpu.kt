@@ -197,7 +197,7 @@ abstract class BaseNesPpu : NesConsolePpu, INesMemoryHandler {
             return
         }
 
-        while (lastUpdatedPixel < pixelNumber && lastUpdatedPixel + 1 in currentOutputBuffer.indices) {
+        while (lastUpdatedPixel < pixelNumber && lastUpdatedPixel + 1 >= 0 && lastUpdatedPixel + 1 < currentOutputBuffer.size) {
             lastUpdatedPixel++
             currentOutputBuffer[lastUpdatedPixel] = (currentOutputBuffer[lastUpdatedPixel] and paletteRamMask) or intensifyColorBits
         }

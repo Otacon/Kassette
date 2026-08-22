@@ -162,6 +162,10 @@ data class NesApuOptions(
     val enableDmcSampleDuplicationGlitch: Boolean = false,
     val reduceDmcPopping: Boolean = false,
     val reverseDpcmBitOrder: Boolean = false,
+    val cpuTestMode: Boolean = false,
+    val swapDutyCycles: Boolean = false,
+    val silenceTriangleHighFrequency: Boolean = false,
+    val disableNoiseModeFlag: Boolean = false,
 )
 
 data class NesPpuOptions(
@@ -177,7 +181,10 @@ data class NesPpuOptions(
     val disablePaletteRead: Boolean = false,
     val disablePpu2004Reads: Boolean = false,
     val enablePpuOamRowCorruption: Boolean = false,
+    val disableOamAddrBug: Boolean = false,
     val enablePpu2000ScrollGlitch: Boolean = true,
+    val enablePpu2006ScrollGlitch: Boolean = true,
+    val randomizePowerOnState: Boolean = false,
     val extraScanlinesBeforeNmi: Int = 0,
     val extraScanlinesAfterNmi: Int = 0,
     val onStartFrame: (frameCount: Int) -> Unit = {},

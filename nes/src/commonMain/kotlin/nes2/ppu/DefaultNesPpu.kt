@@ -20,7 +20,7 @@ class DefaultNesPpu : NesPpu() {
 
     override fun drawPixel() {
         val index = (scanline shl 8) + cycle - 1
-        if (index !in currentOutputBuffer.indices) return
+        if (index < 0 || index >= currentOutputBuffer.size) return
         val color = if (isRenderingEnabled() || ((videoRamAddr and 0x3F00) != 0x3F00)) {
             paletteRam[getPixelColor().let { if ((it and 0x03) != 0) it else 0 } and 0x1F]
         } else {

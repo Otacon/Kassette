@@ -668,12 +668,12 @@ abstract class BaseMapper(private val romData: RomData? = null) : NesConsoleMapp
     private fun readPage(page: Page, addr: Int): Int {
         val memory = page.memory ?: return 0
         val index = page.offset + (addr and 0xFF)
-        return if (index in memory.indices) memory[index].toInt() and 0xFF else 0
+        return if (index >= 0 && index < memory.size) memory[index].toInt() and 0xFF else 0
     }
 
     private fun writePage(page: Page, addr: Int, value: Int) {
         val memory = page.memory ?: return
         val index = page.offset + (addr and 0xFF)
-        if (index in memory.indices) memory[index] = (value and 0xFF).toByte()
+        if (index >= 0 && index < memory.size) memory[index] = (value and 0xFF).toByte()
     }
 }
