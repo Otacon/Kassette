@@ -3,6 +3,7 @@ package nes2.apu
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
+import nes.ConsoleRegion
 
 class ApuNesTest : FreeSpec({
 
@@ -101,6 +102,54 @@ class ApuNesTest : FreeSpec({
         apu.write(0x4015, 0x10)
 
         state.dmc.irqPending shouldBe false
+    }
+
+    "four-step frame counter raises IRQ" {
+        apu.tick(29_829)
+
+        state.frameIrqPending shouldBe true
+        apu.irqPending shouldBe true
+    }
+
+    "frame counter write resets timing" {
+        apu.tick(10)
+
+        apu.write(0x4017, 0x00)
+
+        state.frameCycle shouldBe 0
+        state.frameStep shouldBe 0
+    }
+
+    "frame IRQ inhibit clears pending IRQ" {
+        state.frameIrqPending = true
+
+        apu.write(0x4017, 0x40)
+
+        state.frameIrqInhibit shouldBe true
+        state.frameIrqPending shouldBe false
+        apu.irqPending shouldBe false
+    }
+
+    "five-step frame counter does not raise IRQ" {
+        apu.write(0x4017, 0x80)
+
+        apu.tick(37_282)
+
+        state.frameMode shouldBe 1
+        state.frameIrqPending shouldBe false
+    }
+
+    "configure timing changes frame counter events" {
+        apu.configureTiming(
+            apuFourStepEvents = ConsoleRegion.PAL.timing.apuFourStepEvents,
+            apuFiveStepEvents = ConsoleRegion.PAL.timing.apuFiveStepEvents,
+        )
+
+        apu.tick(29_829)
+        state.frameIrqPending shouldBe false
+
+        apu.tick(3_424)
+        state.frameIrqPending shouldBe true
     }
 })
 

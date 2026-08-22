@@ -1,6 +1,5 @@
 package nes2.fakes
 
-import nes.ConsoleRegion
 import nes2.apu.Apu
 
 class FakeApu : Apu {
@@ -29,5 +28,5 @@ class FakeApu : Apu {
         lastWriteValue = value and 0xFF
     }
 
-    override fun configureTiming(region: ConsoleRegion) = Unit
+    override fun configureTiming(apuFourStepEvents: IntArray, apuFiveStepEvents: IntArray) = Unit
 }
