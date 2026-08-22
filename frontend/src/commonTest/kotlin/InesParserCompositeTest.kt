@@ -21,6 +21,8 @@ class InesParserCompositeTest {
         val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
 
         assertEquals(64 * 1024, cartridge.prgRom.size)
+        assertEquals(2, cartridge.mapperId)
+        assertEquals(0, cartridge.submapperId)
         assertTrue(cartridge.mapper is Mapper2)
     }
 
@@ -62,6 +64,8 @@ class InesParserCompositeTest {
 
         assertEquals(ConsoleRegion.PAL, cartridge.region)
         assertEquals(Mirroring.VERTICAL, cartridge.mirroring)
+        assertEquals(3, cartridge.mapperId)
+        assertEquals(0, cartridge.submapperId)
         assertTrue(cartridge.mapper is Mapper3)
     }
 
@@ -85,6 +89,8 @@ class InesParserCompositeTest {
         val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
 
         assertEquals(Mirroring.VERTICAL, cartridge.mirroring)
+        assertEquals(2, cartridge.mapperId)
+        assertEquals(2, cartridge.submapperId)
         assertTrue(cartridge.mapper is Mapper2)
     }
 
