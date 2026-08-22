@@ -1,10 +1,9 @@
 package frontend
 
-import nes.NesMachine
 import platform.AudioPipeline
 
 class EmulatorRuntime(
-    private val machine: NesMachine,
+    private val machine: Nes2FrontendMachine,
     private val audio: AudioPipeline,
     private val input: EmulatorInput,
     private val frameBuffer: SharedFrameBuffer,
@@ -26,7 +25,7 @@ class EmulatorRuntime(
                 machine.controller.poll()
             }
             if (soundEnabled) audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            frameBuffer.submit(machine.ppu.completedFrameColorIds)
+            frameBuffer.submit(machine.ppu.completedFrameColorIds, machine.ppu.frameCount)
 
             frameRendered = true
         }

@@ -9,7 +9,8 @@ import nes2.mapper.PpuModel
 import nes2.memory.INesMemoryHandler
 import nes2.memory.MemoryRanges
 
-abstract class BaseNesPpu(protected val console: NesConsole) : NesConsolePpu, INesMemoryHandler {
+abstract class BaseNesPpu : NesConsolePpu, INesMemoryHandler {
+    protected lateinit var console: NesConsole
     protected var masterClock: Long = 0
     protected var cycle: Int = 0
     protected var scanline: Int = 0
@@ -88,7 +89,6 @@ abstract class BaseNesPpu(protected val console: NesConsole) : NesConsolePpu, IN
     protected var ignoreVramRead: Int = 0
     protected val openBusDecayStamp = IntArray(8)
     protected val oamDecayCycles = LongArray(0x20)
-
     override val frameCount: Int get() = frameCountValue
     fun getCurrentCycle(): Int = cycle
     fun getCurrentScanline(): Int = scanline
@@ -101,6 +101,10 @@ abstract class BaseNesPpu(protected val console: NesConsole) : NesConsolePpu, IN
     abstract fun getScreenBuffer(previousBuffer: Boolean, processGrayscaleEmphasisBits: Boolean = false): IntArray
     abstract fun getPpuModel(): PpuModel
     abstract fun getPixelBrightness(x: Int, y: Int): Int
+
+    override fun initConsole(console: NesConsole) {
+        this.console = console
+    }
 
     fun getState(): NesPpuState = NesPpuState(
         control = control.copy(),
@@ -218,7 +222,6 @@ abstract class BaseNesPpu(protected val console: NesConsole) : NesConsolePpu, IN
 
     protected fun consoleOptions() = console.options.ppu
 
-    override fun initConsole(console: NesConsole) {}
     override fun getMemoryRanges(ranges: MemoryRanges) {}
     override fun readRam(addr: Int): Int = 0
     override fun writeRam(addr: Int, value: Int) {}

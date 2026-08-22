@@ -16,7 +16,6 @@ import di.WasmFrontendComponent
 import frontend.*
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
-import nes.NesMachine
 import platform.ControllerInput
 import platform.KeyboardInput
 
@@ -32,7 +31,7 @@ fun main() {
 
 @Inject
 class WebEmulatorApplication(
-    private val machine: NesMachine,
+    private val machine: Nes2FrontendMachine,
     private val keyboardInput: KeyboardInput,
     private val controllerInput: ControllerInput,
     private val virtualControllerInput: VirtualControllerInput,

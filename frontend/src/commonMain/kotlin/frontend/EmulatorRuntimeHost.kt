@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import nes.NesMachine
 import platform.AudioPipeline
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -13,7 +12,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 class EmulatorRuntimeHost(
-    private val machine: NesMachine,
+    private val machine: Nes2FrontendMachine,
     audio: AudioPipeline,
     private val input: EmulatorInput,
 ) : AutoCloseable {

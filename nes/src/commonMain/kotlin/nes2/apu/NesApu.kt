@@ -32,7 +32,8 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     }
 
     override fun getMemoryRanges(ranges: MemoryRanges) {
-        ranges.addHandler(MemoryOperation.Write, 0x4000, 0x4015)
+        ranges.addHandler(MemoryOperation.Write, 0x4000, 0x4013)
+        ranges.addHandler(MemoryOperation.Write, 0x4015)
         ranges.addHandler(MemoryOperation.Write, 0x4017)
         ranges.addHandler(MemoryOperation.Read, 0x4015)
         ranges.addHandler(MemoryOperation.Read, 0x4018, 0x401A)

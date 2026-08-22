@@ -10,7 +10,7 @@ import nes2.mapper.PpuModel
 import nes2.memory.MemoryOperation
 import nes2.memory.MemoryRanges
 
-abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
+abstract class NesPpu : BaseNesPpu() {
     companion object {
         private const val OamDecayCycleCount = 4500
         private val paletteRamBootValues = intArrayOf(
@@ -21,7 +21,8 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
         )
     }
 
-    init {
+    override fun initConsole(console: NesConsole) {
+        super.initConsole(console)
         masterClock = 0
         masterClockDivider = 4
         currentOutputBuffer = outputBuffers[0]
@@ -427,29 +428,29 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
     protected fun beginVBlank() {
         if (!preventVblFlag) {
             statusFlags.verticalBlank = true
-            if (control.nmiOnVerticalBlank) triggerNmi()
+            triggerNmi()
         }
         preventVblFlag = false
     }
 
     protected fun triggerNmi() {
-        console.cpu.setNmiFlag()
+        if (control.nmiOnVerticalBlank) console.cpu.setNmiFlag()
     }
 
     protected fun processDelayedStateUpdates() {
-        if (ignoreVramRead > 0) {
-            ignoreVramRead--
-            if (ignoreVramRead > 0) needStateUpdate = true
-        }
         if (updateVramAddrDelay > 0) {
             updateVramAddrDelay--
             if (updateVramAddrDelay == 0) {
                 videoRamAddr = updateVramAddr and 0x7FFF
                 tmpVideoRamAddr = videoRamAddr
-                setBusAddress(videoRamAddr and 0x3FFF)
+                if (scanline >= 240 || !isRenderingEnabled()) setBusAddress(videoRamAddr and 0x3FFF)
             } else {
                 needStateUpdate = true
             }
+        }
+        if (ignoreVramRead > 0) {
+            ignoreVramRead--
+            if (ignoreVramRead > 0) needStateUpdate = true
         }
         if (needVideoRamIncrement) {
             needVideoRamIncrement = false
@@ -466,9 +467,14 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
         if (ppuMemoryDataWriteStateMachine > 0) {
             ppuMemoryDataWriteStateMachine--
             if (ppuMemoryDataWriteStateMachine == 0) {
-                if ((ppuBusAddress and 0x3FFF) >= 0x3F00) writePaletteRam(ppuBusAddress, ppuMemoryDataWriteLatch)
-                else if (scanline >= 240 || !isRenderingEnabled()) mapper.writeVram(ppuBusAddress and 0x3FFF, ppuMemoryDataWriteLatch)
-                else mapper.writeVram(ppuBusAddress and 0x3FFF, ppuBusAddress and 0xFF)
+                val writeAddr = ppuBusAddress and 0x3FFF
+                if (writeAddr >= 0x3F00) {
+                    writePaletteRam(ppuBusAddress, ppuMemoryDataWriteLatch)
+                } else if (scanline >= 240 || !isRenderingEnabled()) {
+                    mapper.writeVram(writeAddr, ppuMemoryDataWriteLatch)
+                } else {
+                    mapper.writeVram(writeAddr, writeAddr and 0xFF)
+                }
                 needVideoRamIncrement = true
             }
             needStateUpdate = true
@@ -483,17 +489,21 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
 
     protected fun updateState() {
         needStateUpdate = false
-        val newRenderingEnabled = mask.backgroundEnabled || mask.spritesEnabled
-        if (renderingEnabled != newRenderingEnabled) {
-            renderingEnabled = newRenderingEnabled
-            needStateUpdate = true
-        }
         if (prevRenderingEnabled != renderingEnabled) {
             prevRenderingEnabled = renderingEnabled
             if (scanline < 240 && console.options.ppu.enablePpuOamRowCorruption && (cycle >= 257 || (cycle and 1) == 0)) {
                 if (renderingEnabled) corruptOamRow(spriteRamAddr shr 3, secondaryOamAddr and 0x1F)
                 else corruptOamRow(secondaryOamAddr and 0x1F, spriteRamAddr shr 3)
             }
+            if (scanline < 240 && !prevRenderingEnabled) {
+                setBusAddress(videoRamAddr and 0x3FFF)
+                if (cycle in 65..256) spriteRamAddr = (spriteRamAddr + 1) and 0xFF
+            }
+        }
+        val newRenderingEnabled = mask.backgroundEnabled || mask.spritesEnabled
+        if (renderingEnabled != newRenderingEnabled) {
+            renderingEnabled = newRenderingEnabled
+            needStateUpdate = true
         }
     }
 
@@ -797,7 +807,7 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
         }
         console.notifyPpuFrame(
             NesPpuFrame(
-                pixels = currentOutputBuffer.copyOf(),
+                pixels = currentOutputBuffer,
                 frameCount = frameCountValue,
                 videoPhase = videoPhase,
             )

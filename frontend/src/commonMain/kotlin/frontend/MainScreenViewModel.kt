@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nes.ConsoleRegion
-import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParseResult
 import nes.cartridge.RomData
@@ -23,7 +22,7 @@ import nes.cartridge.unzipRom
 @Inject
 class MainScreenViewModel(
     private val config: Config,
-    private val machine: NesMachine,
+    private val machine: Nes2FrontendMachine,
     private val runtime: EmulatorRuntimeHost,
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,

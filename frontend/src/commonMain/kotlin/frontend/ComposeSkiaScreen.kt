@@ -23,11 +23,12 @@ fun ComposeSkiaScreen(
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
-    val frameState = remember(frameBuffer) { mutableStateOf(frameBuffer.initialFrame) }
+    var frameTick by remember(frameBuffer) { mutableStateOf(frameBuffer.frameTicks.value) }
 
     LaunchedEffect(frameBuffer) {
-        frameBuffer.frames.collect { frameState.value = it }
+        frameBuffer.frameTicks.collect { frameTick = it }
     }
+    val frame = remember(frameTick, frameBuffer) { frameBuffer.currentFrame }
 
     LaunchedEffect(focusRequestKey) {
         focusRequester.requestFocus()
@@ -50,7 +51,7 @@ fun ComposeSkiaScreen(
         val width = size.width.roundToInt()
         val height = size.height.roundToInt()
         if (width > 0 && height > 0) {
-            renderer.present(frameState.value, width, height)
+            renderer.present(frame, width, height)
             renderer.draw(drawContext.canvas.skiaCanvas)
         }
     }

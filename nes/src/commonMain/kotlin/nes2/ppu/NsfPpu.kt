@@ -1,9 +1,8 @@
 package nes2.ppu
 
-import nes2.console.NesConsole
 import nes2.cpu.ConsoleRegion
 
-class NsfPpu(console: NesConsole) : NesPpu(console) {
+class NsfPpu : NesPpu() {
     override fun updateTimings(region: ConsoleRegion, overclockEnabled: Boolean) {
         super.updateTimings(region, overclockEnabled = false)
     }
