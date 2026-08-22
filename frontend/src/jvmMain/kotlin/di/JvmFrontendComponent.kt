@@ -5,6 +5,7 @@ import frontend.Config
 import frontend.DelegatingEmulatorInput
 import frontend.EmulatorRuntimeHost
 import frontend.MainScreenViewModel
+import frontend.NesMachine
 import platform.AudioPipeline
 import platform.ControllerInput
 import frontend.Renderer
@@ -14,7 +15,6 @@ import dev.zacsweers.metro.createGraphFactory
 import platform.KeyboardInput
 import frontend.VirtualControllerInput
 import frontend.controllerSettings.ControllerSettingsViewModel
-import nes.NesMachine
 
 @AppScope
 @DependencyGraph

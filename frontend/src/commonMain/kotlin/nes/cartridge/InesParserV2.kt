@@ -20,7 +20,7 @@ class InesParserV2(
     private fun parseCartridge(romData: RomData): Cartridge {
         val bytes = romData.bytes
         utils.validateHeader(bytes)
-        if (!utils.isNes2(bytes)) {
+        if (!utils.isNes20(bytes)) {
             throw RomFormatException("Expected NES 2.0 ROM, found iNES 1.0 header")
         }
         val prgLsb = bytes[4].toUnsignedInt()
@@ -31,7 +31,7 @@ class InesParserV2(
             log.e { "Unsupported mirroring mode: four-screen mirroring" }
             throw RomFormatException("Unsupported mirroring mode: four-screen mirroring")
         }
-        val headerRegion = validateNes2Header(bytes, flags7)
+        val headerRegion = validateNes20Header(bytes, flags7)
         val region = if (headerRegion == ConsoleRegion.MULTI_REGION) {
             utils.regionFromFilename(romData.name) ?: headerRegion
         } else {
@@ -72,7 +72,7 @@ class InesParserV2(
         )
     }
 
-    private fun validateNes2Header(bytes: ByteArray, flags7: Int): ConsoleRegion {
+    private fun validateNes20Header(bytes: ByteArray, flags7: Int): ConsoleRegion {
         val consoleType = flags7 and 0x03
         if (consoleType != 0) {
             throw RomFormatException("Unsupported NES 2.0 console type: $consoleType; only standard NES/Famicom ROMs are supported")

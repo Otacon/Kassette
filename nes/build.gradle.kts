@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.metro)
 }
 
@@ -19,6 +20,7 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kermit)
             implementation(libs.kotlinxCoroutinesCore)
+            implementation(libs.kotlinxSerializationJson)
         }
         commonTest.dependencies {
             implementation(libs.kotlinTest)

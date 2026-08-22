@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import nes.ConsoleRegion
-import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParseResult
 import nes.cartridge.RomData
@@ -23,7 +22,6 @@ import nes.cartridge.unzipRom
 @Inject
 class MainScreenViewModel(
     private val config: Config,
-    private val machine: NesMachine,
     private val runtime: EmulatorRuntimeHost,
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,
@@ -45,7 +43,7 @@ class MainScreenViewModel(
 
     fun onCreate() {
         viewModelScope.launch {
-            machine.isPoweredOn.collect { isPoweredOn ->
+            runtime.isPoweredOn.collect { isPoweredOn ->
                 _state.update { it.copy(isRunning = isPoweredOn, isPaused = isPoweredOn && it.isPaused) }
             }
         }
@@ -83,9 +81,8 @@ class MainScreenViewModel(
         val sha = romSha1 ?: return@launch
         runCatching {
             require(slot in SAVESTATE_SLOTS)
-            runtime.pauseForStateOperation {
-                savestateStore.saveState(sha, slot, savestateCodec.encode(machine.captureState()))
-            }
+            val state = runtime.captureState()
+            savestateStore.saveState(sha, slot, savestateCodec.encode(state))
             refreshSavestateSlots()
         }.onFailure { error ->
             _state.update { it.copy(loadError = error.message ?: "Unable to save state") }
@@ -98,14 +95,14 @@ class MainScreenViewModel(
             require(slot in SAVESTATE_SLOTS)
             val data = savestateStore.loadState(sha, slot) ?: return@launch
             val state = savestateCodec.decode(data)
-            runtime.pauseForStateOperation { machine.restoreState(state) }
+            runtime.restoreState(state)
         }.onFailure { error ->
             _state.update { it.copy(loadError = error.message ?: "Unable to load state") }
         }
     }
 
     fun onResetClicked() = viewModelScope.launch {
-        machine.reset()
+        runtime.reset()
         userPaused = false
         applyPauseState()
     }
@@ -144,9 +141,7 @@ class MainScreenViewModel(
                 this@MainScreenViewModel.rom = resolvedRom.name
                 this@MainScreenViewModel.romSha1 = sha
                 this@MainScreenViewModel.region = cartridge.region
-                machine.powerOff()
-                machine.insert(cartridge)
-                machine.powerOn()
+                runtime.loadCartridge(cartridge)
                 applyPauseState()
                 refreshSavestateSlots()
             }

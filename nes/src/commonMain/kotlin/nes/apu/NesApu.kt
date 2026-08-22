@@ -1,63 +1,39 @@
+/*
+ * This file is part of Kassette.
+ *
+ * This Kotlin implementation is ported and adapted from MesenCE
+ * (https://github.com/nesdev-org/MesenCE). MesenCE is licensed under
+ * the GNU General Public License version 3.
+ *
+ * This modified Kotlin port is distributed under the GNU General Public
+ * License version 3. See the repository LICENSE file for details.
+ */
+
 package nes.apu
 
-import kotlin.math.PI
-import kotlin.math.exp
-import nes.util.low16Bits
-import nes.util.low8Bits
-import nes.Timing
+import nes.console.NesConsole
+import nes.console.NesConsoleApu
+import nes.console.NesConstants
+import nes.cpu.ConsoleRegion
+import nes.cpu.IRQSource
+import nes.memory.INesMemoryHandler
+import nes.memory.MemoryOperation
+import nes.memory.MemoryRanges
 
-class NesApu(
-    dmcDma: DmcDma,
-) {
+class NesApu : NesConsoleApu, INesMemoryHandler {
     companion object {
-        private const val SAMPLE_RATE = 44_100
-        private val LENGTH_TABLE = intArrayOf(
-            10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
-            12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30,
-        )
-        private val DUTY_TABLE = arrayOf(
-            intArrayOf(0, 1, 0, 0, 0, 0, 0, 0),
-            intArrayOf(0, 1, 1, 0, 0, 0, 0, 0),
-            intArrayOf(0, 1, 1, 1, 1, 0, 0, 0),
-            intArrayOf(1, 0, 0, 1, 1, 1, 1, 1),
-        )
-        private val TRIANGLE_TABLE = intArrayOf(
-            15, 14, 13, 12, 11, 10, 9, 8,
-            7, 6, 5, 4, 3, 2, 1, 0,
-            0, 1, 2, 3, 4, 5, 6, 7,
-            8, 9, 10, 11, 12, 13, 14, 15
-        )
-        private val FOUR_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME)
-        private val FIVE_STEP_ACTIONS = intArrayOf(QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, QUARTER_FRAME, QUARTER_FRAME or HALF_FRAME, 0)
-        private val PULSE_MIX = DoubleArray(31) { sum ->
-            if (sum == 0) 0.0 else 95.88 / ((8128.0 / sum) + 100.0)
-        }
-        private val TND_MIX = DoubleArray(16 * 16 * 128).also { table ->
-            var triangle = 0
-            while (triangle < 16) {
-                var noise = 0
-                while (noise < 16) {
-                    var dmc = 0
-                    while (dmc < 128) {
-                        val input = triangle / 8227.0 + noise / 12241.0 + dmc / 22638.0
-                        table[tndIndex(triangle, noise, dmc)] = if (input == 0.0) 0.0 else 159.79 / (1.0 / input + 100.0)
-                        dmc++
-                    }
-                    noise++
-                }
-                triangle++
-            }
-        }
         const val DEFAULT_SAMPLE_RATE = 44_100
         const val MAX_FRAME_SAMPLES = 2048
-        private const val QUARTER_FRAME = 1
-        private const val HALF_FRAME = 2
-        private val HIGH_PASS_90_HZ = exp(-2.0 * PI * 90.0 / SAMPLE_RATE)
-        private val HIGH_PASS_440_HZ = exp(-2.0 * PI * 440.0 / SAMPLE_RATE)
-        private val LOW_PASS_14_KHZ = 1.0 - exp(-2.0 * PI * 14_000.0 / SAMPLE_RATE)
+        private const val MIXER_CYCLE_LENGTH = 120_000
+        private const val CHANNEL_COUNT = 5
+        private const val BLIP_BUFFER_EXTRA = 18
 
-        private fun tndIndex(triangle: Int, noise: Int, dmc: Int): Int {
-            return ((triangle shl 4) or noise) * 128 + dmc
+        private fun channelIndex(channel: ApuAudioChannel): Int = when (channel) {
+            ApuAudioChannel.Square1 -> 0
+            ApuAudioChannel.Square2 -> 1
+            ApuAudioChannel.Triangle -> 2
+            ApuAudioChannel.Noise -> 3
+            ApuAudioChannel.Dmc -> 4
         }
     }
 
@@ -65,482 +41,436 @@ class NesApu(
     var sampleCount = 0
         private set
 
-    private var state = ApuState()
-    private val pulse1 = PulseChannel(channelOne = true) { state.pulse1 }
-    private val pulse2 = PulseChannel(channelOne = false) { state.pulse2 }
-    private val triangle = TriangleChannel { state.triangle }
-    private val noise = NoiseChannel { state.noise }
-    private val dmc = DmcChannel(dmcDma) { state.dmc }
-    private var frameCycle: Int get() = state.frameCycle; set(value) { state.frameCycle = value }
-    private var frameEventIndex: Int get() = state.frameEventIndex; set(value) { state.frameEventIndex = value }
-    private var frameMode: Int get() = state.frameMode; set(value) { state.frameMode = value }
-    private var frameIrqInhibit: Boolean get() = state.frameIrqInhibit; set(value) { state.frameIrqInhibit = value }
-    private var frameIrqPending: Boolean get() = state.frameIrqPending; set(value) { state.frameIrqPending = value }
-    private var apuCycle: Boolean get() = state.apuCycle; set(value) { state.apuCycle = value }
-    private var samplePhase: Int get() = state.samplePhase; set(value) { state.samplePhase = value }
-    private var highPass90Input: Double get() = state.filters[0]; set(value) { state.filters[0] = value }
-    private var highPass90Output: Double get() = state.filters[1]; set(value) { state.filters[1] = value }
-    private var highPass440Input: Double get() = state.filters[2]; set(value) { state.filters[2] = value }
-    private var highPass440Output: Double get() = state.filters[3]; set(value) { state.filters[3] = value }
-    private var lowPass14kOutput: Double get() = state.filters[4]; set(value) { state.filters[4] = value }
-    var timing: Timing = Timing.DEFAULT
-        set(value) {
-            field = value
-            noise.periods = value.noisePeriods
-            dmc.periods = value.dmcPeriods
-        }
+    private lateinit var console: NesConsole
+    private var region: ConsoleRegion = ConsoleRegion.Ntsc
+    private var apuEnabled = true
+    private var needToRun = false
+    private var previousCycle = 0
+    private var currentCycle = 0
+    private var apuDisabledStamp = 0L
+    private val channelDeltas = IntArray(CHANNEL_COUNT * MIXER_CYCLE_LENGTH)
+    private val currentOutput = IntArray(CHANNEL_COUNT)
+    private val blipBuffer = BlipBuffer(MAX_FRAME_SAMPLES)
+    private var previousMixedOutput = 0
 
-    fun reset() {
-        state = ApuState()
+    private val square1 = SquareChannel(isChannel1 = true, apu = this)
+    private val square2 = SquareChannel(isChannel1 = false, apu = this)
+    private val triangle = TriangleChannel(apu = this)
+    private val noise = NoiseChannel(apu = this)
+    private val dmc = DeltaModulationChannel(apu = this)
+    private val frameCounter = ApuFrameCounter(apu = this)
+
+    override fun initConsole(console: NesConsole) {
+        this.console = console
+        setRegion(console.region)
+        reset(false)
+    }
+
+    override fun getMemoryRanges(ranges: MemoryRanges) {
+        ranges.addHandler(MemoryOperation.Write, 0x4000, 0x4013)
+        ranges.addHandler(MemoryOperation.Write, 0x4015)
+        ranges.addHandler(MemoryOperation.Write, 0x4017)
+        ranges.addHandler(MemoryOperation.Read, 0x4015)
+        ranges.addHandler(MemoryOperation.Read, 0x4018, 0x401A)
+    }
+
+    override fun readRam(addr: Int): Int {
+        run()
+        return when (addr and 0xFFFF) {
+            0x4015 -> {
+                val status = status(peek = false) or (console.memoryManager.getInternalOpenBus() and 0x20)
+                console.cpu.clearIrqSource(IRQSource.FrameCounter)
+                status and 0xFF
+            }
+            0x4018 -> if (console.options.apu.cpuTestMode) square1.output or (square2.output shl 4) else console.getOpenBus()
+            0x4019 -> if (console.options.apu.cpuTestMode) triangle.output or (noise.output shl 4) else console.getOpenBus()
+            0x401A -> if (console.options.apu.cpuTestMode) dmc.output else console.getOpenBus()
+            else -> console.getOpenBus()
+        }
+    }
+
+    override fun peekRam(addr: Int): Int = status(peek = true)
+
+    override fun writeRam(addr: Int, value: Int) {
+        val address = addr and 0xFFFF
+        val v = value and 0xFF
+        when {
+            address >= 0x4000 && address <= 0x4003 -> square1.writeRam(address, v)
+            address >= 0x4004 && address <= 0x4007 -> square2.writeRam(address, v)
+            address >= 0x4008 && address <= 0x400B -> triangle.writeRam(address, v)
+            address >= 0x400C && address <= 0x400F -> noise.writeRam(address, v)
+            address >= 0x4010 && address <= 0x4013 -> dmc.writeRam(address, v)
+            address == 0x4015 -> {
+                run()
+                console.cpu.clearIrqSource(IRQSource.Dmc)
+                square1.setEnabled((v and 0x01) != 0)
+                square2.setEnabled((v and 0x02) != 0)
+                triangle.setEnabled((v and 0x04) != 0)
+                noise.setEnabled((v and 0x08) != 0)
+                dmc.setEnabled((v and 0x10) != 0)
+            }
+            address == 0x4017 -> frameCounter.writeRam(v)
+        }
+    }
+
+    override fun reset(softReset: Boolean) {
+        apuEnabled = true
+        currentCycle = 0
+        previousCycle = 0
+        needToRun = false
         sampleCount = 0
+        previousMixedOutput = 0
+        currentOutput.fill(0)
+        channelDeltas.fill(0)
+        blipBuffer.clear()
+        square1.reset(softReset)
+        square2.reset(softReset)
+        triangle.reset(softReset)
+        noise.reset(softReset)
+        dmc.reset(softReset)
+        frameCounter.reset(softReset)
+    }
+
+    override fun setRegion(region: ConsoleRegion) {
+        run()
+        this.region = if (region == ConsoleRegion.Dendy) ConsoleRegion.Ntsc else region
+        blipBuffer.setRates(clockRate(), DEFAULT_SAMPLE_RATE)
+        frameCounter.setRegion(this.region)
+        noise.setRegion(this.region)
+        dmc.setRegion(this.region)
+    }
+
+    override fun processCpuClock() {
+        if (apuEnabled) exec()
+    }
+
+    override fun endFrame() {
+        run()
+        square1.endFrame()
+        square2.endFrame()
+        triangle.endFrame()
+        noise.endFrame()
+        dmc.endFrame()
+        renderMixerFrame(currentCycle)
+        currentCycle = 0
+        previousCycle = 0
     }
 
     fun beginFrame() {
         sampleCount = 0
     }
 
-    fun captureState(): ApuState = state.copy(
-        pulse1 = state.pulse1.copy(values = state.pulse1.values.copyOf(), flags = state.pulse1.flags.copyOf()),
-        pulse2 = state.pulse2.copy(values = state.pulse2.values.copyOf(), flags = state.pulse2.flags.copyOf()),
-        triangle = state.triangle.copy(values = state.triangle.values.copyOf(), flags = state.triangle.flags.copyOf()),
-        noise = state.noise.copy(values = state.noise.values.copyOf(), flags = state.noise.flags.copyOf()),
-        dmc = state.dmc.copy(values = state.dmc.values.copyOf(), flags = state.dmc.flags.copyOf()),
-        filters = state.filters.copyOf(),
+    override fun setApuStatus(enabled: Boolean) {
+        if (apuEnabled == enabled) return
+        if (!enabled) {
+            apuDisabledStamp = console.cpu.getCycleCount()
+            apuEnabled = false
+        } else {
+            val gap = console.cpu.getCycleCount() - apuDisabledStamp
+            if ((gap and 1L) != 0L) exec()
+            apuEnabled = true
+        }
+    }
+
+    override fun getDmcReadAddress(): Int = dmc.getDmcReadAddress()
+
+    override fun setDmcReadBuffer(value: Int) = dmc.setDmcReadBuffer(value)
+
+    fun captureSnapshot(): ApuState = ApuState(
+        Square1 = square1.getState(),
+        Square2 = square2.getState(),
+        Triangle = triangle.getState(),
+        Noise = noise.getState(),
+        Dmc = dmc.getState(),
+        FrameCounter = frameCounter.getState(),
     )
 
-    fun restoreState(state: ApuState) {
-        this.state = state
-        sampleCount = 0
+    fun captureInternalSnapshot(): NesApuSnapshot = NesApuSnapshot(
+        ApuEnabled = apuEnabled,
+        NeedToRun = needToRun,
+        PreviousCycle = previousCycle,
+        CurrentCycle = currentCycle,
+        ApuDisabledStamp = apuDisabledStamp,
+        Square1 = square1.captureSnapshot(),
+        Square2 = square2.captureSnapshot(),
+        Triangle = triangle.captureSnapshot(),
+        Noise = noise.captureSnapshot(),
+        Dmc = dmc.captureSnapshot(),
+        FrameCounter = frameCounter.captureSnapshot(),
+    )
+
+    fun restoreSnapshot(snapshot: NesApuSnapshot) {
+        apuEnabled = snapshot.ApuEnabled
+        needToRun = snapshot.NeedToRun
+        previousCycle = snapshot.PreviousCycle
+        currentCycle = snapshot.CurrentCycle
+        apuDisabledStamp = snapshot.ApuDisabledStamp
+        square1.restoreSnapshot(snapshot.Square1)
+        square2.restoreSnapshot(snapshot.Square2)
+        triangle.restoreSnapshot(snapshot.Triangle)
+        noise.restoreSnapshot(snapshot.Noise)
+        dmc.restoreSnapshot(snapshot.Dmc)
+        frameCounter.restoreSnapshot(snapshot.FrameCounter)
+        currentOutput[0] = square1.output
+        currentOutput[1] = square2.output
+        currentOutput[2] = triangle.output
+        currentOutput[3] = noise.output
+        currentOutput[4] = dmc.output
+        channelDeltas.fill(0)
+        blipBuffer.clear()
+        previousMixedOutput = getOutputVolume() * 4
     }
 
-    fun cpuRead(address: Int): Int {
-        if (address.low16Bits() != 0x4015) return 0
-        val status = (if (pulse1.lengthCounter > 0) 0x01 else 0) or
-                (if (pulse2.lengthCounter > 0) 0x02 else 0) or
-                (if (triangle.lengthCounter > 0) 0x04 else 0) or
-                (if (noise.lengthCounter > 0) 0x08 else 0) or
-                (if (dmc.active()) 0x10 else 0) or
-                (if (frameIrqPending) 0x40 else 0) or
-                (if (dmc.irqPending()) 0x80 else 0)
-        frameIrqPending = false
-        return status
+    internal fun setNeedToRun() {
+        needToRun = true
     }
 
-    fun cpuWrite(address: Int, value: Int) {
-        val v = value.low8Bits()
-        when (address.low16Bits()) {
-            in 0x4000..0x4003 -> pulse1.write((address and 3), v)
-            in 0x4004..0x4007 -> pulse2.write((address and 3), v)
-            in 0x4008..0x400B -> triangle.write((address and 3), v)
-            in 0x400C..0x400F -> noise.write((address and 3), v)
-            0x4010, 0x4011, 0x4012, 0x4013 -> dmc.write(address and 3, v)
-            0x4015 -> {
-                pulse1.enabled = (v and 0x01) != 0
-                pulse2.enabled = (v and 0x02) != 0
-                triangle.enabled = (v and 0x04) != 0
-                noise.enabled = (v and 0x08) != 0
-                dmc.clearIrq()
-                dmc.setEnabled((v and 0x10) != 0)
-                if (!pulse1.enabled) pulse1.lengthCounter = 0
-                if (!pulse2.enabled) pulse2.lengthCounter = 0
-                if (!triangle.enabled) triangle.lengthCounter = 0
-                if (!noise.enabled) noise.lengthCounter = 0
+    internal fun run() {
+        var cyclesToRun = currentCycle - previousCycle
+        while (cyclesToRun > 0) {
+            previousCycle += frameCounter.run(cyclesToRun).also { cyclesToRun -= it }
+            square1.reloadLengthCounter()
+            square2.reloadLengthCounter()
+            noise.reloadLengthCounter()
+            triangle.reloadLengthCounter()
+            square1.run(previousCycle)
+            square2.run(previousCycle)
+            noise.run(previousCycle)
+            triangle.run(previousCycle)
+            dmc.run(previousCycle)
+        }
+    }
+
+    internal fun frameCounterTick(type: FrameType) {
+        square1.tickEnvelope()
+        square2.tickEnvelope()
+        triangle.tickLinearCounter()
+        noise.tickEnvelope()
+        if (type == FrameType.HalfFrame) {
+            square1.tickLengthCounter()
+            square2.tickLengthCounter()
+            triangle.tickLengthCounter()
+            noise.tickLengthCounter()
+            square1.tickSweep()
+            square2.tickSweep()
+        }
+    }
+
+    internal fun cpuCycleCount(): Long = console.cpu.getCycleCount()
+    internal fun masterClock(): Long = console.getMasterClock()
+    internal fun clockRate(): Int = NesConstants.getClockRate(region)
+    internal fun startDmcTransfer() = console.cpu.startDmcTransfer()
+    internal fun stopDmcTransfer() = console.cpu.stopDmcTransfer()
+    internal fun setIrq(source: IRQSource) = console.cpu.setIrqSource(source)
+    internal fun clearIrq(source: IRQSource) = console.cpu.clearIrqSource(source)
+    internal fun hasIrq(source: IRQSource): Boolean = console.cpu.hasIrqSource(source)
+    internal fun setNextFrameOverclockStatus(disabled: Boolean) = console.setNextFrameOverclockStatus(disabled)
+    internal fun enableDmcSampleDuplicationGlitch(): Boolean = console.options.apu.enableDmcSampleDuplicationGlitch
+    internal fun reduceDmcPopping(): Boolean = console.options.apu.reduceDmcPopping
+    internal fun reverseDpcmBitOrder(): Boolean = console.options.apu.reverseDpcmBitOrder
+    internal fun swapDutyCycles(): Boolean = console.options.apu.swapDutyCycles
+    internal fun silenceTriangleHighFrequency(): Boolean = console.options.apu.silenceTriangleHighFrequency
+    internal fun disableNoiseModeFlag(): Boolean = console.options.apu.disableNoiseModeFlag
+
+    internal fun addDelta(channel: ApuAudioChannel, time: Int, delta: Int) {
+        if (delta == 0 || time < 0 || time >= MIXER_CYCLE_LENGTH) return
+        val index = channelIndex(channel) * MIXER_CYCLE_LENGTH + time
+        channelDeltas[index] += delta
+    }
+
+    private fun exec() {
+        currentCycle++
+        if (currentCycle >= MIXER_CYCLE_LENGTH - 1) {
+            dmc.processClock()
+            endFrame()
+        } else if (needToRun(currentCycle)) run()
+    }
+
+    private fun renderMixerFrame(time: Int) {
+        val end = if (time < MIXER_CYCLE_LENGTH) time else MIXER_CYCLE_LENGTH - 1
+        var cycle = 0
+        while (cycle <= end) {
+            var changed = false
+            var channel = 0
+            while (channel < CHANNEL_COUNT) {
+                val index = channel * MIXER_CYCLE_LENGTH + cycle
+                val delta = channelDeltas[index]
+                if (delta != 0) {
+                    currentOutput[channel] += delta
+                    channelDeltas[index] = 0
+                    changed = true
+                }
+                channel++
             }
 
-            0x4017 -> {
-                frameMode = (v shr 7) and 1
-                frameIrqInhibit = (v and 0x40) != 0
-                if (frameIrqInhibit) frameIrqPending = false
-                frameCycle = 0
-                frameEventIndex = 0
-                if (frameMode == 1) {
-                    quarterFrame()
-                    halfFrame()
-                }
+            if (changed) {
+                val mixedOutput = getOutputVolume() * 4
+                blipBuffer.addDelta(cycle, mixedOutput - previousMixedOutput)
+                previousMixedOutput = mixedOutput
             }
+            cycle++
         }
+        blipBuffer.endFrame(time)
+        blipBuffer.readSamples(samples, sampleCount, samples.size - sampleCount).also { sampleCount += it }
     }
 
-    fun step(cpuCycles: Int) {
-        var i = 0
-        while (i < cpuCycles) {
-            step()
-            i++
+    private fun getOutputVolume(): Int {
+        val squareOutput = currentOutput[0] + currentOutput[1]
+        val tndOutput = currentOutput[4] + 2.7516713261 * currentOutput[2] + 1.8493587125 * currentOutput[3]
+        val squareVolume = if (squareOutput == 0) 0.0 else (95.88 * 5000.0) / (8128.0 / squareOutput + 100.0)
+        val tndVolume = if (tndOutput == 0.0) 0.0 else (159.79 * 5000.0) / (22638.0 / tndOutput + 100.0)
+        return (squareVolume + tndVolume).toInt()
+    }
+
+    private fun needToRun(cycle: Int): Boolean {
+        if (dmc.needToRun() || needToRun) {
+            needToRun = false
+            return true
         }
+        val cyclesToRun = cycle - previousCycle
+        return frameCounter.needToRun(cyclesToRun) || dmc.irqPending(cyclesToRun)
     }
 
-    fun step() {
-        triangle.stepTimer()
-        dmc.stepTimer()
-        noise.stepTimer()
-        apuCycle = !apuCycle
-        if (apuCycle) {
-            pulse1.stepTimer()
-            pulse2.stepTimer()
+    private fun status(peek: Boolean): Int {
+        var status = 0
+        if (square1.getStatus()) status = status or 0x01
+        if (square2.getStatus()) status = status or 0x02
+        if (triangle.getStatus()) status = status or 0x04
+        if (noise.getStatus()) status = status or 0x08
+        if (dmc.getStatus()) status = status or 0x10
+        if (if (peek) frameCounter.peekIrqFlag() else frameCounter.getIrqFlag()) status = status or 0x40
+        if (hasIrq(IRQSource.Dmc)) status = status or 0x80
+        return status and 0xFF
+    }
+
+    private class BlipBuffer(private val size: Int) {
+        private companion object {
+            const val TIME_BITS = 20
+            const val TIME_UNIT = 1 shl TIME_BITS
+            const val BASS_SHIFT = 9
+            const val HALF_WIDTH = 8
+            const val PHASE_BITS = 5
+            const val PHASE_COUNT = 1 shl PHASE_BITS
+            const val DELTA_BITS = 15
+            const val DELTA_UNIT = 1 shl DELTA_BITS
+            const val FRAC_BITS = TIME_BITS
+
+            val BL_STEP = intArrayOf(
+                43, -115, 350, -488, 1136, -914, 5861, 21022,
+                44, -118, 348, -473, 1076, -799, 5274, 21001,
+                45, -121, 344, -454, 1011, -677, 4706, 20936,
+                46, -122, 336, -431, 942, -549, 4156, 20829,
+                47, -123, 327, -404, 868, -418, 3629, 20679,
+                47, -122, 316, -375, 792, -285, 3124, 20488,
+                47, -120, 303, -344, 714, -151, 2644, 20256,
+                46, -117, 289, -310, 634, -17, 2188, 19985,
+                46, -114, 273, -275, 553, 117, 1758, 19675,
+                44, -108, 255, -237, 471, 247, 1356, 19327,
+                43, -103, 237, -199, 390, 373, 981, 18944,
+                42, -98, 218, -160, 310, 495, 633, 18527,
+                40, -91, 198, -121, 231, 611, 314, 18078,
+                38, -84, 178, -81, 153, 722, 22, 17599,
+                36, -76, 157, -43, 80, 824, -241, 17092,
+                34, -68, 135, -3, 8, 919, -476, 16558,
+                32, -61, 115, 34, -60, 1006, -683, 16001,
+                29, -52, 94, 70, -123, 1083, -862, 15422,
+                27, -44, 73, 106, -184, 1152, -1015, 14824,
+                25, -36, 53, 139, -239, 1211, -1142, 14210,
+                22, -27, 34, 170, -290, 1261, -1244, 13582,
+                20, -20, 16, 199, -335, 1301, -1322, 12942,
+                18, -12, -3, 226, -375, 1331, -1376, 12293,
+                15, -4, -19, 250, -410, 1351, -1408, 11638,
+                13, 3, -35, 272, -439, 1361, -1419, 10979,
+                11, 9, -49, 292, -464, 1362, -1410, 10319,
+                9, 16, -63, 309, -483, 1354, -1383, 9660,
+                7, 22, -75, 322, -496, 1337, -1339, 9005,
+                6, 26, -85, 333, -504, 1312, -1280, 8355,
+                4, 31, -94, 341, -507, 1278, -1205, 7713,
+                3, 35, -102, 347, -506, 1238, -1119, 7082,
+                1, 40, -110, 350, -499, 1190, -1021, 6464,
+                0, 43, -115, 350, -488, 1136, -914, 5861,
+            )
+
+            fun step(row: Int, column: Int): Int = BL_STEP[row * HALF_WIDTH + column]
         }
-        stepFrameCounter()
-        samplePhase += SAMPLE_RATE
-        if (samplePhase >= timing.cpuHz) {
-            samplePhase -= timing.cpuHz
-            appendSample(mix())
+
+        private val buffer = IntArray(size + BLIP_BUFFER_EXTRA)
+        private var factor = 1
+        private var offset = 0
+        private var available = 0
+        private var integrator = 0
+
+        fun setRates(clockRate: Int, sampleRate: Int) {
+            factor = ((TIME_UNIT.toDouble() * sampleRate / clockRate).toInt()).coerceAtLeast(1)
+            if (factor.toDouble() < TIME_UNIT.toDouble() * sampleRate / clockRate) factor++
         }
-    }
 
-    private fun stepFrameCounter() {
-        frameCycle++
-        val events = if (frameMode == 0) timing.apuFourStepEvents else timing.apuFiveStepEvents
-        if (frameCycle != events[frameEventIndex]) return
-        val actions = if (frameMode == 0) FOUR_STEP_ACTIONS else FIVE_STEP_ACTIONS
-        val action = actions[frameEventIndex]
-        if ((action and QUARTER_FRAME) != 0) quarterFrame()
-        if ((action and HALF_FRAME) != 0) halfFrame()
-        if (frameMode == 0 && frameEventIndex == events.lastIndex && !frameIrqInhibit) frameIrqPending = true
-        frameEventIndex++
-        if (frameEventIndex == events.size) {
-            frameCycle = 0
-            frameEventIndex = 0
+        fun clear() {
+            offset = factor / 2
+            available = 0
+            integrator = 0
+            buffer.fill(0)
         }
-    }
 
-    private fun quarterFrame() {
-        pulse1.clockEnvelope(); pulse2.clockEnvelope(); triangle.clockLinearCounter(); noise.clockEnvelope()
-    }
+        fun addDelta(time: Int, delta: Int) {
+            if (delta == 0) return
+            val fixed = time * factor + offset
+            val outIndex = available + (fixed shr FRAC_BITS)
+            if (outIndex + 15 >= buffer.size) return
 
-    private fun halfFrame() {
-        pulse1.clockLength(); pulse2.clockLength(); triangle.clockLength(); noise.clockLength()
-        pulse1.clockSweep(); pulse2.clockSweep()
-    }
+            val phaseShift = FRAC_BITS - PHASE_BITS
+            val phase = (fixed shr phaseShift) and (PHASE_COUNT - 1)
+            val interp = fixed and (DELTA_UNIT - 1)
+            val delta2 = (delta * interp) shr DELTA_BITS
+            val delta1 = delta - delta2
+            val reversePhase = PHASE_COUNT - phase
 
-    private fun mix(): Double {
-        val p1 = pulse1.output()
-        val p2 = pulse2.output()
-        val t = triangle.output()
-        val n = noise.output()
-        val d = dmc.output()
-        val mixed = PULSE_MIX[p1 + p2] + TND_MIX[tndIndex(t, n, d)]
-        highPass90Output = HIGH_PASS_90_HZ * (highPass90Output + mixed - highPass90Input)
-        highPass90Input = mixed
-        highPass440Output = HIGH_PASS_440_HZ * (highPass440Output + highPass90Output - highPass440Input)
-        highPass440Input = highPass90Output
-        lowPass14kOutput += LOW_PASS_14_KHZ * (highPass440Output - lowPass14kOutput)
-        return lowPass14kOutput
-    }
-
-    fun irqPending(): Boolean = frameIrqPending || dmc.irqPending()
-
-    private fun appendSample(value: Double) {
-        if (sampleCount >= samples.size) return
-        val clamped = when {
-            value > 1.0 -> 1.0
-            value < -1.0 -> -1.0
-            else -> value
-        }
-        samples[sampleCount++] = (clamped * Short.MAX_VALUE).toInt().toShort()
-    }
-
-    private class PulseChannel(private val channelOne: Boolean, private val stateProvider: () -> PulseState) {
-        private val state: PulseState get() = stateProvider()
-        var enabled: Boolean get() = state.enabled; set(value) { state.enabled = value }
-        var lengthCounter: Int get() = state.lengthCounter; set(value) { state.lengthCounter = value }
-        private var duty: Int get() = state.values[0]; set(value) { state.values[0] = value }
-        private var timer: Int get() = state.values[1]; set(value) { state.values[1] = value }
-        private var timerCounter: Int get() = state.values[2]; set(value) { state.values[2] = value }
-        private var sequence: Int get() = state.values[3]; set(value) { state.values[3] = value }
-        private var volume: Int get() = state.values[4]; set(value) { state.values[4] = value }
-        private var envelopeDivider: Int get() = state.values[5]; set(value) { state.values[5] = value }
-        private var envelopeDecay: Int get() = state.values[6]; set(value) { state.values[6] = value }
-        private var sweepPeriod: Int get() = state.values[7]; set(value) { state.values[7] = value }
-        private var sweepShift: Int get() = state.values[8]; set(value) { state.values[8] = value }
-        private var sweepDivider: Int get() = state.values[9]; set(value) { state.values[9] = value }
-        private var envelopeLoop: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
-        private var constantVolume: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
-        private var envelopeStart: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
-        private var sweepEnabled: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
-        private var sweepNegate: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
-        private var sweepReload: Boolean get() = state.flags[5]; set(value) { state.flags[5] = value }
-
-        fun write(register: Int, value: Int) {
-            when (register) {
-                0 -> {
-                    duty = (value shr 6) and 3; envelopeLoop = (value and 0x20) != 0; constantVolume =
-                        (value and 0x10) != 0; volume = value and 0x0F
-                }
-
-                1 -> {
-                    sweepEnabled = (value and 0x80) != 0; sweepPeriod = ((value shr 4) and 7) + 1; sweepNegate =
-                        (value and 0x08) != 0; sweepShift = value and 7; sweepReload = true
-                }
-
-                2 -> timer = (timer and 0x700) or value
-                3 -> {
-                    timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter =
-                        LENGTH_TABLE[(value shr 3) and 31]; sequence = 0; envelopeStart = true
-                }
+            var i = 0
+            while (i < HALF_WIDTH) {
+                buffer[outIndex + i] += step(phase, i) * delta1 + step(phase + 1, i) * delta2
+                i++
             }
-        }
-
-        fun stepTimer() {
-            if (timerCounter <= 0) {
-                timerCounter = timer
-                sequence = (sequence + 1) and 7
-            } else timerCounter--
-        }
-
-        fun clockEnvelope() {
-            if (envelopeStart) {
-                envelopeStart = false; envelopeDecay = 15; envelopeDivider = volume
-            } else if (envelopeDivider == 0) {
-                envelopeDivider = volume
-                if (envelopeDecay > 0) envelopeDecay-- else if (envelopeLoop) envelopeDecay = 15
-            } else envelopeDivider--
-        }
-
-        fun clockLength() {
-            if (!envelopeLoop && lengthCounter > 0) lengthCounter--
-        }
-
-        fun clockSweep() {
-            if (sweepDivider == 0) {
-                if (sweepEnabled && sweepShift > 0 && timer >= 8) {
-                    val target = sweepTarget()
-                    if (target in 0..0x7FF) timer = target
-                }
-                sweepDivider = sweepPeriod
-            } else sweepDivider--
-            if (sweepReload) {
-                sweepReload = false; sweepDivider = sweepPeriod
-            }
-        }
-
-        fun output(): Int {
-            if (!enabled || lengthCounter == 0 || timer < 8 || sweepTarget() > 0x7FF || DUTY_TABLE[duty][sequence] == 0) return 0
-            return if (constantVolume) volume else envelopeDecay
-        }
-
-        private fun sweepTarget(): Int {
-            val delta = timer shr sweepShift
-            return if (sweepNegate) timer - delta - if (channelOne) 1 else 0 else timer + delta
-        }
-    }
-
-    private class TriangleChannel(private val stateProvider: () -> TriangleState) {
-        private val state: TriangleState get() = stateProvider()
-        var enabled: Boolean get() = state.enabled; set(value) { state.enabled = value }
-        var lengthCounter: Int get() = state.lengthCounter; set(value) { state.lengthCounter = value }
-        private var reloadValue: Int get() = state.values[0]; set(value) { state.values[0] = value }
-        private var linearCounter: Int get() = state.values[1]; set(value) { state.values[1] = value }
-        private var timer: Int get() = state.values[2]; set(value) { state.values[2] = value }
-        private var timerCounter: Int get() = state.values[3]; set(value) { state.values[3] = value }
-        private var sequence: Int get() = state.values[4]; set(value) { state.values[4] = value }
-        private var outputLevel: Int get() = state.values[5]; set(value) { state.values[5] = value }
-        private var control: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
-        private var reloadFlag: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
-
-        fun write(register: Int, value: Int) {
-            when (register) {
-                0 -> {
-                    control = (value and 0x80) != 0; reloadValue = value and 0x7F
-                }
-
-                2 -> timer = (timer and 0x700) or value
-                3 -> {
-                    timer = (timer and 0x0FF) or ((value and 7) shl 8); if (enabled) lengthCounter =
-                        LENGTH_TABLE[(value shr 3) and 31]; reloadFlag = true
-                }
-            }
-        }
-
-        fun stepTimer() {
-            if (timerCounter <= 0) {
-                timerCounter = timer
-                if (lengthCounter > 0 && linearCounter > 0 && timer > 1) {
-                    sequence = (sequence + 1) and 31
-                    outputLevel = TRIANGLE_TABLE[sequence]
-                }
-            } else timerCounter--
-        }
-
-        fun clockLinearCounter() {
-            if (reloadFlag) linearCounter = reloadValue else if (linearCounter > 0) linearCounter--
-            if (!control) reloadFlag = false
-        }
-
-        fun clockLength() {
-            if (!control && lengthCounter > 0) lengthCounter--
-        }
-
-        fun output(): Int = outputLevel
-    }
-
-    private class NoiseChannel(private val stateProvider: () -> NoiseState) {
-        private val state: NoiseState get() = stateProvider()
-        var periods: IntArray = Timing.DEFAULT.noisePeriods
-        var enabled: Boolean get() = state.enabled; set(value) { state.enabled = value }
-        var lengthCounter: Int get() = state.lengthCounter; set(value) { state.lengthCounter = value }
-        private var volume: Int get() = state.values[0]; set(value) { state.values[0] = value }
-        private var envelopeDivider: Int get() = state.values[1]; set(value) { state.values[1] = value }
-        private var envelopeDecay: Int get() = state.values[2]; set(value) { state.values[2] = value }
-        private var timer: Int get() = state.values[3]; set(value) { state.values[3] = value }
-        private var timerCounter: Int get() = state.values[4]; set(value) { state.values[4] = value }
-        private var shift: Int get() = state.values[5]; set(value) { state.values[5] = value }
-        private var envelopeLoop: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
-        private var constantVolume: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
-        private var envelopeStart: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
-        private var mode: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
-
-        fun write(register: Int, value: Int) {
-            when (register) {
-                0 -> {
-                    envelopeLoop = (value and 0x20) != 0; constantVolume = (value and 0x10) != 0; volume =
-                        value and 0x0F
-                }
-
-                2 -> {
-                    mode = (value and 0x80) != 0; timer = periods[value and 0x0F]
-                }
-
-                3 -> {
-                    if (enabled) lengthCounter = LENGTH_TABLE[(value shr 3) and 31]; envelopeStart = true
-                }
+            while (i < HALF_WIDTH * 2) {
+                val col = HALF_WIDTH * 2 - 1 - i
+                buffer[outIndex + i] += step(reversePhase, col) * delta1 + step(reversePhase - 1, col) * delta2
+                i++
             }
         }
 
-        fun stepTimer() {
-            if (timerCounter <= 0) {
-                timerCounter = timer - 1
-                val tap = if (mode) 6 else 1
-                val feedback = (shift xor (shift shr tap)) and 1
-                shift = (shift shr 1) or (feedback shl 14)
-            } else timerCounter--
+        fun endFrame(clockDuration: Int) {
+            val off = clockDuration * factor + offset
+            available += off shr TIME_BITS
+            offset = off and (TIME_UNIT - 1)
+            if (available > size) available = size
         }
 
-        fun clockEnvelope() {
-            if (envelopeStart) {
-                envelopeStart = false; envelopeDecay = 15; envelopeDivider = volume
-            } else if (envelopeDivider == 0) {
-                envelopeDivider = volume
-                if (envelopeDecay > 0) envelopeDecay-- else if (envelopeLoop) envelopeDecay = 15
-            } else envelopeDivider--
-        }
-
-        fun clockLength() {
-            if (!envelopeLoop && lengthCounter > 0) lengthCounter--
-        }
-
-        fun output(): Int = if (enabled && lengthCounter > 0 && (shift and 1) == 0) {
-            if (constantVolume) volume else envelopeDecay
-        } else 0
-    }
-
-    private class DmcChannel(
-        private val dmcDma: DmcDma,
-        private val stateProvider: () -> DmcState,
-    ) {
-        private val state: DmcState get() = stateProvider()
-        var periods: IntArray = Timing.DEFAULT.dmcPeriods
-        private var period: Int get() = state.values[0]; set(value) { state.values[0] = value }
-        private var timerCounter: Int get() = if (state.values[1] < 0) period - 1 else state.values[1]; set(value) { state.values[1] = value }
-        private var outputLevel: Int get() = state.values[2]; set(value) { state.values[2] = value }
-        private var sampleAddress: Int get() = state.values[3]; set(value) { state.values[3] = value }
-        private var sampleLength: Int get() = state.values[4]; set(value) { state.values[4] = value }
-        private var currentAddress: Int get() = state.values[5]; set(value) { state.values[5] = value }
-        private var bytesRemaining: Int get() = state.values[6]; set(value) { state.values[6] = value }
-        private var shiftRegister: Int get() = state.values[7]; set(value) { state.values[7] = value }
-        private var bitsRemaining: Int get() = state.values[8]; set(value) { state.values[8] = value }
-        private var sampleBuffer: Int get() = state.values[9]; set(value) { state.values[9] = value }
-        private var channelEnabled: Boolean get() = state.flags[0]; set(value) { state.flags[0] = value }
-        private var irqEnabled: Boolean get() = state.flags[1]; set(value) { state.flags[1] = value }
-        private var irqRequested: Boolean get() = state.flags[2]; set(value) { state.flags[2] = value }
-        private var loop: Boolean get() = state.flags[3]; set(value) { state.flags[3] = value }
-        private var sampleBufferFull: Boolean get() = state.flags[4]; set(value) { state.flags[4] = value }
-        private var silence: Boolean get() = !state.flags[5]; set(value) { state.flags[5] = !value }
-
-        fun write(register: Int, value: Int) {
-            when (register) {
-                0 -> {
-                    irqEnabled = (value and 0x80) != 0
-                    if (!irqEnabled) irqRequested = false
-                    loop = (value and 0x40) != 0
-                    period = periods[value and 0x0F]
+        fun readSamples(out: ShortArray, offset: Int, count: Int): Int {
+            val readCount = minOf(count, available)
+            var sum = integrator
+            var i = 0
+            while (i < readCount) {
+                var sample = sum shr DELTA_BITS
+                sum += buffer[i]
+                sample = when {
+                    sample > Short.MAX_VALUE -> Short.MAX_VALUE.toInt()
+                    sample < Short.MIN_VALUE -> Short.MIN_VALUE.toInt()
+                    else -> sample
                 }
-
-                1 -> outputLevel = value and 0x7F
-                2 -> sampleAddress = 0xC000 + (value shl 6)
-                3 -> sampleLength = (value shl 4) + 1
+                out[offset + i] = sample.toShort()
+                sum -= sample shl (DELTA_BITS - BASS_SHIFT)
+                i++
             }
+            integrator = sum
+            removeSamples(readCount)
+            return readCount
         }
 
-        fun setEnabled(value: Boolean) {
-            channelEnabled = value
-            if (!channelEnabled) {
-                bytesRemaining = 0
-            } else if (bytesRemaining == 0) {
-                restartSample()
-                fetchSampleIfNeeded()
-            }
-        }
-
-        fun active(): Boolean {
-            return bytesRemaining > 0
-        }
-
-        fun irqPending(): Boolean = irqRequested
-
-        fun clearIrq() {
-            irqRequested = false
-        }
-
-        fun stepTimer() {
-            if (timerCounter <= 0) {
-                timerCounter = period - 1
-                clockOutputUnit()
-            } else {
-                timerCounter--
-            }
-        }
-
-        fun output(): Int {
-            return outputLevel
-        }
-
-        private fun fetchSampleIfNeeded() {
-            if (sampleBufferFull || bytesRemaining == 0) return
-            sampleBuffer = dmcDma.read(currentAddress).low8Bits()
-            sampleBufferFull = true
-            currentAddress++
-            if (currentAddress > 0xFFFF) currentAddress = 0x8000
-            bytesRemaining--
-            if (bytesRemaining == 0) {
-                if (loop) restartSample() else if (irqEnabled) irqRequested = true
-            }
-        }
-
-        private fun clockOutputUnit() {
-            if (!silence) {
-                if ((shiftRegister and 1) == 1) {
-                    if (outputLevel <= 125) outputLevel += 2
-                } else if (outputLevel >= 2) {
-                    outputLevel -= 2
-                }
-            }
-            shiftRegister = shiftRegister shr 1
-            bitsRemaining--
-            if (bitsRemaining <= 0) {
-                bitsRemaining = 8
-                if (sampleBufferFull) {
-                    silence = false
-                    shiftRegister = sampleBuffer
-                    sampleBufferFull = false
-                    fetchSampleIfNeeded()
-                } else {
-                    silence = true
-                }
-            }
-        }
-
-        private fun restartSample() {
-            currentAddress = sampleAddress
-            bytesRemaining = sampleLength
+        private fun removeSamples(count: Int) {
+            if (count == 0) return
+            val remain = available + BLIP_BUFFER_EXTRA - count
+            buffer.copyInto(buffer, 0, count, count + remain)
+            buffer.fill(0, remain, remain + count)
+            available -= count
         }
     }
 }

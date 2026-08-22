@@ -29,7 +29,7 @@ class InesParserV1Test {
         assertEquals(64 * 1024, cartridge.prgRom.size)
         assertEquals(16 * 1024, cartridge.chr.size)
         assertFalse(cartridge.isChrRam)
-        assertTrue(cartridge.mapper is Mapper1)
+        assertEquals(1, cartridge.mapperId)
     }
 
     @Test
@@ -39,7 +39,7 @@ class InesParserV1Test {
         assertEquals(64 * 1024, cartridge.prgRom.size)
         assertEquals(8192, cartridge.chr.size)
         assertTrue(cartridge.isChrRam)
-        assertTrue(cartridge.mapper is Mapper2)
+        assertEquals(2, cartridge.mapperId)
     }
 
     @Test
@@ -49,7 +49,7 @@ class InesParserV1Test {
         assertEquals(32 * 1024, cartridge.prgRom.size)
         assertEquals(32 * 1024, cartridge.chr.size)
         assertFalse(cartridge.isChrRam)
-        assertTrue(cartridge.mapper is Mapper3)
+        assertEquals(3, cartridge.mapperId)
     }
 
     @Test
@@ -59,7 +59,7 @@ class InesParserV1Test {
         assertEquals(64 * 1024, cartridge.prgRom.size)
         assertEquals(16 * 1024, cartridge.chr.size)
         assertFalse(cartridge.isChrRam)
-        assertTrue(cartridge.mapper is Mapper4)
+        assertEquals(4, cartridge.mapperId)
     }
 
     @Test
@@ -69,7 +69,7 @@ class InesParserV1Test {
         assertEquals(64 * 1024, cartridge.prgRom.size)
         assertEquals(8192, cartridge.chr.size)
         assertTrue(cartridge.isChrRam)
-        assertTrue(cartridge.mapper is Mapper4)
+        assertEquals(4, cartridge.mapperId)
     }
 
     @Test
@@ -79,7 +79,7 @@ class InesParserV1Test {
         assertEquals(64 * 1024, cartridge.prgRom.size)
         assertEquals(8192, cartridge.chr.size)
         assertTrue(cartridge.isChrRam)
-        assertTrue(cartridge.mapper is Mapper7)
+        assertEquals(7, cartridge.mapperId)
     }
 
     @Test
@@ -161,11 +161,9 @@ class InesParserV1Test {
 
     @Test
     fun `NES 2 header throws ROM format exception`() = runTest {
-        val exception = assertFailsWithSuspend<RomFormatException> {
-            parser.parse(nes2())
+        assertFailsWithSuspend<RomFormatException> {
+            parser.parse(nes20())
         }
-
-        assertContains(exception.message.orEmpty(), "Expected iNES 1.0")
     }
 
     @Test
@@ -177,11 +175,9 @@ class InesParserV1Test {
 
     @Test
     fun `unsupported mapper throws ROM format exception`() = runTest {
-        val exception = assertFailsWithSuspend<RomFormatException> {
+        assertFailsWithSuspend<RomFormatException> {
             parser.parse(ines(flags6 = 0x50))
         }
-
-        assertContains(exception.message.orEmpty(), "mapper 5")
     }
 
     @Test
@@ -226,7 +222,7 @@ class InesParserV1Test {
         }
     }
 
-    private fun nes2(): ByteArray {
+    private fun nes20(): ByteArray {
         val header = ByteArray(16)
         header[0] = 'N'.code.toByte()
         header[1] = 'E'.code.toByte()

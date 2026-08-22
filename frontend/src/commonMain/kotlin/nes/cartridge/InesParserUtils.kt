@@ -22,7 +22,7 @@ class InesParserUtils {
         }
     }
 
-    fun isNes2(bytes: ByteArray): Boolean = (bytes[7].toUnsignedInt() and 0x0C) == 0x08
+    fun isNes20(bytes: ByteArray): Boolean = (bytes[7].toUnsignedInt() and 0x0C) == 0x08
 
     fun romBytesForHash(bytes: ByteArray): ByteArray {
         val trainer = (bytes[6].toUnsignedInt() and 0x04) != 0
@@ -100,7 +100,9 @@ class InesParserUtils {
             isChrRam = isChrRam,
             trainerPresent = trainer,
             region = region,
-            mapper = createMapper(mapper, submapper, prg, chr, isChrRam, prgRamSize),
+            mapperId = mapper,
+            submapperId = submapper,
+            prgRamSize = prgRamSize,
         )
     }
 
@@ -188,23 +190,6 @@ class InesParserUtils {
                 throw RomFormatException("Unsupported mapper $mapper; only Mapper 0, 1, 2, 3, 4, 7, 11, 34, 66, 71, 79, 87, and 113 are supported")
             }
         }
-    }
-
-    fun createMapper(mapper: Int, submapper: Int, prg: ByteArray, chr: ByteArray, isChrRam: Boolean, prgRamSize: Int): Mapper = when (mapper) {
-        0 -> Mapper0(prgRom = prg, chr = chr, isChrRam = isChrRam)
-        1 -> Mapper1(prgRom = prg, chr = chr, isChrRam = isChrRam)
-        2 -> Mapper2(prgRom = prg, chrRam = chr, hasBusConflicts = submapper == 2)
-        3 -> Mapper3(prgRom = prg, chrRom = chr, hasBusConflicts = submapper == 2)
-        4 -> Mapper4(prgRom = prg, chr = chr, isChrRam = isChrRam, prgRamSize = prgRamSize)
-        7 -> Mapper7(prgRom = prg, chrRam = chr, hasBusConflicts = submapper == 2)
-        11 -> Mapper11(prgRom = prg, chrRom = chr)
-        34 -> Mapper34(prgRom = prg, chr = chr, isChrRam = isChrRam, prgRamSize = prgRamSize, forceNina = submapper == 1)
-        66 -> Mapper66(prgRom = prg, chrRom = chr)
-        71 -> Mapper71(prgRom = prg, chrRam = chr, bf9097Mode = submapper == 1)
-        79 -> Mapper79(prgRom = prg, chrRom = chr)
-        87 -> Mapper87(prgRom = prg, chrRom = chr)
-        113 -> Mapper79(prgRom = prg, chrRom = chr, multicartMode = true)
-        else -> error("Unsupported mapper $mapper")
     }
 
     private fun Long.isPowerOfTwo(): Boolean = this > 0 && (this and (this - 1)) == 0L

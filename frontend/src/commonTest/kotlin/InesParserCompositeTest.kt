@@ -21,12 +21,13 @@ class InesParserCompositeTest {
         val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
 
         assertEquals(64 * 1024, cartridge.prgRom.size)
-        assertTrue(cartridge.mapper is Mapper2)
+        assertEquals(2, cartridge.mapperId)
+        assertEquals(0, cartridge.submapperId)
     }
 
     @Test
     fun `routes NES 2 ROMs to V2 parser`() = runTest {
-        val cartridge = parser.parse(nes2(prgLsb = 1, chrLsb = 1))
+        val cartridge = parser.parse(nes20(prgLsb = 1, chrLsb = 1))
 
         assertEquals(16 * 1024, cartridge.prgRom.size)
         assertFalse(cartridge.isChrRam)
@@ -38,7 +39,7 @@ class InesParserCompositeTest {
 
         assertEquals(ConsoleRegion.NTSC, cartridge.region)
         assertEquals(Mirroring.HORIZONTAL, cartridge.mirroring)
-        assertTrue(cartridge.mapper is Mapper0)
+        assertEquals(0, cartridge.mapperId)
     }
 
     @Test
@@ -62,7 +63,8 @@ class InesParserCompositeTest {
 
         assertEquals(ConsoleRegion.PAL, cartridge.region)
         assertEquals(Mirroring.VERTICAL, cartridge.mirroring)
-        assertTrue(cartridge.mapper is Mapper3)
+        assertEquals(3, cartridge.mapperId)
+        assertEquals(0, cartridge.submapperId)
     }
 
     @Test
@@ -85,7 +87,8 @@ class InesParserCompositeTest {
         val cartridge = parser.parse(ines(prgBanks = 4, chrBanks = 0, flags6 = 0x20))
 
         assertEquals(Mirroring.VERTICAL, cartridge.mirroring)
-        assertTrue(cartridge.mapper is Mapper2)
+        assertEquals(2, cartridge.mapperId)
+        assertEquals(2, cartridge.submapperId)
     }
 
     @Test
@@ -95,7 +98,7 @@ class InesParserCompositeTest {
         }
     }
 
-    private fun nes2(
+    private fun nes20(
         prgLsb: Int = 1,
         chrLsb: Int = 1,
         flags6: Int = 0,

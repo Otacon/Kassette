@@ -4,6 +4,9 @@ import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
 actual suspend fun unzipRom(zipData: RomData): UnzipRomResult = try {
+    if (zipData.bytes.size < 4 || zipData.bytes[0] != 'P'.code.toByte() || zipData.bytes[1] != 'K'.code.toByte()) {
+        return UnzipRomResult.UnknownError
+    }
     val nesRoms = buildList {
         ZipInputStream(ByteArrayInputStream(zipData.bytes)).use { zip ->
             while (true) {

@@ -1,18 +1,18 @@
 package frontend
 
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class SharedFrameBuffer {
-    val initialFrame = ByteArray(256 * 240)
-    private val _frames = MutableSharedFlow<ByteArray>(
-        replay = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
-    val frames = _frames.asSharedFlow()
+    private val blankFrame = ByteArray(256 * 240)
+    private val _frameTicks = MutableStateFlow(0L)
 
-    fun submit(framebuffer: ByteArray) {
-        _frames.tryEmit(framebuffer)
+    var currentFrame: ByteArray = blankFrame
+        private set
+    val frameTicks = _frameTicks.asStateFlow()
+
+    fun submit(framebuffer: ByteArray, frameCount: Int) {
+        currentFrame = framebuffer
+        _frameTicks.value = frameCount.toLong()
     }
 }

@@ -4,7 +4,6 @@ import com.cyanotic.kassette.BuildKonfig
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.Scope
-import dev.zacsweers.metro.createGraph
 import frontend.*
 import frontend.controllerSettings.ControllerInputMapper
 import frontend.controllerSettings.ControllerSettingsViewModel
@@ -16,12 +15,10 @@ import io.Preferences
 import io.SavestateStore
 import io.platformSavestateStore
 import io.toInputMappings
-import nes.NesMachine
 import nes.cartridge.InesParserComposite
 import nes.cartridge.InesParserUtils
 import nes.cartridge.InesParserV1
 import nes.cartridge.InesParserV2
-import nes.di.NesComponent
 import platform.AudioPipeline
 import platform.ControllerInput
 import platform.KeyboardInput
@@ -46,10 +43,6 @@ interface FrontendComponent {
     fun interface Factory {
         fun create(@Provides config: Config): FrontendComponent
     }
-
-    @AppScope
-    @Provides
-    fun nesComponent(): NesComponent = createGraph<NesComponent>()
 
     @AppScope
     @Provides
@@ -78,7 +71,7 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun nesMachine(nesComponent: NesComponent): NesMachine = nesComponent.nesMachine
+    fun nesMachine(): NesMachine = NesMachine()
 
     @AppScope
     @Provides
