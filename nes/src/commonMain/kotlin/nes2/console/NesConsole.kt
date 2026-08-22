@@ -12,7 +12,7 @@ import nes2.memory.NesMemoryMapper
 
 class NesConsole(
     val mapper: NesConsoleMapper,
-    private val ppu: NesConsolePpu,
+    val ppu: NesConsolePpu,
     private val apuDevice: NesCpuApuBridge,
     private val controlManager: NesConsoleControlManager,
     val options: NesConsoleOptions = NesConsoleOptions(),
@@ -126,6 +126,8 @@ class NesConsole(
     fun getMasterClock(): Long = cpu.getCycleCount()
     fun getMasterClockRate(): Int = NesConstants.getClockRate(currentRegion)
     fun getFps(): Double = if (currentRegion == ConsoleRegion.Ntsc) 60.0988118623484 else 50.0069789081886
+    fun notifyPpuFrame(frame: NesPpuFrame) = options.ppu.onFrame(frame)
+    fun notifyPpuStartFrame(frameCount: Int) = options.ppu.onStartFrame(frameCount)
 
     private fun registerOptionalIODevice(handler: INesMemoryHandler?) {
         if (handler != null) {
@@ -166,7 +168,33 @@ data class NesPpuOptions(
     val enablePpu2000ScrollGlitch: Boolean = true,
     val extraScanlinesBeforeNmi: Int = 0,
     val extraScanlinesAfterNmi: Int = 0,
+    val onStartFrame: (frameCount: Int) -> Unit = {},
+    val onFrame: (NesPpuFrame) -> Unit = {},
 )
+
+data class NesPpuFrame(
+    val pixels: IntArray,
+    val width: Int = NesConstants.ScreenWidth,
+    val height: Int = NesConstants.ScreenHeight,
+    val frameCount: Int,
+    val videoPhase: Int,
+) {
+    override fun equals(other: Any?): Boolean = other is NesPpuFrame &&
+        width == other.width &&
+        height == other.height &&
+        frameCount == other.frameCount &&
+        videoPhase == other.videoPhase &&
+        pixels.contentEquals(other.pixels)
+
+    override fun hashCode(): Int {
+        var result = pixels.contentHashCode()
+        result = 31 * result + width
+        result = 31 * result + height
+        result = 31 * result + frameCount
+        result = 31 * result + videoPhase
+        return result
+    }
+}
 
 object NesConstants {
     const val ClockRateNtsc = 1_789_773

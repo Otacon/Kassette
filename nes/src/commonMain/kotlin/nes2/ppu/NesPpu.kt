@@ -2,6 +2,7 @@ package nes2.ppu
 
 import nes2.console.NesConsole
 import nes2.console.NesConstants
+import nes2.console.NesPpuFrame
 import nes2.cpu.ConsoleRegion
 import nes2.cpu.MemoryOperationType
 import nes2.mapper.GameSystem
@@ -131,6 +132,11 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
             exec()
             this.masterClock += masterClockDivider.toLong()
         } while (this.masterClock + masterClockDivider <= masterClock)
+    }
+
+    override fun getScreenBuffer(previousBuffer: Boolean, processGrayscaleEmphasisBits: Boolean): IntArray {
+        if (!previousBuffer && processGrayscaleEmphasisBits) updateGrayscaleAndIntensifyBits()
+        return if (previousBuffer) outputBuffers[if (currentOutputBuffer === outputBuffers[0]) 1 else 0] else currentOutputBuffer
     }
 
     override fun getMemoryRanges(ranges: MemoryRanges) {
@@ -280,32 +286,142 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
     protected fun exec() {
         if (cycle < 340) {
             cycle++
-            processScanline()
+            if (scanline < 240) {
+                processScanline()
+            } else if (cycle == 1 && scanline == nmiScanline) {
+                if (!preventVblFlag) {
+                    statusFlags.verticalBlank = true
+                    beginVBlank()
+                }
+                preventVblFlag = false
+            } else if (region == ConsoleRegion.Pal && scanline >= palSpriteEvalScanline && (cycle and 1) == 0) {
+                spriteRamAddr = (spriteRamAddr + 1) and 0xFF
+                if (enableOamDecay) oamDecayCycles[spriteRamAddr shr 3] = console.cpu.getCycleCount()
+            }
         } else {
             processScanlineFirstCycle()
         }
         processDelayedStateUpdates()
     }
 
-    protected open fun processScanline() {}
+    protected open fun processScanline() {
+        processScanlineImpl()
+    }
+
+    protected fun processScanlineImpl() {
+        if (cycle <= 256) {
+            if (prevRenderingEnabled) {
+                if (scanline >= 0) {
+                    processSpriteShifters()
+                    drawPixel()
+                    processSpriteEvaluation()
+                    shiftTileRegisters()
+                } else if (cycle == 1) {
+                    statusFlags.verticalBlank = false
+                    console.cpu.clearNmiFlag()
+                }
+                if ((cycle and 0x07) == 0) {
+                    incHorizontalScrolling()
+                    if (cycle == 256) incVerticalScrolling()
+                }
+                loadTileInfo()
+            } else {
+                processRenderingDisabledPixel()
+            }
+        } else if (cycle in 257..320) {
+            if (prevRenderingEnabled) {
+                sprite0Visible = sprite0Added
+                spriteRamAddr = 0
+                when ((cycle - 257) % 8) {
+                    0 -> readVram(getNameTableAddr())
+                    2 -> readVram(getNameTableAddr())
+                    4 -> loadSpriteTileInfo()
+                }
+                if (scanline == -1 && cycle in 280..304) videoRamAddr = (videoRamAddr and 0x7BE0.inv()) or (tmpVideoRamAddr and 0x7BE0)
+                if (cycle == 320) loadExtraSprites()
+                if (((cycle - 1) and 4) == 0) secondaryOamAddr = (secondaryOamAddr + 1) and 0xFF
+            }
+            if (cycle == 257) {
+                spriteIndex = 0
+                spriteCount = 0
+                if (prevRenderingEnabled) {
+                    videoRamAddr = (videoRamAddr and 0x041F.inv()) or (tmpVideoRamAddr and 0x041F)
+                    secondaryOamAddr = 0
+                }
+            }
+        } else if (cycle in 321..336) {
+            if (prevRenderingEnabled) {
+                if (cycle == 321) secondaryOamAddr = (secondaryOamAddr + 1) and 0xFF
+                else if (cycle == 328 || cycle == 336) incHorizontalScrolling()
+                shiftTileRegisters()
+                loadTileInfo()
+            }
+        } else if (cycle == 337) {
+            if (isRenderingEnabled()) tile.tileAddr = readVram(getNameTableAddr())
+        } else if (cycle == 339) {
+            activeSpriteShifters = 0
+            if (isRenderingEnabled()) {
+                tile.tileAddr = readVram(getNameTableAddr())
+                for (i in 0 until 8) {
+                    val bit = 1 shl (spriteShifterList[i] and 0x07)
+                    if (spriteShifterList[i] != SpriteShifterDone && (expiredSpriteShifters and bit) == 0) countingSpriteShifters = countingSpriteShifters or bit
+                }
+                if (scanline == -1 && (frameCountValue and 0x01) != 0 && region == ConsoleRegion.Ntsc && getPpuModel() == PpuModel.Ppu2C02) {
+                    cycle = 340
+                    dotSkipped = 3
+                    needStateUpdate = true
+                    for (i in 0 until 8) spriteShifterList[i] += 1 shl 4
+                    nextSpriteShifterCycle++
+                }
+            }
+            for (i in 0 until 8) {
+                if (spriteShifterList[i] != SpriteShifterDone) {
+                    val bit = 1 shl (spriteShifterList[i] and 0x07)
+                    if ((countingSpriteShifters and bit) == 0) activeSpriteShifters = activeSpriteShifters or bit
+                }
+            }
+            updateProcessSpritesFlag()
+        }
+    }
 
     protected fun processScanlineFirstCycle() {
         cycle = 0
         scanline++
         if (scanline > vblankEnd) {
+            lastUpdatedPixel = -1
             scanline = -1
-            frameCountValue++
-            allowFullPpuAccess = true
-            currentOutputBuffer = if (currentOutputBuffer === outputBuffers[0]) outputBuffers[1] else outputBuffers[0]
+            spriteCount = 0
+            console.notifyPpuStartFrame(frameCountValue)
+            updateMinimumDrawCycles()
         }
 
-        if (scanline == nmiScanline) beginVBlank()
-        if (scanline == -1) {
-            statusFlags.spriteOverflow = false
-            statusFlags.sprite0Hit = false
-            statusFlags.verticalBlank = false
-            console.cpu.clearNmiFlag()
+        updateApuStatus()
+
+        if (scanline < 240) {
+            spriteShifterList.sort(0, 8)
+            nextSpriteShifter = 0
+            nextSpriteShifterCycle = spriteShifterList[0] shr 4
+            if (scanline == -1) {
+                statusFlags.spriteOverflow = false
+                statusFlags.sprite0Hit = false
+                statusFlags.verticalBlank = false
+                console.cpu.clearNmiFlag()
+                allowFullPpuAccess = true
+                currentOutputBuffer = if (currentOutputBuffer === outputBuffers[0]) outputBuffers[1] else outputBuffers[0]
+            } else if (prevRenderingEnabled) {
+                secondaryOamAddr = 0
+                if (scanline > 0 || ((frameCountValue and 0x01) == 0 || region != ConsoleRegion.Ntsc || getPpuModel() != PpuModel.Ppu2C02)) {
+                    setBusAddress((tile.tileAddr shl 4) or (videoRamAddr shr 12) or control.backgroundPatternAddr)
+                }
+            }
+        } else if (scanline == 240) {
+            if (prevRenderingEnabled) secondaryOamAddr = 0
+            setBusAddress(videoRamAddr and 0x3FFF)
+            sendFrame()
+            frameCountValue++
         }
+
+        if (enableOamDecay && (scanline >= 240 || !isRenderingEnabled())) oamDecayCycles[spriteRamAddr shr 3] = console.cpu.getCycleCount()
     }
 
     protected fun beginVBlank() {
@@ -321,34 +437,557 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
     }
 
     protected fun processDelayedStateUpdates() {
-        if (ignoreVramRead > 0) ignoreVramRead--
+        if (ignoreVramRead > 0) {
+            ignoreVramRead--
+            if (ignoreVramRead > 0) needStateUpdate = true
+        }
         if (updateVramAddrDelay > 0) {
             updateVramAddrDelay--
             if (updateVramAddrDelay == 0) {
                 videoRamAddr = updateVramAddr and 0x7FFF
+                tmpVideoRamAddr = videoRamAddr
                 setBusAddress(videoRamAddr and 0x3FFF)
+            } else {
+                needStateUpdate = true
             }
+        }
+        if (needVideoRamIncrement) {
+            needVideoRamIncrement = false
+            updateVideoRamAddr()
         }
         if (ppuMemoryDataReadStateMachine > 0) {
             ppuMemoryDataReadStateMachine--
             if (ppuMemoryDataReadStateMachine == 0) {
-                memoryReadBuffer = readVram(ppuBusAddress and 0x3FFF)
-                updateVideoRamAddr()
+                memoryReadBuffer = readVram(ppuBusAddress and 0x3FFF, MemoryOperationType.Read)
+                needVideoRamIncrement = true
             }
+            needStateUpdate = true
         }
         if (ppuMemoryDataWriteStateMachine > 0) {
             ppuMemoryDataWriteStateMachine--
             if (ppuMemoryDataWriteStateMachine == 0) {
-                writeVram(ppuBusAddress and 0x3FFF, ppuMemoryDataWriteLatch)
-                updateVideoRamAddr()
+                if ((ppuBusAddress and 0x3FFF) >= 0x3F00) writePaletteRam(ppuBusAddress, ppuMemoryDataWriteLatch)
+                else if (scanline >= 240 || !isRenderingEnabled()) mapper.writeVram(ppuBusAddress and 0x3FFF, ppuMemoryDataWriteLatch)
+                else mapper.writeVram(ppuBusAddress and 0x3FFF, ppuBusAddress and 0xFF)
+                needVideoRamIncrement = true
             }
+            needStateUpdate = true
+        }
+        if (dotSkipped != 0) {
+            dotSkipped--
+            needStateUpdate = needStateUpdate || dotSkipped != 0
+            updateProcessSpritesFlag()
         }
         if (needStateUpdate) updateState()
     }
 
     protected fun updateState() {
-        renderingEnabled = mask.backgroundEnabled || mask.spritesEnabled
         needStateUpdate = false
+        val newRenderingEnabled = mask.backgroundEnabled || mask.spritesEnabled
+        if (renderingEnabled != newRenderingEnabled) {
+            renderingEnabled = newRenderingEnabled
+            needStateUpdate = true
+        }
+        if (prevRenderingEnabled != renderingEnabled) {
+            prevRenderingEnabled = renderingEnabled
+            if (scanline < 240 && console.options.ppu.enablePpuOamRowCorruption && (cycle >= 257 || (cycle and 1) == 0)) {
+                if (renderingEnabled) corruptOamRow(spriteRamAddr shr 3, secondaryOamAddr and 0x1F)
+                else corruptOamRow(secondaryOamAddr and 0x1F, spriteRamAddr shr 3)
+            }
+        }
+    }
+
+    protected fun loadTileInfo() {
+        when (cycle and 0x07) {
+            0 -> {
+                highBitShift = (highBitShift and 0xFF00) or tile.highByte
+                lowBitShift = (lowBitShift and 0xFF00) or tile.lowByte
+                previousTilePalette = currentTilePalette
+                currentTilePalette = tile.paletteOffset
+                pushTileInformation()
+            }
+            1 -> {
+                val tileIndex = readVram(getNameTableAddr())
+                tile.tileAddr = (tileIndex shl 4) or (videoRamAddr shr 12) or control.backgroundPatternAddr
+                storeTileInformation()
+            }
+            3 -> {
+                val shift = ((videoRamAddr shr 4) and 0x04) or (videoRamAddr and 0x02)
+                tile.paletteOffset = ((readVram(getAttributeAddr()) shr shift) and 0x03) shl 2
+            }
+            5 -> tile.lowByte = readVram(tile.tileAddr)
+            7 -> tile.highByte = readVram(tile.tileAddr + 8)
+        }
+    }
+
+    protected open fun storeTileInformation() {}
+    protected open fun pushTileInformation() {}
+
+    protected fun loadSprite(spriteYValue: Int, tileIndex: Int, attributes: Int, spriteX: Int, extraSprite: Boolean) {
+        val spriteY = spriteYValue and 0xFF
+        val backgroundPriority = (attributes and 0x20) == 0x20
+        val horizontalMirror = (attributes and 0x40) == 0x40
+        val verticalMirror = (attributes and 0x80) == 0x80
+        val spriteSizeMask = if (control.largeSprites) 15 else 7
+        val scanline8Bit = (if (scanline >= 0) scanline else if (region == ConsoleRegion.Ntsc) 261 else 311) and 0xFF
+        var rangeResult = (scanline8Bit - spriteY) and 0xFFFF
+        if (verticalMirror) rangeResult = rangeResult xor spriteSizeMask
+        val tileAddr = if (control.largeSprites) {
+            (((tileIndex and 0x01) shl 12) or ((tileIndex and 0x01.inv()) shl 4)) + ((rangeResult and 0x08) shl 1) + (rangeResult and 0x07)
+        } else {
+            (control.spritePatternAddr or (tileIndex shl 4)) + (rangeResult and 0x07)
+        }
+
+        val info = spriteTiles[spriteIndex]
+        info.backgroundPriority = backgroundPriority
+        info.paletteOffset = ((attributes and 0x03) shl 2) or 0x10
+        if (extraSprite) {
+            info.lowByte = mapper.debugReadVram(tileAddr)
+            info.highByte = mapper.debugReadVram(tileAddr + 8)
+        } else {
+            info.lowByte = readVram(tileAddr)
+            info.highByte = readVram(tileAddr + 8)
+        }
+        info.spriteX = spriteX and 0xFF
+
+        if (rangeResult <= spriteSizeMask) {
+            if (horizontalMirror) {
+                info.lowByte = reverseByte(info.lowByte)
+                info.highByte = reverseByte(info.highByte)
+            }
+            storeSpriteInformation(horizontalMirror, verticalMirror, tileAddr, rangeResult, info)
+            if (!extraSprite) {
+                spriteShifterList[spriteIndex] = (((spriteX and 0xFF) + 1) shl 4) or spriteIndex
+                expiredSpriteShifters = expiredSpriteShifters and (1 shl spriteIndex).inv()
+            }
+            spriteCount++
+            processSprites = true
+        } else if (!extraSprite) {
+            info.lowByte = 0
+            info.highByte = 0
+            spriteShifterList[spriteIndex] = SpriteShifterDone
+        }
+        spriteIndex++
+    }
+
+    protected open fun storeSpriteInformation(horizontalMirror: Boolean, verticalMirror: Boolean, tileAddr: Int, lineOffset: Int, sprite: NesSpriteInfo) {}
+
+    protected fun loadExtraSprites() {
+        if (spriteCount == 8 && removeSpriteLimit() && scanline >= 0) {
+            var loadExtraSprites = true
+            if (useAdaptiveSpriteLimit()) {
+                var lastPosition = 0xFFFF
+                var identicalSpriteCount = 0
+                var maxIdenticalSpriteCount = 0
+                for (i in 0 until 64) {
+                    val y = spriteRam[i shl 2]
+                    if (scanline >= y && scanline < y + if (control.largeSprites) 16 else 8) {
+                        val x = spriteRam[(i shl 2) + 3]
+                        val position = (y shl 8) or x
+                        if (lastPosition != position) {
+                            if (identicalSpriteCount > maxIdenticalSpriteCount) maxIdenticalSpriteCount = identicalSpriteCount
+                            lastPosition = position
+                            identicalSpriteCount = 1
+                        } else identicalSpriteCount++
+                    }
+                }
+                loadExtraSprites = identicalSpriteCount < 8 && maxIdenticalSpriteCount < 8
+            }
+            if (loadExtraSprites) {
+                var i = (lastVisibleSpriteAddr + 4) and 0xFC
+                while (i != (firstVisibleSpriteAddr and 0xFC)) {
+                    val spriteY = spriteRam[i]
+                    if (scanline >= spriteY && scanline < spriteY + if (control.largeSprites) 16 else 8) {
+                        loadSprite(spriteY, spriteRam[i + 1], spriteRam[i + 2], spriteRam[i + 3], true)
+                    }
+                    i = (i + 4) and 0xFC
+                }
+            }
+        }
+    }
+
+    protected open fun removeSpriteLimit(): Boolean = false
+    protected open fun useAdaptiveSpriteLimit(): Boolean = false
+
+    protected fun loadSpriteTileInfo() {
+        spriteIndex = (cycle - 257) shr 3
+        val addr = spriteIndex * 4
+        loadSprite(secondarySpriteRam[addr], secondarySpriteRam[addr + 1], secondarySpriteRam[addr + 2], secondarySpriteRam[addr + 3], false)
+    }
+
+    protected fun shiftTileRegisters() {
+        lowBitShift = (lowBitShift shl 1) and 0xFFFF
+        highBitShift = ((highBitShift shl 1) or 1) and 0xFFFF
+    }
+
+    protected fun processRenderingDisabledPixel() {
+        if (scanline >= 0) {
+            processSpriteShifters()
+            drawPixel()
+        } else if (cycle == 1) {
+            statusFlags.verticalBlank = false
+            console.cpu.clearNmiFlag()
+        }
+    }
+
+    protected open fun drawPixel() {}
+
+    protected fun updateProcessSpritesFlag() {
+        processSprites = spriteCount != 0 || activeSpriteShifters != 0 || dotSkipped != 0
+    }
+
+    protected fun processSpriteEvaluationStart() {
+        sprite0Added = false
+        spriteInRange = false
+        secondaryOamAddr = 0
+        overflowBugCounter = 0
+        oamCopyDone = false
+        firstVisibleSpriteAddr = spriteRamAddr and 0xFC
+        lastVisibleSpriteAddr = firstVisibleSpriteAddr
+    }
+
+    protected fun processSpriteShifters() {
+        if (nextSpriteShifterCycle == cycle) {
+            while (nextSpriteShifter < spriteShifterList.size && (spriteShifterList[nextSpriteShifter] shr 4) == cycle) {
+                val bit = 1 shl (spriteShifterList[nextSpriteShifter] and 7)
+                if ((countingSpriteShifters and bit) != 0) {
+                    activeSpriteShifters = activeSpriteShifters or bit
+                    expiredSpriteShifters = expiredSpriteShifters or bit
+                    countingSpriteShifters = countingSpriteShifters and bit.inv()
+                }
+                nextSpriteShifter++
+            }
+            nextSpriteShifterCycle = if (nextSpriteShifter < spriteShifterList.size) spriteShifterList[nextSpriteShifter] shr 4 else SpriteShifterDone shr 4
+        }
+    }
+
+    protected fun processSpriteEvaluation() {
+        if (cycle < 65) {
+            oamCopybuffer = 0xFF
+            secondarySpriteRam[secondaryOamAddr and 0x1F] = 0xFF
+            if ((cycle and 1) == 0) secondaryOamAddr = (secondaryOamAddr + 1) and 0xFF
+            return
+        }
+        if ((cycle and 0x01) != 0) {
+            if (cycle == 65) processSpriteEvaluationStart()
+            oamCopybuffer = readSpriteRam(spriteRamAddr)
+            return
+        }
+        var spriteAddrH = spriteRamAddr shr 2
+        var spriteAddrL = spriteRamAddr and 3
+        if (oamCopyDone && !console.options.ppu.enablePpuOamRowCorruption) {
+            spriteAddrH = (spriteAddrH + 1) and 0x3F
+            oamCopybuffer = secondarySpriteRam[secondaryOamAddr and 0x1F]
+        } else {
+            if (!spriteInRange && scanline >= oamCopybuffer && scanline < oamCopybuffer + if (control.largeSprites) 16 else 8) spriteInRange = !oamCopyDone
+            if (secondaryOamAddr < 0x20) {
+                secondarySpriteRam[secondaryOamAddr] = oamCopybuffer
+                if (spriteInRange) {
+                    if (cycle == 66) sprite0Added = true
+                    spriteAddrL++
+                    secondaryOamAddr++
+                    if (spriteAddrL >= 4) {
+                        spriteAddrH = (spriteAddrH + 1) and 0x3F
+                        spriteAddrL = 0
+                        if (spriteAddrH == 0) oamCopyDone = true
+                    }
+                    if ((secondaryOamAddr and 0x03) == 0) {
+                        spriteInRange = false
+                        lastVisibleSpriteAddr = ((spriteAddrH - 1) and 0x3F) * 4
+                        if (spriteAddrL != 0) {
+                            val inRange = scanline >= oamCopybuffer && scanline < oamCopybuffer + if (control.largeSprites) 16 else 8
+                            if (!inRange) spriteAddrL = 0
+                        }
+                    }
+                } else {
+                    spriteAddrH = (spriteAddrH + 1) and 0x3F
+                    spriteAddrL = 0
+                    if (spriteAddrH == 0) oamCopyDone = true
+                }
+            } else {
+                oamCopybuffer = secondarySpriteRam[secondaryOamAddr and 0x1F]
+                if (oamCopyDone) {
+                    spriteAddrH = (spriteAddrH + 1) and 0x3F
+                    spriteAddrL = 0
+                } else if (spriteInRange) {
+                    statusFlags.spriteOverflow = true
+                    spriteAddrL++
+                    if (spriteAddrL == 4) {
+                        spriteAddrH = (spriteAddrH + 1) and 0x3F
+                        spriteAddrL = 0
+                    }
+                    if (overflowBugCounter == 0) overflowBugCounter = 3
+                    else if (overflowBugCounter > 0) {
+                        overflowBugCounter--
+                        if (overflowBugCounter == 0) {
+                            oamCopyDone = true
+                            spriteAddrL = 0
+                        }
+                    }
+                } else {
+                    spriteAddrH = (spriteAddrH + 1) and 0x3F
+                    spriteAddrL = (spriteAddrL + 1) and 0x03
+                    if (spriteAddrH == 0) oamCopyDone = true
+                }
+            }
+        }
+        spriteRamAddr = (spriteAddrL and 0x03) or (spriteAddrH shl 2)
+    }
+
+    protected fun getPixelColor(): Int {
+        val offset = xScroll
+        var backgroundColor = 0
+        var spriteBgColor = 0
+        if (cycle > minimumDrawBgCycle) {
+            spriteBgColor = (((lowBitShift shl offset) and 0x8000) shr 15) or (((highBitShift shl offset) and 0x8000) shr 14)
+            if (emulatorBgEnabled) backgroundColor = spriteBgColor
+        }
+        var spriteIndexValue = -1
+        var spriteColor = 0
+        if (processSprites && prevRenderingEnabled) {
+            var remainingShifters = if (dotSkipped != 0) 0xFF else activeSpriteShifters
+            if (activeSpriteShifters != 0) lastSprite = spriteTiles[highestBitIndex(activeSpriteShifters)]
+            while (remainingShifters != 0) {
+                val i = highestBitIndex(remainingShifters)
+                remainingShifters = remainingShifters and (1 shl i).inv()
+                val sprite = spriteTiles[i]
+                val currColor = ((sprite.highByte shr 6) and 0x2) or (sprite.lowByte shr 7)
+                if (currColor != 0) {
+                    spriteIndexValue = i
+                    spriteColor = currColor
+                    lastSprite = sprite
+                }
+                sprite.highByte = (sprite.highByte shl 1) and 0xFF
+                sprite.lowByte = (sprite.lowByte shl 1) and 0xFF
+                if ((sprite.highByte or sprite.lowByte) == 0) {
+                    activeSpriteShifters = activeSpriteShifters and (1 shl i).inv()
+                    updateProcessSpritesFlag()
+                }
+            }
+            if (cycle > minimumDrawSpriteCycle && mask.spritesEnabled) {
+                if (spriteCount > 8 && spriteColor == 0) {
+                    spriteIndexValue = 8
+                    while (spriteIndexValue < spriteCount) {
+                        val sprite = spriteTiles[spriteIndexValue]
+                        val shift = cycle - sprite.spriteX - 1
+                        if (shift in 0..7) {
+                            lastSprite = sprite
+                            spriteColor = (((sprite.lowByte shl shift) and 0x80) shr 7) or (((sprite.highByte shl shift) and 0x80) shr 6)
+                            if (spriteColor != 0) break
+                        }
+                        spriteIndexValue++
+                    }
+                }
+                if (spriteColor != 0 && spriteIndexValue >= 0) {
+                    if (sprite0Visible && spriteIndexValue == 0 && spriteBgColor != 0 && cycle != 256 && mask.backgroundEnabled && !statusFlags.sprite0Hit && cycle > minimumDrawSpriteStandardCycle) statusFlags.sprite0Hit = true
+                    if (emulatorSpritesEnabled && (backgroundColor == 0 || !spriteTiles[spriteIndexValue].backgroundPriority)) return spriteTiles[spriteIndexValue].paletteOffset + spriteColor
+                }
+            }
+        }
+        return (if (offset + ((cycle - 1) and 0x07) < 8) previousTilePalette else currentTilePalette) + backgroundColor
+    }
+
+    protected fun sendFrame() {
+        updateGrayscaleAndIntensifyBits()
+        val ppuCycles = if (masterClockDivider == 0) 0L else masterClock / masterClockDivider
+        var videoPhase = ((ppuCycles - 82181L) % 3L).toInt()
+        if (videoPhase < 0) videoPhase += 3
+        if (region != ConsoleRegion.Ntsc || console.options.ppu.extraScanlinesAfterNmi != 0 || console.options.ppu.extraScanlinesBeforeNmi != 0) {
+            videoPhase = frameCountValue and 0x01
+        }
+        console.notifyPpuFrame(
+            NesPpuFrame(
+                pixels = currentOutputBuffer.copyOf(),
+                frameCount = frameCountValue,
+                videoPhase = videoPhase,
+            )
+        )
+        enableOamDecay = console.options.ppu.enableOamDecay
+    }
+
+    fun captureSnapshot(): NesPpuSnapshot = NesPpuSnapshot(
+        paletteRam = paletteRam.copyOf(),
+        spriteRam = spriteRam.copyOf(),
+        secondarySpriteRam = secondarySpriteRam.copyOf(),
+        openBusDecayStamp = openBusDecayStamp.copyOf(),
+        spriteRamAddr = spriteRamAddr,
+        videoRamAddr = videoRamAddr,
+        xScroll = xScroll,
+        tmpVideoRamAddr = tmpVideoRamAddr,
+        writeToggle = writeToggle,
+        highBitShift = highBitShift,
+        lowBitShift = lowBitShift,
+        control = control.copy(),
+        mask = mask.copy(),
+        paletteRamMask = paletteRamMask,
+        intensifyColorBits = intensifyColorBits,
+        statusFlags = statusFlags.copy(),
+        scanline = scanline,
+        cycle = cycle,
+        frameCount = frameCountValue,
+        memoryReadBuffer = memoryReadBuffer,
+        region = region,
+        ppuBusAddress = ppuBusAddress,
+        masterClock = masterClock,
+        currentTilePalette = currentTilePalette,
+        tile = tile.copy(),
+        previousTilePalette = previousTilePalette,
+        spriteIndex = spriteIndex,
+        spriteCount = spriteCount,
+        sprite0Added = sprite0Added,
+        sprite0Visible = sprite0Visible,
+        oamCopybuffer = oamCopybuffer,
+        secondaryOamAddr = secondaryOamAddr,
+        spriteInRange = spriteInRange,
+        prevRenderingEnabled = prevRenderingEnabled,
+        renderingEnabled = renderingEnabled,
+        openBus = openBus,
+        ignoreVramRead = ignoreVramRead,
+        spriteShifterList = spriteShifterList.copyOf(),
+        nextSpriteShifter = nextSpriteShifter,
+        nextSpriteShifterCycle = nextSpriteShifterCycle,
+        activeSpriteShifters = activeSpriteShifters,
+        countingSpriteShifters = countingSpriteShifters,
+        expiredSpriteShifters = expiredSpriteShifters,
+        dotSkipped = dotSkipped,
+        processSprites = processSprites,
+        oamCopyDone = oamCopyDone,
+        needStateUpdate = needStateUpdate,
+        preventVblFlag = preventVblFlag,
+        needVideoRamIncrement = needVideoRamIncrement,
+        overflowBugCounter = overflowBugCounter,
+        updateVramAddr = updateVramAddr,
+        updateVramAddrDelay = updateVramAddrDelay,
+        allowFullPpuAccess = allowFullPpuAccess,
+        ppuMemoryDataReadStateMachine = ppuMemoryDataReadStateMachine,
+        ppuMemoryDataWriteStateMachine = ppuMemoryDataWriteStateMachine,
+        ppuMemoryDataWriteLatch = ppuMemoryDataWriteLatch,
+        spriteTiles = Array(spriteTiles.size) { spriteTiles[it].copy() },
+        firstVisibleSpriteAddr = firstVisibleSpriteAddr,
+        lastVisibleSpriteAddr = lastVisibleSpriteAddr,
+        oamDecayCycles = oamDecayCycles.copyOf(),
+        currentOutputBufferIndex = if (currentOutputBuffer === outputBuffers[0]) 0 else 1,
+        outputBuffers = Array(outputBuffers.size) { outputBuffers[it].copyOf() },
+    )
+
+    fun restoreSnapshot(snapshot: NesPpuSnapshot) {
+        snapshot.paletteRam.copyInto(paletteRam, endIndex = minOf(snapshot.paletteRam.size, paletteRam.size))
+        snapshot.spriteRam.copyInto(spriteRam, endIndex = minOf(snapshot.spriteRam.size, spriteRam.size))
+        snapshot.secondarySpriteRam.copyInto(secondarySpriteRam, endIndex = minOf(snapshot.secondarySpriteRam.size, secondarySpriteRam.size))
+        snapshot.openBusDecayStamp.copyInto(openBusDecayStamp, endIndex = minOf(snapshot.openBusDecayStamp.size, openBusDecayStamp.size))
+        spriteRamAddr = snapshot.spriteRamAddr and 0xFF
+        videoRamAddr = snapshot.videoRamAddr and 0x7FFF
+        xScroll = snapshot.xScroll and 0xFF
+        tmpVideoRamAddr = snapshot.tmpVideoRamAddr and 0x7FFF
+        writeToggle = snapshot.writeToggle
+        highBitShift = snapshot.highBitShift and 0xFFFF
+        lowBitShift = snapshot.lowBitShift and 0xFFFF
+        copyControlFrom(snapshot.control)
+        copyMaskFrom(snapshot.mask)
+        paletteRamMask = snapshot.paletteRamMask
+        intensifyColorBits = snapshot.intensifyColorBits
+        copyStatusFrom(snapshot.statusFlags)
+        scanline = snapshot.scanline
+        cycle = snapshot.cycle
+        frameCountValue = snapshot.frameCount
+        memoryReadBuffer = snapshot.memoryReadBuffer and 0xFF
+        region = snapshot.region
+        ppuBusAddress = snapshot.ppuBusAddress and 0x3FFF
+        masterClock = snapshot.masterClock
+        currentTilePalette = snapshot.currentTilePalette and 0xFF
+        tile = snapshot.tile.copy()
+        previousTilePalette = snapshot.previousTilePalette and 0xFF
+        spriteIndex = snapshot.spriteIndex
+        spriteCount = snapshot.spriteCount
+        sprite0Added = snapshot.sprite0Added
+        sprite0Visible = snapshot.sprite0Visible
+        oamCopybuffer = snapshot.oamCopybuffer and 0xFF
+        secondaryOamAddr = snapshot.secondaryOamAddr and 0xFF
+        spriteInRange = snapshot.spriteInRange
+        prevRenderingEnabled = snapshot.prevRenderingEnabled
+        renderingEnabled = snapshot.renderingEnabled
+        openBus = snapshot.openBus and 0xFF
+        ignoreVramRead = snapshot.ignoreVramRead
+        snapshot.spriteShifterList.copyInto(spriteShifterList, endIndex = minOf(snapshot.spriteShifterList.size, spriteShifterList.size))
+        spriteShifterList[spriteShifterList.lastIndex] = SpriteShifterDone
+        nextSpriteShifter = snapshot.nextSpriteShifter.coerceIn(0, spriteShifterList.lastIndex)
+        nextSpriteShifterCycle = snapshot.nextSpriteShifterCycle
+        activeSpriteShifters = snapshot.activeSpriteShifters
+        countingSpriteShifters = snapshot.countingSpriteShifters
+        expiredSpriteShifters = snapshot.expiredSpriteShifters
+        dotSkipped = snapshot.dotSkipped
+        processSprites = snapshot.processSprites
+        oamCopyDone = snapshot.oamCopyDone
+        needStateUpdate = snapshot.needStateUpdate
+        preventVblFlag = snapshot.preventVblFlag
+        needVideoRamIncrement = snapshot.needVideoRamIncrement
+        overflowBugCounter = snapshot.overflowBugCounter
+        updateVramAddr = snapshot.updateVramAddr and 0x7FFF
+        updateVramAddrDelay = snapshot.updateVramAddrDelay
+        allowFullPpuAccess = snapshot.allowFullPpuAccess
+        ppuMemoryDataReadStateMachine = snapshot.ppuMemoryDataReadStateMachine
+        ppuMemoryDataWriteStateMachine = snapshot.ppuMemoryDataWriteStateMachine
+        ppuMemoryDataWriteLatch = snapshot.ppuMemoryDataWriteLatch and 0xFF
+        for (i in spriteTiles.indices) {
+            val source = snapshot.spriteTiles.getOrNull(i) ?: NesSpriteInfo()
+            spriteTiles[i].backgroundPriority = source.backgroundPriority
+            spriteTiles[i].spriteX = source.spriteX
+            spriteTiles[i].lowByte = source.lowByte
+            spriteTiles[i].highByte = source.highByte
+            spriteTiles[i].paletteOffset = source.paletteOffset
+        }
+        firstVisibleSpriteAddr = snapshot.firstVisibleSpriteAddr and 0xFF
+        lastVisibleSpriteAddr = snapshot.lastVisibleSpriteAddr and 0xFF
+        snapshot.oamDecayCycles.copyInto(oamDecayCycles, endIndex = minOf(snapshot.oamDecayCycles.size, oamDecayCycles.size))
+        for (i in outputBuffers.indices) {
+            snapshot.outputBuffers.getOrNull(i)?.copyInto(outputBuffers[i], endIndex = minOf(snapshot.outputBuffers[i].size, outputBuffers[i].size))
+        }
+        currentOutputBuffer = outputBuffers[snapshot.currentOutputBufferIndex.coerceIn(0, outputBuffers.lastIndex)]
+
+        updateTimings(region)
+        updateMinimumDrawCycles()
+        updateGrayscaleAndIntensifyBits()
+        for (i in oamDecayCycles.indices) oamDecayCycles[i] = console.cpu.getCycleCount()
+        lastUpdatedPixel = -1
+        updateApuStatus()
+    }
+
+    private fun copyControlFrom(source: PpuControlFlags) {
+        control.backgroundPatternAddr = source.backgroundPatternAddr
+        control.spritePatternAddr = source.spritePatternAddr
+        control.verticalWrite = source.verticalWrite
+        control.largeSprites = source.largeSprites
+        control.secondaryPpu = source.secondaryPpu
+        control.nmiOnVerticalBlank = source.nmiOnVerticalBlank
+    }
+
+    private fun copyMaskFrom(source: PpuMaskFlags) {
+        mask.grayscale = source.grayscale
+        mask.backgroundMask = source.backgroundMask
+        mask.spriteMask = source.spriteMask
+        mask.backgroundEnabled = source.backgroundEnabled
+        mask.spritesEnabled = source.spritesEnabled
+        mask.intensifyRed = source.intensifyRed
+        mask.intensifyGreen = source.intensifyGreen
+        mask.intensifyBlue = source.intensifyBlue
+    }
+
+    private fun copyStatusFrom(source: PPUStatusFlags) {
+        statusFlags.spriteOverflow = source.spriteOverflow
+        statusFlags.sprite0Hit = source.sprite0Hit
+        statusFlags.verticalBlank = source.verticalBlank
+    }
+
+    protected fun updateApuStatus() {
+        var enabled = true
+        if (scanline > 240) {
+            if (scanline > standardVblankEnd) {
+                enabled = false
+            } else if (scanline >= standardNmiScanline && scanline < nmiScanline) {
+                enabled = false
+            }
+        }
+        console.apu.setApuStatus(enabled)
     }
 
     protected fun updateVideoRamAddr() {
@@ -484,6 +1123,22 @@ abstract class NesPpu(console: NesConsole) : BaseNesPpu(console) {
 
     protected fun statusByte(): Int = (if (statusFlags.spriteOverflow) 0x20 else 0) or (if (statusFlags.sprite0Hit) 0x40 else 0) or (if (statusFlags.verticalBlank) 0x80 else 0)
     private fun isPpu2C05(): Boolean = getPpuModel().ordinal in PpuModel.Ppu2C05A.ordinal..PpuModel.Ppu2C05E.ordinal
+    private fun reverseByte(value: Int): Int {
+        var v = value and 0xFF
+        var r = 0
+        repeat(8) {
+            r = (r shl 1) or (v and 1)
+            v = v shr 1
+        }
+        return r and 0xFF
+    }
+
+    private fun highestBitIndex(value: Int): Int {
+        var i = 31
+        while (i > 0 && (value and (1 shl i)) == 0) i--
+        return i
+    }
+
     private fun intArrayAsByteArray(values: IntArray): ByteArray = ByteArray(values.size) { values[it].toByte() }
     private fun copyControl(source: PpuControlFlags) {
         control.backgroundPatternAddr = source.backgroundPatternAddr

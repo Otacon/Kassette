@@ -90,6 +90,7 @@ interface NesCpuApuBridge {
     fun reset(softReset: Boolean) {}
     fun setRegion(region: ConsoleRegion) {}
     fun endFrame() {}
+    fun setApuStatus(enabled: Boolean) {}
 }
 
 interface NesCpuHost {

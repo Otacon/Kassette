@@ -4,15 +4,12 @@ import nes2.console.NesConsole
 import nes2.console.NesConstants
 
 class DefaultNesPpu(console: NesConsole) : NesPpu(console) {
-    fun storeSpriteInformation(horizontalMirror: Boolean, verticalMirror: Boolean, tileAddr: Int, lineOffset: Int, sprite: NesSpriteInfo) {}
-    fun storeTileInformation() {}
-    fun pushTileInformation() {}
-    fun removeSpriteLimit(): Boolean = console.options.ppu.removeSpriteLimit
-    fun useAdaptiveSpriteLimit(): Boolean = console.options.ppu.adaptiveSpriteLimit
+    override fun storeSpriteInformation(horizontalMirror: Boolean, verticalMirror: Boolean, tileAddr: Int, lineOffset: Int, sprite: NesSpriteInfo) {}
+    override fun storeTileInformation() {}
+    override fun pushTileInformation() {}
+    override fun removeSpriteLimit(): Boolean = console.options.ppu.removeSpriteLimit
+    override fun useAdaptiveSpriteLimit(): Boolean = console.options.ppu.adaptiveSpriteLimit
     fun onBeforeSendFrame(): Any? = null
-
-    override fun getScreenBuffer(previousBuffer: Boolean, processGrayscaleEmphasisBits: Boolean): IntArray =
-        if (previousBuffer) outputBuffers[if (currentOutputBuffer === outputBuffers[0]) 1 else 0] else currentOutputBuffer
 
     override fun getPixelBrightness(x: Int, y: Int): Int = getPixel(x, y) and 0x3F
 
@@ -22,11 +19,11 @@ class DefaultNesPpu(console: NesConsole) : NesPpu(console) {
         if (scanline in 0 until NesConstants.ScreenHeight && cycle in 1..256) drawPixel()
     }
 
-    private fun drawPixel() {
+    override fun drawPixel() {
         val index = (scanline shl 8) + cycle - 1
         if (index !in currentOutputBuffer.indices) return
         currentOutputBuffer[index] = if (isRenderingEnabled() || ((videoRamAddr and 0x3F00) != 0x3F00)) {
-            paletteRam[0]
+            paletteRam[getPixelColor().let { if ((it and 0x03) != 0) it else 0 } and 0x1F]
         } else {
             paletteRam[videoRamAddr and 0x1F]
         }
