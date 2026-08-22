@@ -31,7 +31,7 @@ val propertyVersion = providers.gradleProperty("appVersion")
 val isRelease = propertyVersion.orNull != null
 
 val appVersion = propertyVersion
-    .orElse("0.1.9-indev")
+    .orElse("0.1.10-indev")
     .map { it.removePrefix("v") }
     .get()
 
