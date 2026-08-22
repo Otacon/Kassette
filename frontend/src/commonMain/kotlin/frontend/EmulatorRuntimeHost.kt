@@ -2,11 +2,12 @@ package frontend
 
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import nes.cartridge.Cartridge
 import platform.AudioPipeline
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -17,6 +18,7 @@ class EmulatorRuntimeHost(
     private val input: EmulatorInput,
 ) : AutoCloseable {
     val frameBuffer = SharedFrameBuffer()
+    val isPoweredOn: StateFlow<Boolean> get() = machine.isPoweredOn
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
@@ -45,34 +47,39 @@ class EmulatorRuntimeHost(
         loop = null
     }
 
-    suspend fun pause() = mutex.withLock {
+    suspend fun pause() = onRuntime {
         paused = true
         runtime.pause()
     }
 
-    suspend fun resume() = mutex.withLock {
+    suspend fun resume() = onRuntime {
         paused = false
     }
 
-    suspend fun setSoundEnabled(enabled: Boolean) = mutex.withLock {
+    suspend fun setSoundEnabled(enabled: Boolean) = onRuntime {
         runtime.soundEnabled = enabled
     }
 
-    suspend fun <T> pauseForStateOperation(operation: () -> T): T {
-        val wasPaused = mutex.withLock {
-            val previous = paused
-            paused = true
-            runtime.pause()
-            previous
-        }
-        return try {
-            mutex.withLock { operation() }
-        } finally {
-            mutex.withLock {
-                paused = wasPaused
-                if (wasPaused) runtime.pause()
-            }
-        }
+    suspend fun loadCartridge(cartridge: Cartridge) = onRuntime {
+        machine.powerOff()
+        machine.insert(cartridge)
+        machine.powerOn()
+    }
+
+    suspend fun powerOff() = onRuntime {
+        machine.powerOff()
+    }
+
+    suspend fun reset() = onRuntime {
+        machine.reset()
+    }
+
+    suspend fun captureState(): NesMachineState = onRuntime {
+        machine.captureState()
+    }
+
+    suspend fun restoreState(state: NesMachineState) = onRuntime {
+        machine.restoreState(state)
     }
 
     override fun close() {
@@ -80,6 +87,10 @@ class EmulatorRuntimeHost(
         scope.cancel()
         runtime.close()
     }
+
+    private suspend fun <T> onRuntime(operation: () -> T): T = scope.async {
+        mutex.withLock { operation() }
+    }.await()
 }
 
 private fun CoroutineScope.startEmulatorLoop(
