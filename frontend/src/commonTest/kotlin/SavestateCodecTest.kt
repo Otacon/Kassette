@@ -1,4 +1,4 @@
-import frontend.Nes2FrontendState
+import frontend.NesMachineState
 import frontend.SavestateCodec
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
@@ -18,7 +18,7 @@ class SavestateCodecTest {
 
     @Test
     fun `round trips NES savestate payload`() {
-        val state = Nes2FrontendState(
+        val state = NesMachineState(
             oldRegion = ConsoleRegion.NTSC,
             poweredOn = true,
             nextFrameOverclockDisabled = true,

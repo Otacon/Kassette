@@ -98,7 +98,7 @@ enum class RomFormat {
 @Serializable
 enum class RomHeaderVersion {
     iNes,
-    Nes2_0,
+    Nes20,
     OldiNes,
 }
 

@@ -28,7 +28,7 @@ import platform.KeyboardInput
 @Suppress("unused")
 interface FrontendComponent {
     val inesParser: InesParserComposite
-    val nesMachine: Nes2FrontendMachine
+    val nesMachine: NesMachine
     val renderer: Renderer
     val audio: AudioPipeline
     val keyboardInput: KeyboardInput
@@ -71,7 +71,7 @@ interface FrontendComponent {
 
     @AppScope
     @Provides
-    fun nesMachine(): Nes2FrontendMachine = Nes2FrontendMachine()
+    fun nesMachine(): NesMachine = NesMachine()
 
     @AppScope
     @Provides
@@ -84,20 +84,20 @@ interface FrontendComponent {
     @AppScope
     @Provides
     fun keyboardInput(
-        machine: Nes2FrontendMachine,
+        machine: NesMachine,
         inputMapper: ControllerInputMapper,
     ): KeyboardInput = KeyboardInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
     fun controllerInput(
-        machine: Nes2FrontendMachine,
+        machine: NesMachine,
         inputMapper: ControllerInputMapper,
     ): ControllerInput = ControllerInput(machine.controller, inputMapper)
 
     @AppScope
     @Provides
-    fun virtualControllerInput(machine: Nes2FrontendMachine): VirtualControllerInput =
+    fun virtualControllerInput(machine: NesMachine): VirtualControllerInput =
         VirtualControllerInput(machine.controller)
 
     @AppScope
@@ -134,7 +134,7 @@ interface FrontendComponent {
     @AppScope
     @Provides
     fun runtimeHost(
-        machine: Nes2FrontendMachine,
+        machine: NesMachine,
         audio: AudioPipeline,
         input: DelegatingEmulatorInput,
     ): EmulatorRuntimeHost = EmulatorRuntimeHost(

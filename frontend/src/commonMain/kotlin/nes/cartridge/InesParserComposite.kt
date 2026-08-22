@@ -31,7 +31,7 @@ class InesParserComposite(
         } else {
             log.d { "No results found for ${sha1?.uppercase()}" }
         }
-        val cartridge = when (val parseResult = if (utils.isNes2(bytes)) {
+        val cartridge = when (val parseResult = if (utils.isNes20(bytes)) {
             log.d { "ROM format: iNES 2.0" }
             inesParserV2.parse(romData)
         } else {

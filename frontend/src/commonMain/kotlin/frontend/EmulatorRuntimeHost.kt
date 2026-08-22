@@ -12,7 +12,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 class EmulatorRuntimeHost(
-    private val machine: Nes2FrontendMachine,
+    private val machine: NesMachine,
     audio: AudioPipeline,
     private val input: EmulatorInput,
 ) : AutoCloseable {

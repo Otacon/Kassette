@@ -3,7 +3,7 @@ package frontend
 import platform.AudioPipeline
 
 class EmulatorRuntime(
-    private val machine: Nes2FrontendMachine,
+    private val machine: NesMachine,
     private val audio: AudioPipeline,
     private val input: EmulatorInput,
     private val frameBuffer: SharedFrameBuffer,

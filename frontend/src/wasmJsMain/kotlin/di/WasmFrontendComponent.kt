@@ -5,7 +5,7 @@ import frontend.Config
 import frontend.DelegatingEmulatorInput
 import frontend.EmulatorRuntimeHost
 import frontend.MainScreenViewModel
-import frontend.Nes2FrontendMachine
+import frontend.NesMachine
 import platform.ControllerInput
 import frontend.Renderer
 import dev.zacsweers.metro.DependencyGraph
@@ -32,7 +32,7 @@ interface WasmFrontendComponent {
 
     @AppScope
     @Provides
-    fun nesMachine(component: FrontendComponent): Nes2FrontendMachine = component.nesMachine
+    fun nesMachine(component: FrontendComponent): NesMachine = component.nesMachine
 
     @AppScope
     @Provides

@@ -20,7 +20,7 @@ class InesParserV1(
     private fun parseCartridge(romData: RomData): Cartridge {
         val bytes = romData.bytes
         utils.validateHeader(bytes)
-        if (utils.isNes2(bytes)) {
+        if (utils.isNes20(bytes)) {
             throw RomFormatException("Expected iNES 1.0 ROM, found NES 2.0 header")
         }
         val prgBanks = bytes[4].toUnsignedInt()

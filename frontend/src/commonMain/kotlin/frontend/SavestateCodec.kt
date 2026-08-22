@@ -17,17 +17,17 @@ import nes.ppu.NesPpuSnapshot
 class SavestateCodec(
     private val cbor: Cbor,
 ) {
-    fun encode(state: Nes2FrontendState): ByteArray = cbor.encodeToByteArray(
-        Nes2SavestateDto.serializer(),
+    fun encode(state: NesMachineState): ByteArray = cbor.encodeToByteArray(
+        NesSavestateDto.serializer(),
         state.toDto(),
     )
 
-    fun decode(bytes: ByteArray): Nes2FrontendState = cbor.decodeFromByteArray(
-        Nes2SavestateDto.serializer(),
+    fun decode(bytes: ByteArray): NesMachineState = cbor.decodeFromByteArray(
+        NesSavestateDto.serializer(),
         bytes,
     ).toState()
 
-    private fun Nes2FrontendState.toDto(): Nes2SavestateDto = Nes2SavestateDto(
+    private fun NesMachineState.toDto(): NesSavestateDto = NesSavestateDto(
         oldRegion = oldRegion.toDto(),
         poweredOn = poweredOn,
         nextFrameOverclockDisabled = nextFrameOverclockDisabled,
@@ -41,9 +41,9 @@ class SavestateCodec(
         completedFrameCount = completedFrameCount,
     )
 
-    private fun Nes2SavestateDto.toState(): Nes2FrontendState {
+    private fun NesSavestateDto.toState(): NesMachineState {
         require(formatVersion == CurrentFormatVersion) { "Unsupported savestate format version $formatVersion" }
-        return Nes2FrontendState(
+        return NesMachineState(
             oldRegion = oldRegion.toConsoleRegion(),
             poweredOn = poweredOn,
             nextFrameOverclockDisabled = nextFrameOverclockDisabled,
@@ -79,7 +79,7 @@ class SavestateCodec(
 }
 
 @Serializable
-private data class Nes2SavestateDto(
+private data class NesSavestateDto(
     val formatVersion: Int = 2,
     val oldRegion: Int,
     val poweredOn: Boolean,
@@ -93,7 +93,7 @@ private data class Nes2SavestateDto(
     val completedFrameColorIds: ByteArray,
     val completedFrameCount: Int,
 ) {
-    override fun equals(other: Any?): Boolean = other is Nes2SavestateDto &&
+    override fun equals(other: Any?): Boolean = other is NesSavestateDto &&
         formatVersion == other.formatVersion &&
         oldRegion == other.oldRegion &&
         poweredOn == other.poweredOn &&

@@ -30,7 +30,7 @@ import nes.memory.NesMemoryManagerSnapshot
 import nes.ppu.DefaultNesPpu
 import nes.ppu.NesPpuSnapshot
 
-class Nes2FrontendMachine {
+class NesMachine {
     val controller = NesController()
     var apu = NesApu()
         private set
@@ -121,12 +121,12 @@ class Nes2FrontendMachine {
         c.apu.endFrame()
     }
 
-    fun captureState(): Nes2FrontendState {
+    fun captureState(): NesMachineState {
         val c = console ?: error("Cannot capture state without a loaded console")
         val p = ppuDevice ?: error("Cannot capture state without a PPU")
         val controls = controlManager ?: error("Cannot capture state without controls")
         val mapper = c.mapper as? BaseMapper ?: error("Unsupported mapper state type")
-        return Nes2FrontendState(
+        return NesMachineState(
             oldRegion = oldRegion,
             poweredOn = poweredOn.value,
             nextFrameOverclockDisabled = c.getNextFrameOverclockStatus(),
@@ -141,7 +141,7 @@ class Nes2FrontendMachine {
         )
     }
 
-    fun restoreState(state: Nes2FrontendState) {
+    fun restoreState(state: NesMachineState) {
         val c = console ?: error("Cannot restore state without a loaded console")
         val p = ppuDevice ?: error("Cannot restore state without a PPU")
         val controls = controlManager ?: error("Cannot restore state without controls")
@@ -198,7 +198,7 @@ class Nes2FrontendMachine {
     }
 }
 
-data class Nes2FrontendState(
+data class NesMachineState(
     val oldRegion: nes.ConsoleRegion,
     val poweredOn: Boolean,
     val nextFrameOverclockDisabled: Boolean,
@@ -211,7 +211,7 @@ data class Nes2FrontendState(
     val completedFrameColorIds: ByteArray,
     val completedFrameCount: Int,
 ) {
-    override fun equals(other: Any?): Boolean = other is Nes2FrontendState &&
+    override fun equals(other: Any?): Boolean = other is NesMachineState &&
         oldRegion == other.oldRegion &&
         poweredOn == other.poweredOn &&
         nextFrameOverclockDisabled == other.nextFrameOverclockDisabled &&

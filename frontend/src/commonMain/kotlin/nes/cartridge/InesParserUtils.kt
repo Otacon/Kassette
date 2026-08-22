@@ -22,7 +22,7 @@ class InesParserUtils {
         }
     }
 
-    fun isNes2(bytes: ByteArray): Boolean = (bytes[7].toUnsignedInt() and 0x0C) == 0x08
+    fun isNes20(bytes: ByteArray): Boolean = (bytes[7].toUnsignedInt() and 0x0C) == 0x08
 
     fun romBytesForHash(bytes: ByteArray): ByteArray {
         val trainer = (bytes[6].toUnsignedInt() and 0x04) != 0

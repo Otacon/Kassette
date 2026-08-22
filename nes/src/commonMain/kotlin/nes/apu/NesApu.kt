@@ -26,6 +26,7 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         const val MAX_FRAME_SAMPLES = 2048
         private const val MIXER_CYCLE_LENGTH = 120_000
         private const val CHANNEL_COUNT = 5
+        private const val BLIP_BUFFER_EXTRA = 18
 
         private fun channelIndex(channel: ApuAudioChannel): Int = when (channel) {
             ApuAudioChannel.Square1 -> 0
@@ -47,9 +48,10 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     private var previousCycle = 0
     private var currentCycle = 0
     private var apuDisabledStamp = 0L
-    private var samplePhase = 0
     private val channelDeltas = IntArray(CHANNEL_COUNT * MIXER_CYCLE_LENGTH)
     private val currentOutput = IntArray(CHANNEL_COUNT)
+    private val blipBuffer = BlipBuffer(MAX_FRAME_SAMPLES)
+    private var previousMixedOutput = 0
 
     private val square1 = SquareChannel(isChannel1 = true, apu = this)
     private val square2 = SquareChannel(isChannel1 = false, apu = this)
@@ -116,10 +118,11 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         currentCycle = 0
         previousCycle = 0
         needToRun = false
-        samplePhase = 0
         sampleCount = 0
+        previousMixedOutput = 0
         currentOutput.fill(0)
         channelDeltas.fill(0)
+        blipBuffer.clear()
         square1.reset(softReset)
         square2.reset(softReset)
         triangle.reset(softReset)
@@ -131,7 +134,7 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     override fun setRegion(region: ConsoleRegion) {
         run()
         this.region = if (region == ConsoleRegion.Dendy) ConsoleRegion.Ntsc else region
-        samplePhase %= clockRate()
+        blipBuffer.setRates(clockRate(), DEFAULT_SAMPLE_RATE)
         frameCounter.setRegion(this.region)
         noise.setRegion(this.region)
         dmc.setRegion(this.region)
@@ -214,6 +217,8 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         currentOutput[3] = noise.output
         currentOutput[4] = dmc.output
         channelDeltas.fill(0)
+        blipBuffer.clear()
+        previousMixedOutput = getOutputVolume() * 4
     }
 
     internal fun setNeedToRun() {
@@ -281,20 +286,11 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         } else if (needToRun(currentCycle)) run()
     }
 
-    private fun appendSample(value: Int) {
-        if (sampleCount >= samples.size) return
-        val clamped = when {
-            value > Short.MAX_VALUE -> Short.MAX_VALUE.toInt()
-            value < Short.MIN_VALUE -> Short.MIN_VALUE.toInt()
-            else -> value
-        }
-        samples[sampleCount++] = clamped.toShort()
-    }
-
     private fun renderMixerFrame(time: Int) {
         val end = if (time < MIXER_CYCLE_LENGTH) time else MIXER_CYCLE_LENGTH - 1
         var cycle = 0
         while (cycle <= end) {
+            var changed = false
             var channel = 0
             while (channel < CHANNEL_COUNT) {
                 val index = channel * MIXER_CYCLE_LENGTH + cycle
@@ -302,16 +298,20 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
                 if (delta != 0) {
                     currentOutput[channel] += delta
                     channelDeltas[index] = 0
+                    changed = true
                 }
                 channel++
             }
-            samplePhase += DEFAULT_SAMPLE_RATE
-            if (samplePhase >= clockRate()) {
-                samplePhase -= clockRate()
-                appendSample(getOutputVolume() * 4)
+
+            if (changed) {
+                val mixedOutput = getOutputVolume() * 4
+                blipBuffer.addDelta(cycle, mixedOutput - previousMixedOutput)
+                previousMixedOutput = mixedOutput
             }
             cycle++
         }
+        blipBuffer.endFrame(time)
+        blipBuffer.readSamples(samples, sampleCount, samples.size - sampleCount).also { sampleCount += it }
     }
 
     private fun getOutputVolume(): Int {
@@ -341,5 +341,136 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         if (if (peek) frameCounter.peekIrqFlag() else frameCounter.getIrqFlag()) status = status or 0x40
         if (hasIrq(IRQSource.Dmc)) status = status or 0x80
         return status and 0xFF
+    }
+
+    private class BlipBuffer(private val size: Int) {
+        private companion object {
+            const val TIME_BITS = 20
+            const val TIME_UNIT = 1 shl TIME_BITS
+            const val BASS_SHIFT = 9
+            const val HALF_WIDTH = 8
+            const val PHASE_BITS = 5
+            const val PHASE_COUNT = 1 shl PHASE_BITS
+            const val DELTA_BITS = 15
+            const val DELTA_UNIT = 1 shl DELTA_BITS
+            const val FRAC_BITS = TIME_BITS
+
+            val BL_STEP = intArrayOf(
+                43, -115, 350, -488, 1136, -914, 5861, 21022,
+                44, -118, 348, -473, 1076, -799, 5274, 21001,
+                45, -121, 344, -454, 1011, -677, 4706, 20936,
+                46, -122, 336, -431, 942, -549, 4156, 20829,
+                47, -123, 327, -404, 868, -418, 3629, 20679,
+                47, -122, 316, -375, 792, -285, 3124, 20488,
+                47, -120, 303, -344, 714, -151, 2644, 20256,
+                46, -117, 289, -310, 634, -17, 2188, 19985,
+                46, -114, 273, -275, 553, 117, 1758, 19675,
+                44, -108, 255, -237, 471, 247, 1356, 19327,
+                43, -103, 237, -199, 390, 373, 981, 18944,
+                42, -98, 218, -160, 310, 495, 633, 18527,
+                40, -91, 198, -121, 231, 611, 314, 18078,
+                38, -84, 178, -81, 153, 722, 22, 17599,
+                36, -76, 157, -43, 80, 824, -241, 17092,
+                34, -68, 135, -3, 8, 919, -476, 16558,
+                32, -61, 115, 34, -60, 1006, -683, 16001,
+                29, -52, 94, 70, -123, 1083, -862, 15422,
+                27, -44, 73, 106, -184, 1152, -1015, 14824,
+                25, -36, 53, 139, -239, 1211, -1142, 14210,
+                22, -27, 34, 170, -290, 1261, -1244, 13582,
+                20, -20, 16, 199, -335, 1301, -1322, 12942,
+                18, -12, -3, 226, -375, 1331, -1376, 12293,
+                15, -4, -19, 250, -410, 1351, -1408, 11638,
+                13, 3, -35, 272, -439, 1361, -1419, 10979,
+                11, 9, -49, 292, -464, 1362, -1410, 10319,
+                9, 16, -63, 309, -483, 1354, -1383, 9660,
+                7, 22, -75, 322, -496, 1337, -1339, 9005,
+                6, 26, -85, 333, -504, 1312, -1280, 8355,
+                4, 31, -94, 341, -507, 1278, -1205, 7713,
+                3, 35, -102, 347, -506, 1238, -1119, 7082,
+                1, 40, -110, 350, -499, 1190, -1021, 6464,
+                0, 43, -115, 350, -488, 1136, -914, 5861,
+            )
+
+            fun step(row: Int, column: Int): Int = BL_STEP[row * HALF_WIDTH + column]
+        }
+
+        private val buffer = IntArray(size + BLIP_BUFFER_EXTRA)
+        private var factor = 1
+        private var offset = 0
+        private var available = 0
+        private var integrator = 0
+
+        fun setRates(clockRate: Int, sampleRate: Int) {
+            factor = ((TIME_UNIT.toDouble() * sampleRate / clockRate).toInt()).coerceAtLeast(1)
+            if (factor.toDouble() < TIME_UNIT.toDouble() * sampleRate / clockRate) factor++
+        }
+
+        fun clear() {
+            offset = factor / 2
+            available = 0
+            integrator = 0
+            buffer.fill(0)
+        }
+
+        fun addDelta(time: Int, delta: Int) {
+            if (delta == 0) return
+            val fixed = time * factor + offset
+            val outIndex = available + (fixed shr FRAC_BITS)
+            if (outIndex + 15 >= buffer.size) return
+
+            val phaseShift = FRAC_BITS - PHASE_BITS
+            val phase = (fixed shr phaseShift) and (PHASE_COUNT - 1)
+            val interp = fixed and (DELTA_UNIT - 1)
+            val delta2 = (delta * interp) shr DELTA_BITS
+            val delta1 = delta - delta2
+            val reversePhase = PHASE_COUNT - phase
+
+            var i = 0
+            while (i < HALF_WIDTH) {
+                buffer[outIndex + i] += step(phase, i) * delta1 + step(phase + 1, i) * delta2
+                i++
+            }
+            while (i < HALF_WIDTH * 2) {
+                val col = HALF_WIDTH * 2 - 1 - i
+                buffer[outIndex + i] += step(reversePhase, col) * delta1 + step(reversePhase - 1, col) * delta2
+                i++
+            }
+        }
+
+        fun endFrame(clockDuration: Int) {
+            val off = clockDuration * factor + offset
+            available += off shr TIME_BITS
+            offset = off and (TIME_UNIT - 1)
+            if (available > size) available = size
+        }
+
+        fun readSamples(out: ShortArray, offset: Int, count: Int): Int {
+            val readCount = minOf(count, available)
+            var sum = integrator
+            var i = 0
+            while (i < readCount) {
+                var sample = sum shr DELTA_BITS
+                sum += buffer[i]
+                sample = when {
+                    sample > Short.MAX_VALUE -> Short.MAX_VALUE.toInt()
+                    sample < Short.MIN_VALUE -> Short.MIN_VALUE.toInt()
+                    else -> sample
+                }
+                out[offset + i] = sample.toShort()
+                sum -= sample shl (DELTA_BITS - BASS_SHIFT)
+                i++
+            }
+            integrator = sum
+            removeSamples(readCount)
+            return readCount
+        }
+
+        private fun removeSamples(count: Int) {
+            if (count == 0) return
+            val remain = available + BLIP_BUFFER_EXTRA - count
+            buffer.copyInto(buffer, 0, count, count + remain)
+            buffer.fill(0, remain, remain + count)
+            available -= count
+        }
     }
 }

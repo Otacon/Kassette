@@ -22,7 +22,7 @@ import nes.cartridge.unzipRom
 @Inject
 class MainScreenViewModel(
     private val config: Config,
-    private val machine: Nes2FrontendMachine,
+    private val machine: NesMachine,
     private val runtime: EmulatorRuntimeHost,
     private val parser: InesParserComposite,
     private val buildKonfig: BuildKonfig,

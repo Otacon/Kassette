@@ -31,7 +31,7 @@ fun main() {
 
 @Inject
 class WebEmulatorApplication(
-    private val machine: Nes2FrontendMachine,
+    private val machine: NesMachine,
     private val keyboardInput: KeyboardInput,
     private val controllerInput: ControllerInput,
     private val virtualControllerInput: VirtualControllerInput,
