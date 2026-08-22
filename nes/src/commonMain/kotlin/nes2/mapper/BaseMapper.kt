@@ -51,6 +51,7 @@ abstract class BaseMapper(private val romData: RomData? = null) : NesConsoleMapp
     private var originalPrgRom: ByteArray = ByteArray(0)
     private var originalChrRom: ByteArray = ByteArray(0)
     private var initialized = false
+    private var specificMapperInitialized = false
 
     protected var romInfoState: NesRomInfo = NesRomInfo()
     protected var console: NesConsole? = null
@@ -102,6 +103,7 @@ abstract class BaseMapper(private val romData: RomData? = null) : NesConsoleMapp
         val data = romData
         if (!initialized && data != null) {
             initialize(console, data)
+            initSpecificMapper(data)
         }
     }
 
@@ -211,8 +213,10 @@ abstract class BaseMapper(private val romData: RomData? = null) : NesConsoleMapp
     }
 
     fun initSpecificMapper(romData: RomData) {
+        if (specificMapperInitialized) return
         initMapper()
         initMapper(romData)
+        specificMapperInitialized = true
     }
 
     override fun reset(softReset: Boolean) {}
