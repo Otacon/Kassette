@@ -8,27 +8,27 @@ import nes.Timing
 import nes.cartridge.Cartridge
 import nes.cartridge.Mirroring
 import nes.input.NesController
-import nes2.apu.NesApuSnapshot
-import nes2.apu.NesApu
-import nes2.console.NesConsole
-import nes2.console.NesConsoleOptions
-import nes2.console.NesPpuFrame
-import nes2.cpu.NesCpuSnapshot
-import nes2.cpu.ConsoleRegion as ConsoleRegion2
-import nes2.input.NesControlDevice
-import nes2.input.NesControlManager
-import nes2.input.NesControlManagerSnapshot
-import nes2.mapper.BaseMapper
-import nes2.mapper.BusConflictType
-import nes2.mapper.GameInfo
-import nes2.mapper.MapperSnapshot
-import nes2.mapper.createMapper
-import nes2.mapper.MirroringType
-import nes2.mapper.NesRomInfo
-import nes2.mapper.RomData as RomData2
-import nes2.memory.NesMemoryManagerSnapshot
-import nes2.ppu.DefaultNesPpu
-import nes2.ppu.NesPpuSnapshot
+import nes.apu.NesApuSnapshot
+import nes.apu.NesApu
+import nes.console.NesConsole
+import nes.console.NesConsoleOptions
+import nes.console.NesPpuFrame
+import nes.cpu.NesCpuSnapshot
+import nes.cpu.ConsoleRegion as ConsoleRegion2
+import nes.input.NesControlDevice
+import nes.input.NesControlManager
+import nes.input.NesControlManagerSnapshot
+import nes.mapper.BaseMapper
+import nes.mapper.BusConflictType
+import nes.mapper.GameInfo
+import nes.mapper.MapperSnapshot
+import nes.mapper.createMapper
+import nes.mapper.MirroringType
+import nes.mapper.NesRomInfo
+import nes.mapper.RomData as RomData2
+import nes.memory.NesMemoryManagerSnapshot
+import nes.ppu.DefaultNesPpu
+import nes.ppu.NesPpuSnapshot
 
 class Nes2FrontendMachine {
     val controller = NesController()
@@ -98,7 +98,7 @@ class Nes2FrontendMachine {
             ppu = ppuDevice,
             apuDevice = apuDevice,
             controlManager = controlManager,
-            options = NesConsoleOptions(region = region, ppu = nes2.console.NesPpuOptions(onFrame = ppu::onFrame)),
+            options = NesConsoleOptions(region = region, ppu = nes.console.NesPpuOptions(onFrame = ppu::onFrame)),
         )
     }
 

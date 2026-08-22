@@ -5,12 +5,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.cbor.Cbor
 import nes.ConsoleRegion
-import nes2.apu.NesApuSnapshot
-import nes2.cpu.NesCpuSnapshot
-import nes2.input.NesControlManagerSnapshot
-import nes2.mapper.MapperSnapshot
-import nes2.memory.NesMemoryManagerSnapshot
-import nes2.ppu.NesPpuSnapshot
+import nes.apu.NesApuSnapshot
+import nes.cpu.NesCpuSnapshot
+import nes.input.NesControlManagerSnapshot
+import nes.mapper.MapperSnapshot
+import nes.memory.NesMemoryManagerSnapshot
+import nes.ppu.NesPpuSnapshot
 
 @OptIn(ExperimentalSerializationApi::class)
 @Inject
