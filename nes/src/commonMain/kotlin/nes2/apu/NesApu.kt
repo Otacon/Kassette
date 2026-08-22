@@ -8,8 +8,44 @@ import nes2.cpu.IRQSource
 import nes2.memory.INesMemoryHandler
 import nes2.memory.MemoryOperation
 import nes2.memory.MemoryRanges
+import kotlin.math.PI
+import kotlin.math.exp
 
 class NesApu : NesConsoleApu, INesMemoryHandler {
+    companion object {
+        const val DEFAULT_SAMPLE_RATE = 44_100
+        const val MAX_FRAME_SAMPLES = 2048
+
+        private val PULSE_MIX = DoubleArray(31) { sum ->
+            if (sum == 0) 0.0 else 95.88 / ((8128.0 / sum) + 100.0)
+        }
+        private val TND_MIX = DoubleArray(16 * 16 * 128).also { table ->
+            var triangle = 0
+            while (triangle < 16) {
+                var noise = 0
+                while (noise < 16) {
+                    var dmc = 0
+                    while (dmc < 128) {
+                        val input = triangle / 8227.0 + noise / 12241.0 + dmc / 22638.0
+                        table[tndIndex(triangle, noise, dmc)] = if (input == 0.0) 0.0 else 159.79 / (1.0 / input + 100.0)
+                        dmc++
+                    }
+                    noise++
+                }
+                triangle++
+            }
+        }
+        private const val HIGH_PASS_90_HZ_CUTOFF = 90.0
+        private const val HIGH_PASS_440_HZ_CUTOFF = 440.0
+        private const val LOW_PASS_14_KHZ_CUTOFF = 14_000.0
+
+        private fun tndIndex(triangle: Int, noise: Int, dmc: Int): Int = ((triangle shl 4) or noise) * 128 + dmc
+    }
+
+    val samples = ShortArray(MAX_FRAME_SAMPLES)
+    var sampleCount = 0
+        private set
+
     private lateinit var console: NesConsole
     private var region: ConsoleRegion = ConsoleRegion.Ntsc
     private var apuEnabled = true
@@ -17,6 +53,15 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     private var previousCycle = 0
     private var currentCycle = 0
     private var apuDisabledStamp = 0L
+    private var samplePhase = 0
+    private var highPass90Input = 0.0
+    private var highPass90Output = 0.0
+    private var highPass440Input = 0.0
+    private var highPass440Output = 0.0
+    private var lowPass14kOutput = 0.0
+    private var highPass90 = 0.0
+    private var highPass440 = 0.0
+    private var lowPass14k = 0.0
 
     private val square1 = SquareChannel(isChannel1 = true, apu = this)
     private val square2 = SquareChannel(isChannel1 = false, apu = this)
@@ -83,6 +128,13 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         currentCycle = 0
         previousCycle = 0
         needToRun = false
+        samplePhase = 0
+        sampleCount = 0
+        highPass90Input = 0.0
+        highPass90Output = 0.0
+        highPass440Input = 0.0
+        highPass440Output = 0.0
+        lowPass14kOutput = 0.0
         square1.reset(softReset)
         square2.reset(softReset)
         triangle.reset(softReset)
@@ -93,6 +145,10 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
 
     override fun setRegion(region: ConsoleRegion) {
         this.region = if (region == ConsoleRegion.Dendy) ConsoleRegion.Ntsc else region
+        highPass90 = exp(-2.0 * PI * HIGH_PASS_90_HZ_CUTOFF / DEFAULT_SAMPLE_RATE)
+        highPass440 = exp(-2.0 * PI * HIGH_PASS_440_HZ_CUTOFF / DEFAULT_SAMPLE_RATE)
+        lowPass14k = 1.0 - exp(-2.0 * PI * LOW_PASS_14_KHZ_CUTOFF / DEFAULT_SAMPLE_RATE)
+        samplePhase %= clockRate()
         frameCounter.setRegion(this.region)
         noise.setRegion(this.region)
         dmc.setRegion(this.region)
@@ -100,6 +156,12 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
 
     override fun processCpuClock() {
         if (apuEnabled) exec()
+        samplePhase += DEFAULT_SAMPLE_RATE
+        if (samplePhase >= clockRate()) {
+            samplePhase -= clockRate()
+            run()
+            appendSample(mix())
+        }
     }
 
     override fun endFrame() {
@@ -111,6 +173,10 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         dmc.endFrame()
         currentCycle = 0
         previousCycle = 0
+    }
+
+    fun beginFrame() {
+        sampleCount = 0
     }
 
     override fun setApuStatus(enabled: Boolean) {
@@ -217,6 +283,26 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     private fun exec() {
         currentCycle++
         if (needToRun(currentCycle)) run()
+    }
+
+    private fun mix(): Double {
+        val mixed = PULSE_MIX[square1.output + square2.output] + TND_MIX[tndIndex(triangle.output, noise.output, dmc.output)]
+        highPass90Output = highPass90 * (highPass90Output + mixed - highPass90Input)
+        highPass90Input = mixed
+        highPass440Output = highPass440 * (highPass440Output + highPass90Output - highPass440Input)
+        highPass440Input = highPass90Output
+        lowPass14kOutput += lowPass14k * (highPass440Output - lowPass14kOutput)
+        return lowPass14kOutput
+    }
+
+    private fun appendSample(value: Double) {
+        if (sampleCount >= samples.size) return
+        val clamped = when {
+            value > 1.0 -> 1.0
+            value < -1.0 -> -1.0
+            else -> value
+        }
+        samples[sampleCount++] = (clamped * Short.MAX_VALUE).toInt().toShort()
     }
 
     private fun needToRun(cycle: Int): Boolean {

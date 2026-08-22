@@ -9,6 +9,7 @@ import nes.Timing
 import nes.cartridge.Cartridge
 import nes.cartridge.Mirroring
 import nes.input.NesController
+import nes2.apu.NesApu
 import nes2.console.NesConsole
 import nes2.console.NesConsoleOptions
 import nes2.console.NesPpuFrame
@@ -23,7 +24,8 @@ import nes2.ppu.DefaultNesPpu
 
 class Nes2FrontendMachine {
     val controller = NesController()
-    val apu = SilentAudio
+    var apu = NesApu()
+        private set
     val ppu = FrameOutput()
     val timing: Timing get() = oldRegion.timing
     val isPoweredOn: StateFlow<Boolean> get() = poweredOn.asStateFlow()
@@ -66,12 +68,15 @@ class Nes2FrontendMachine {
 
         val mapper = Mapper0(rom)
         val ppuDevice = DefaultNesPpu()
+        val apuDevice = NesApu()
+        apu = apuDevice
         ppu.setFrameBuffer(ppuDevice.frameColorIds)
         ppu.clear()
         val controlManager = NesControlManager { listOf(ControllerDevice(controller)) }
         console = NesConsole(
             mapper = mapper,
             ppu = ppuDevice,
+            apuDevice = apuDevice,
             controlManager = controlManager,
             options = NesConsoleOptions(region = region, ppu = nes2.console.NesPpuOptions(onFrame = ppu::onFrame)),
         )
@@ -85,6 +90,7 @@ class Nes2FrontendMachine {
         val c = console ?: return
         val frame = c.ppu.frameCount
         var cycles = 0
+        apu.beginFrame()
         while (frame == c.ppu.frameCount) {
             c.cpu.exec()
             cycles++
@@ -97,11 +103,6 @@ class Nes2FrontendMachine {
 
     fun captureState(): NesHardwareState = error("nes2 savestates are not wired in the quick frontend adapter")
     fun restoreState(state: NesHardwareState) { error("nes2 savestates are not wired in the quick frontend adapter") }
-
-    object SilentAudio {
-        val samples = ShortArray(0)
-        val sampleCount = 0
-    }
 
     class FrameOutput {
         var completedFrameColorIds = ByteArray(256 * 240)
