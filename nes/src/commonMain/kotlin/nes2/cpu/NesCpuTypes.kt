@@ -18,9 +18,9 @@ enum class MemoryOperationType {
 }
 
 enum class NesCpuBusType {
-    Default,
     Internal,
     External,
+    Both,
 }
 
 enum class NesAddrMode {
@@ -76,11 +76,11 @@ data class NesCpuState(
 )
 
 interface NesCpuMemoryManager {
-    fun read(addr: Int, operationType: MemoryOperationType = MemoryOperationType.Read, busType: NesCpuBusType = NesCpuBusType.Default): Int
+    fun read(addr: Int, operationType: MemoryOperationType = MemoryOperationType.Read, busType: NesCpuBusType = NesCpuBusType.Both): Int
     fun write(addr: Int, value: Int, operationType: MemoryOperationType = MemoryOperationType.Write)
     fun debugRead(addr: Int): Int = read(addr, MemoryOperationType.Read)
     fun getOpenBus(): Int = 0
-    fun setOpenBus(value: Int, busType: NesCpuBusType = NesCpuBusType.Default) {}
+    fun setOpenBus(value: Int, busType: NesCpuBusType = NesCpuBusType.Both) {}
 }
 
 interface NesCpuApuBridge {
