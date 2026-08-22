@@ -1,0 +1,206 @@
+package nes2.mapper
+
+enum class PrgMemoryType {
+    PrgRom,
+    SaveRam,
+    WorkRam,
+    MapperRam,
+}
+
+enum class ChrMemoryType {
+    Default,
+    ChrRom,
+    ChrRam,
+    NametableRam,
+    MapperRam,
+}
+
+object MemoryAccessType {
+    const val Unspecified = -1
+    const val NoAccess = 0x00
+    const val Read = 0x01
+    const val Write = 0x02
+    const val ReadWrite = 0x03
+}
+
+enum class MirroringType {
+    Horizontal,
+    Vertical,
+    ScreenAOnly,
+    ScreenBOnly,
+    FourScreens,
+}
+
+enum class BusConflictType {
+    Default,
+    Yes,
+    No,
+}
+
+enum class GameSystem {
+    Unknown,
+    NesNtsc,
+    NesPal,
+    Dendy,
+    VsSystem,
+}
+
+enum class GameInputType {
+    Unspecified,
+}
+
+enum class PpuModel {
+    Ppu2C02,
+}
+
+enum class VsSystemType {
+    Default,
+    VsDualSystem,
+}
+
+enum class RomFormat {
+    Unknown,
+    INes,
+    Fds,
+    Nsf,
+    Nsfe,
+    Unif,
+    StudyBox,
+}
+
+enum class RomHeaderVersion {
+    iNes,
+    Nes2_0,
+    OldiNes,
+}
+
+data class NesHeader(
+    val version: RomHeaderVersion = RomHeaderVersion.iNes,
+)
+
+data class HashInfo(
+    val crc: UInt = 0u,
+)
+
+data class GameInfo(
+    val crc: UInt = 0u,
+    val system: String = "",
+    val board: String = "",
+    val pcb: String = "",
+    val chip: String = "",
+    val mapperID: Int = 0,
+    val prgRomSize: Int = 0,
+    val chrRomSize: Int = 0,
+    val chrRamSize: Int = 0,
+    val workRamSize: Int = 0,
+    val saveRamSize: Int = 0,
+    val hasBattery: Boolean = false,
+    val mirroring: String = "",
+    val inputType: GameInputType = GameInputType.Unspecified,
+    val busConflicts: String = "",
+    val submapperID: String = "",
+    val vsType: VsSystemType = VsSystemType.Default,
+    val vsPpuModel: PpuModel = PpuModel.Ppu2C02,
+)
+
+data class NsfHeader(
+    val version: Int = 0,
+)
+
+data class NesRomInfo(
+    val romName: String = "",
+    val filename: String = "",
+    val format: RomFormat = RomFormat.Unknown,
+    val isNes20Header: Boolean = false,
+    val isInDatabase: Boolean = false,
+    val isHeaderlessRom: Boolean = false,
+    val filePrgOffset: Int = 0,
+    val mapperID: Int = 0,
+    val subMapperID: Int = 0,
+    val system: GameSystem = GameSystem.Unknown,
+    val vsType: VsSystemType = VsSystemType.Default,
+    val inputType: GameInputType = GameInputType.Unspecified,
+    val vsPpuModel: PpuModel = PpuModel.Ppu2C02,
+    val hasChrRam: Boolean = false,
+    val hasBattery: Boolean = false,
+    val hasEpsm: Boolean = false,
+    val hasTrainer: Boolean = false,
+    val mirroring: MirroringType = MirroringType.Horizontal,
+    val busConflicts: BusConflictType = BusConflictType.Default,
+    val hash: HashInfo = HashInfo(),
+    val header: NesHeader = NesHeader(),
+    val nsfInfo: NsfHeader = NsfHeader(),
+    val databaseInfo: GameInfo = GameInfo(),
+)
+
+data class RomData(
+    val info: NesRomInfo = NesRomInfo(),
+    val chrRamSize: Int = -1,
+    val saveChrRamSize: Int = -1,
+    val saveRamSize: Int = -1,
+    val workRamSize: Int = -1,
+    val prgRom: ByteArray = ByteArray(0),
+    val chrRom: ByteArray = ByteArray(0),
+    val trainerData: ByteArray = ByteArray(0),
+) {
+    override fun equals(other: Any?): Boolean = other is RomData &&
+        info == other.info &&
+        chrRamSize == other.chrRamSize &&
+        saveChrRamSize == other.saveChrRamSize &&
+        saveRamSize == other.saveRamSize &&
+        workRamSize == other.workRamSize &&
+        prgRom.contentEquals(other.prgRom) &&
+        chrRom.contentEquals(other.chrRom) &&
+        trainerData.contentEquals(other.trainerData)
+
+    override fun hashCode(): Int {
+        var result = info.hashCode()
+        result = 31 * result + chrRamSize
+        result = 31 * result + saveChrRamSize
+        result = 31 * result + saveRamSize
+        result = 31 * result + workRamSize
+        result = 31 * result + prgRom.contentHashCode()
+        result = 31 * result + chrRom.contentHashCode()
+        result = 31 * result + trainerData.contentHashCode()
+        return result
+    }
+}
+
+enum class MapperStateValueType {
+    None,
+    String,
+    Bool,
+    Number8,
+    Number16,
+    Number32,
+}
+
+data class MapperStateEntry(
+    val address: String = "",
+    val name: String = "",
+    val value: String = "",
+    val rawValue: Long = Long.MIN_VALUE,
+    val type: MapperStateValueType = MapperStateValueType.Number8,
+)
+
+data class CartridgeState(
+    var prgRomSize: Int = 0,
+    var chrRomSize: Int = 0,
+    var chrRamSize: Int = 0,
+    var prgPageCount: Int = 0,
+    var prgPageSize: Int = 0,
+    var prgMemoryOffset: IntArray = IntArray(0x100),
+    var prgType: Array<PrgMemoryType> = Array(0x100) { PrgMemoryType.PrgRom },
+    var prgMemoryAccess: IntArray = IntArray(0x100),
+    var chrPageCount: Int = 0,
+    var chrPageSize: Int = 0,
+    var chrRamPageSize: Int = 0,
+    var chrMemoryOffset: IntArray = IntArray(0x40),
+    var chrType: Array<ChrMemoryType> = Array(0x40) { ChrMemoryType.Default },
+    var chrMemoryAccess: IntArray = IntArray(0x40),
+    var workRamPageSize: Int = 0,
+    var saveRamPageSize: Int = 0,
+    var mirroring: MirroringType = MirroringType.Horizontal,
+    var hasBattery: Boolean = false,
+    var customEntries: List<MapperStateEntry> = emptyList(),
+)

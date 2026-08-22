@@ -84,8 +84,12 @@ interface NesCpuMemoryManager {
 }
 
 interface NesCpuApuBridge {
-    fun getDmcReadAddress(): Int
-    fun setDmcReadBuffer(value: Int)
+    fun getDmcReadAddress(): Int = 0
+    fun setDmcReadBuffer(value: Int) {}
+    fun processCpuClock() {}
+    fun reset(softReset: Boolean) {}
+    fun setRegion(region: ConsoleRegion) {}
+    fun endFrame() {}
 }
 
 interface NesCpuHost {
