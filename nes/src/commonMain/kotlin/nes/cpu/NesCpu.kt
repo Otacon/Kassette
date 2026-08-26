@@ -297,18 +297,18 @@ class NesCpu(private val host: NesCpuHost) {
     private fun setZeroNegativeFlags(value: Int) { if (value.u8() == 0) setFlags(PSFlags.Zero) else if ((value and 0x80) != 0) setFlags(PSFlags.Negative) }
     private fun checkPageCrossed(valA: Int, valB: Int): Boolean = (((valA + valB) and 0xFF00) != (valA and 0xFF00))
     private fun checkPageCrossedSigned(valA: Int, valB: Int): Boolean = (((valA + valB) and 0xFF00) != (valA and 0xFF00))
-    private fun setRegister(current: Int, value: Int, setter: (Int) -> Unit) { clearFlags(PSFlags.Zero or PSFlags.Negative); setZeroNegativeFlags(value); setter(value.u8()) }
+    private fun registerValue(value: Int): Int { clearFlags(PSFlags.Zero or PSFlags.Negative); setZeroNegativeFlags(value); return value.u8() }
     private fun push(value: Int) { memoryWrite(SP() + 0x100, value); setSP(SP() - 1) }
     private fun pushWord(value: Int) { push(value shr 8); push(value) }
     private fun pop(): Int { setSP(SP() + 1); return memoryRead(0x100 + SP()) }
     private fun popWord(): Int { val lo = pop(); val hi = pop(); return lo or (hi shl 8) }
 
     private fun A(): Int = state.A
-    private fun setA(value: Int) = setRegister(state.A, value) { state.A = it }
+    private fun setA(value: Int) { state.A = registerValue(value) }
     private fun X(): Int = state.X
-    private fun setX(value: Int) = setRegister(state.X, value) { state.X = it }
+    private fun setX(value: Int) { state.X = registerValue(value) }
     private fun Y(): Int = state.Y
-    private fun setY(value: Int) = setRegister(state.Y, value) { state.Y = it }
+    private fun setY(value: Int) { state.Y = registerValue(value) }
     private fun SP(): Int = state.SP
     private fun setSP(value: Int) { state.SP = value.u8() }
     private fun PS(): Int = state.PS

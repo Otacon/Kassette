@@ -115,9 +115,8 @@ class NesMemoryManager(
     override fun debugRead(addr: Int): Int {
         val address = addr and 0xFFFF
         var value = ramReadHandlers[address].peekRam(address) and 0xFF
-        if (host.hasCpuCheats()) {
-            value = host.applyCpuCheat(address, value) and 0xFF
-        }
+        val cheatHandler = host.cpuCheatHandler
+        if (cheatHandler != null) value = cheatHandler.applyCpuCheat(address, value) and 0xFF
         return value
     }
 
@@ -148,10 +147,9 @@ class NesMemoryManager(
             ramReadHandlers[address].readRam(address)
         } and 0xFF
 
-        if (host.hasCpuCheats()) {
-            value = host.applyCpuCheat(address, value) and 0xFF
-        }
-        host.processMemoryRead(address, value, operationType)
+        val cheatHandler = host.cpuCheatHandler
+        if (cheatHandler != null) value = cheatHandler.applyCpuCheat(address, value) and 0xFF
+        host.cpuMemoryAccessHandler?.processMemoryRead(address, value, operationType)
         openBusHandler.setOpenBus(value, busType, forceInternal = address == 0x4015)
         return value
     }
@@ -159,7 +157,8 @@ class NesMemoryManager(
     override fun write(addr: Int, value: Int, operationType: MemoryOperationType) {
         val address = addr and 0xFFFF
         val v = value and 0xFF
-        if (host.processMemoryWrite(address, v, operationType)) {
+        val accessHandler = host.cpuMemoryAccessHandler
+        if (accessHandler == null || accessHandler.processMemoryWrite(address, v, operationType)) {
             ramWriteHandlers[address].writeRam(address, v)
             openBusHandler.setOpenBus(v)
         }

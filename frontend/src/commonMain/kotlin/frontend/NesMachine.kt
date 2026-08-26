@@ -98,7 +98,14 @@ class NesMachine {
             ppu = ppuDevice,
             apuDevice = apuDevice,
             controlManager = controlManager,
-            options = NesConsoleOptions(region = region, ppu = nes.console.NesPpuOptions(onFrame = ppu::onFrame)),
+            options = NesConsoleOptions(
+                region = region,
+                ppu = nes.console.NesPpuOptions(
+                    frameListener = object : nes.console.NesPpuFrameListener {
+                        override fun onFrame(frame: NesPpuFrame) = ppu.onFrame(frame)
+                    },
+                ),
+            ),
         )
     }
 

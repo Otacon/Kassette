@@ -12,6 +12,7 @@
 package nes.memory
 
 import nes.cpu.NesCpuBusType
+import nes.cpu.MemoryOperationType
 
 enum class MemoryOperation {
     Read,
@@ -122,12 +123,19 @@ interface NesMemoryMapper : INesMemoryHandler {
 }
 
 interface NesMemoryManagerHost {
+    val cpuCheatHandler: CpuCheatHandler? get() = null
+    val cpuMemoryAccessHandler: CpuMemoryAccessHandler? get() = null
+
     fun initializeRam(ram: ByteArray) {
         ram.fill(0)
     }
+}
 
-    fun hasCpuCheats(): Boolean = false
-    fun applyCpuCheat(addr: Int, value: Int): Int = value
-    fun processMemoryRead(addr: Int, value: Int, operationType: nes.cpu.MemoryOperationType) {}
-    fun processMemoryWrite(addr: Int, value: Int, operationType: nes.cpu.MemoryOperationType): Boolean = true
+fun interface CpuCheatHandler {
+    fun applyCpuCheat(addr: Int, value: Int): Int
+}
+
+interface CpuMemoryAccessHandler {
+    fun processMemoryRead(addr: Int, value: Int, operationType: MemoryOperationType) {}
+    fun processMemoryWrite(addr: Int, value: Int, operationType: MemoryOperationType): Boolean = true
 }
