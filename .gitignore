@@ -43,8 +43,8 @@ bin/
 .DS_Store
 
 ### ROMs / user-supplied media
-*.nes
-*.NES
+/*.nes
+/*.NES
 
 ### Generated resources
 /frontend/src/commonMain/resources/nes20db.csv
