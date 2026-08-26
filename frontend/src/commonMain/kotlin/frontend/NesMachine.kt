@@ -18,6 +18,7 @@ import nes.cpu.ConsoleRegion as ConsoleRegion2
 import nes.input.NesControlDevice
 import nes.input.NesControlManager
 import nes.input.NesControlManagerSnapshot
+import nes.input.NesControlDeviceProvider
 import nes.mapper.BaseMapper
 import nes.mapper.BusConflictType
 import nes.mapper.GameInfo
@@ -87,7 +88,12 @@ class NesMachine {
         val mapper = createMapper(rom)
         val ppuDevice = DefaultNesPpu()
         val apuDevice = NesApu()
-        val controlManager = NesControlManager { listOf(ControllerDevice(controller)) }
+        val controllerDevices = arrayOf<NesControlDevice>(ControllerDevice(controller))
+        val controlManager = NesControlManager(
+            object : NesControlDeviceProvider {
+                override fun getControlDevices(): Array<NesControlDevice> = controllerDevices
+            },
+        )
         this.ppuDevice = ppuDevice
         this.controlManager = controlManager
         apu = apuDevice
