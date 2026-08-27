@@ -82,6 +82,25 @@ class NesCpu(private val host: NesCpuHost) {
     var state: NesCpuState = NesCpuState()
         private set
 
+    private var a: Int
+        get() = state.A
+        set(value) { state.A = registerValue(value) }
+    private var x: Int
+        get() = state.X
+        set(value) { state.X = registerValue(value) }
+    private var y: Int
+        get() = state.Y
+        set(value) { state.Y = registerValue(value) }
+    private var sp: Int
+        get() = state.SP
+        set(value) { state.SP = value.u8() }
+    private var ps: Int
+        get() = state.PS
+        set(value) { state.PS = value and 0xCF }
+    private var pc: Int
+        get() = state.PC
+        set(value) { state.PC = value.u16() }
+
     fun getCycleCount(): Long = state.CycleCount
     fun setNmiFlag() { state.NmiFlag = true }
     fun clearNmiFlag() { state.NmiFlag = false }
@@ -91,7 +110,7 @@ class NesCpu(private val host: NesCpuHost) {
     fun clearIrqSource(source: IRQSource) { state.IrqFlag = state.IrqFlag and source.mask.inv() }
     fun isCpuWrite(): Boolean = cpuWrite
     fun isDmcDma(): Boolean = isDmcDmaRead
-    fun getPC(): Int = state.PC
+    fun getPC(): Int = pc
     fun setState(value: NesCpuState) { state = value.copy() }
 
     fun captureSnapshot(): NesCpuSnapshot = NesCpuSnapshot(
@@ -156,11 +175,11 @@ class NesCpu(private val host: NesCpuHost) {
         cpuWrite = false
         crashed = false
 
-        state.PC = (host.memoryManager.read(ResetVector) or (host.memoryManager.read(ResetVector + 1) shl 8)).u16()
+        pc = host.memoryManager.read(ResetVector) or (host.memoryManager.read(ResetVector + 1) shl 8)
 
         if (softReset) {
             setFlags(PSFlags.Interrupt)
-            state.SP = (state.SP - 0x03).u8()
+            sp -= 0x03
         } else {
             irqMask = 0xFF
             state.A = 0
@@ -174,9 +193,20 @@ class NesCpu(private val host: NesCpuHost) {
         val ppuDivider: Int
         val cpuDivider: Int
         when (region) {
-            ConsoleRegion.Ntsc -> { ppuDivider = 4; cpuDivider = 12 }
-            ConsoleRegion.Pal -> { ppuDivider = 5; cpuDivider = 16 }
-            ConsoleRegion.Dendy -> { ppuDivider = 5; cpuDivider = 15 }
+            ConsoleRegion.Ntsc -> {
+                ppuDivider = 4
+                cpuDivider = 12
+            }
+
+            ConsoleRegion.Pal -> {
+                ppuDivider = 5
+                cpuDivider = 16
+            }
+
+            ConsoleRegion.Dendy -> {
+                ppuDivider = 5
+                cpuDivider = 15
+            }
         }
 
         state.CycleCount = -1L
@@ -233,9 +263,20 @@ class NesCpu(private val host: NesCpuHost) {
 
     fun setMasterClockDivider(region: ConsoleRegion) {
         when (region) {
-            ConsoleRegion.Ntsc -> { startClockCount = 6; endClockCount = 6 }
-            ConsoleRegion.Pal -> { startClockCount = 8; endClockCount = 8 }
-            ConsoleRegion.Dendy -> { startClockCount = 7; endClockCount = 8 }
+            ConsoleRegion.Ntsc -> {
+                startClockCount = 6
+                endClockCount = 6
+            }
+
+            ConsoleRegion.Pal -> {
+                startClockCount = 8
+                endClockCount = 8
+            }
+
+            ConsoleRegion.Dendy -> {
+                startClockCount = 7
+                endClockCount = 8
+            }
         }
     }
 
@@ -281,57 +322,156 @@ class NesCpu(private val host: NesCpuHost) {
     }
 
     private fun getOPCode(): Int {
-        val opCode = memoryRead(state.PC, MemoryOperationType.ExecOpCode)
-        state.PC = (state.PC + 1).u16()
+        val opCode = memoryRead(pc, MemoryOperationType.ExecOpCode)
+        pc++
         return opCode
     }
 
-    private fun dummyPcRead() { memoryRead(state.PC, MemoryOperationType.DummyRead) }
-    private fun dummyStackRead() { memoryRead(0x100 + SP(), MemoryOperationType.DummyRead) }
-    private fun readByte(): Int { val value = memoryRead(state.PC, MemoryOperationType.ExecOperand); state.PC = (state.PC + 1).u16(); return value }
-    private fun readWord(): Int { val low = readByte(); val high = readByte(); return (high shl 8) or low }
+    private fun dummyPcRead() {
+        memoryRead(pc, MemoryOperationType.DummyRead)
+    }
 
-    private fun clearFlags(flags: Int) { state.PS = state.PS and flags.inv() and 0xFF }
-    private fun setFlags(flags: Int) { state.PS = (state.PS or flags).u8() }
+    private fun dummyStackRead() {
+        memoryRead(0x100 + sp, MemoryOperationType.DummyRead)
+    }
+
+    private fun readByte(): Int {
+        val value = memoryRead(pc, MemoryOperationType.ExecOperand)
+        pc++
+        return value
+    }
+
+    private fun readWord(): Int {
+        val low = readByte()
+        val high = readByte()
+        return (high shl 8) or low
+    }
+
+    private fun clearFlags(flags: Int) {
+        state.PS = state.PS and flags.inv() and 0xFF
+    }
+
+    private fun setFlags(flags: Int) {
+        state.PS = (state.PS or flags).u8()
+    }
+
     private fun checkFlag(flag: Int): Boolean = (state.PS and flag) == flag
-    private fun setZeroNegativeFlags(value: Int) { if (value.u8() == 0) setFlags(PSFlags.Zero) else if ((value and 0x80) != 0) setFlags(PSFlags.Negative) }
+
+    private fun setZeroNegativeFlags(value: Int) {
+        if (value.u8() == 0) {
+            setFlags(PSFlags.Zero)
+        } else if ((value and 0x80) != 0) {
+            setFlags(PSFlags.Negative)
+        }
+    }
+
     private fun checkPageCrossed(valA: Int, valB: Int): Boolean = (((valA + valB) and 0xFF00) != (valA and 0xFF00))
     private fun checkPageCrossedSigned(valA: Int, valB: Int): Boolean = (((valA + valB) and 0xFF00) != (valA and 0xFF00))
-    private fun registerValue(value: Int): Int { clearFlags(PSFlags.Zero or PSFlags.Negative); setZeroNegativeFlags(value); return value.u8() }
-    private fun push(value: Int) { memoryWrite(SP() + 0x100, value); setSP(SP() - 1) }
-    private fun pushWord(value: Int) { push(value shr 8); push(value) }
-    private fun pop(): Int { setSP(SP() + 1); return memoryRead(0x100 + SP()) }
-    private fun popWord(): Int { val lo = pop(); val hi = pop(); return lo or (hi shl 8) }
 
-    private fun A(): Int = state.A
-    private fun setA(value: Int) { state.A = registerValue(value) }
-    private fun X(): Int = state.X
-    private fun setX(value: Int) { state.X = registerValue(value) }
-    private fun Y(): Int = state.Y
-    private fun setY(value: Int) { state.Y = registerValue(value) }
-    private fun SP(): Int = state.SP
-    private fun setSP(value: Int) { state.SP = value.u8() }
-    private fun PS(): Int = state.PS
-    private fun setPS(value: Int) { state.PS = value and 0xCF }
-    private fun PC(): Int = state.PC
-    private fun setPC(value: Int) { state.PC = value.u16() }
+    private fun registerValue(value: Int): Int {
+        clearFlags(PSFlags.Zero or PSFlags.Negative)
+        setZeroNegativeFlags(value)
+        return value.u8()
+    }
+
+    private fun push(value: Int) {
+        memoryWrite(sp + 0x100, value)
+        sp--
+    }
+
+    private fun pushWord(value: Int) {
+        push(value shr 8)
+        push(value)
+    }
+
+    private fun pop(): Int {
+        sp++
+        return memoryRead(0x100 + sp)
+    }
+
+    private fun popWord(): Int {
+        val lo = pop()
+        val hi = pop()
+        return lo or (hi shl 8)
+    }
+
     private fun getOperand(): Int = operand
     private fun getOperandValue(): Int = if (instAddrMode >= NesAddrMode.Zero) memoryRead(getOperand()) else getOperand().u8()
 
     private fun getIndAddr(): Int = readWord()
     private fun getImmediate(): Int = readByte()
     private fun getZeroAddr(): Int = readByte()
-    private fun getZeroXAddr(): Int { val value = readByte(); memoryRead(value, MemoryOperationType.DummyRead); return (value + X()).u8() }
-    private fun getZeroYAddr(): Int { val value = readByte(); memoryRead(value, MemoryOperationType.DummyRead); return (value + Y()).u8() }
+    private fun getZeroXAddr(): Int {
+        val value = readByte()
+        memoryRead(value, MemoryOperationType.DummyRead)
+        return (value + x).u8()
+    }
+
+    private fun getZeroYAddr(): Int {
+        val value = readByte()
+        memoryRead(value, MemoryOperationType.DummyRead)
+        return (value + y).u8()
+    }
+
     private fun getAbsAddr(): Int = readWord()
-    private fun getAbsXAddr(dummyRead: Boolean = true): Int { val baseAddr = readWord(); val pageCrossed = checkPageCrossed(baseAddr, X()); if (pageCrossed || dummyRead) memoryRead(baseAddr + X() - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead); return (baseAddr + X()).u16() }
-    private fun getAbsYAddr(dummyRead: Boolean = true): Int { val baseAddr = readWord(); val pageCrossed = checkPageCrossed(baseAddr, Y()); if (pageCrossed || dummyRead) memoryRead(baseAddr + Y() - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead); return (baseAddr + Y()).u16() }
-    private fun getInd(): Int { val addr = getOperand(); return if ((addr and 0xFF) == 0xFF) memoryRead(addr) or (memoryRead(addr - 0xFF) shl 8) else memoryReadWord(addr) }
-    private fun getIndXAddr(): Int { var zero = readByte(); memoryRead(zero, MemoryOperationType.DummyRead); zero = (zero + X()).u8(); return if (zero == 0xFF) memoryRead(0xFF) or (memoryRead(0x00) shl 8) else memoryReadWord(zero) }
-    private fun getIndYAddr(dummyRead: Boolean = true): Int { val zero = readByte(); val addr = if (zero == 0xFF) memoryRead(0xFF) or (memoryRead(0x00) shl 8) else memoryReadWord(zero); val pageCrossed = checkPageCrossed(addr, Y()); if (pageCrossed || dummyRead) memoryRead(addr + Y() - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead); return (addr + Y()).u16() }
+
+    private fun getAbsXAddr(dummyRead: Boolean = true): Int {
+        val baseAddr = readWord()
+        val pageCrossed = checkPageCrossed(baseAddr, x)
+        if (pageCrossed || dummyRead) {
+            memoryRead(baseAddr + x - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead)
+        }
+        return (baseAddr + x).u16()
+    }
+
+    private fun getAbsYAddr(dummyRead: Boolean = true): Int {
+        val baseAddr = readWord()
+        val pageCrossed = checkPageCrossed(baseAddr, y)
+        if (pageCrossed || dummyRead) {
+            memoryRead(baseAddr + y - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead)
+        }
+        return (baseAddr + y).u16()
+    }
+
+    private fun getInd(): Int {
+        val addr = getOperand()
+        return if ((addr and 0xFF) == 0xFF) {
+            memoryRead(addr) or (memoryRead(addr - 0xFF) shl 8)
+        } else {
+            memoryReadWord(addr)
+        }
+    }
+
+    private fun getIndXAddr(): Int {
+        var zero = readByte()
+        memoryRead(zero, MemoryOperationType.DummyRead)
+        zero = (zero + x).u8()
+        return if (zero == 0xFF) {
+            memoryRead(0xFF) or (memoryRead(0x00) shl 8)
+        } else {
+            memoryReadWord(zero)
+        }
+    }
+
+    private fun getIndYAddr(dummyRead: Boolean = true): Int {
+        val zero = readByte()
+        val addr = if (zero == 0xFF) {
+            memoryRead(0xFF) or (memoryRead(0x00) shl 8)
+        } else {
+            memoryReadWord(zero)
+        }
+        val pageCrossed = checkPageCrossed(addr, y)
+        if (pageCrossed || dummyRead) {
+            memoryRead(addr + y - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead)
+        }
+        return (addr + y).u16()
+    }
 
     private fun fetchOperand(): Int = when (instAddrMode) {
-        NesAddrMode.Acc, NesAddrMode.Imp -> { dummyPcRead(); 0 }
+        NesAddrMode.Acc, NesAddrMode.Imp -> {
+            dummyPcRead()
+            0
+        }
         NesAddrMode.Imm, NesAddrMode.Rel -> getImmediate()
         NesAddrMode.Zero -> getZeroAddr()
         NesAddrMode.ZeroX -> getZeroXAddr()
@@ -348,105 +488,597 @@ class NesCpu(private val host: NesCpuHost) {
         NesAddrMode.Other, NesAddrMode.None -> 0
     }
 
-    private fun AND() { setA(A() and getOperandValue()) }
-    private fun EOR() { setA(A() xor getOperandValue()) }
-    private fun ORA() { setA(A() or getOperandValue()) }
-    private fun ADD(value: Int) { val result = A() + value.u8() + if (checkFlag(PSFlags.Carry)) PSFlags.Carry else 0; clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Overflow or PSFlags.Zero); setZeroNegativeFlags(result); if (((A() xor value).inv() and (A() xor result) and 0x80) != 0) setFlags(PSFlags.Overflow); if (result > 0xFF) setFlags(PSFlags.Carry); setA(result) }
-    private fun ADC() { ADD(getOperandValue()) }
-    private fun SBC() { ADD(getOperandValue() xor 0xFF) }
-    private fun CMP(reg: Int, value: Int) { clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero); val result = (reg - value).u8(); if (reg >= value) setFlags(PSFlags.Carry); if (reg == value) setFlags(PSFlags.Zero); if ((result and 0x80) == 0x80) setFlags(PSFlags.Negative) }
-    private fun CPA() { CMP(A(), getOperandValue()) }
-    private fun CPX() { CMP(X(), getOperandValue()) }
-    private fun CPY() { CMP(Y(), getOperandValue()) }
-    private fun INC() { val addr = getOperand(); clearFlags(PSFlags.Negative or PSFlags.Zero); var value = memoryRead(addr); memoryWrite(addr, value, MemoryOperationType.DummyWrite); value = (value + 1).u8(); setZeroNegativeFlags(value); memoryWrite(addr, value) }
-    private fun DEC() { val addr = getOperand(); clearFlags(PSFlags.Negative or PSFlags.Zero); var value = memoryRead(addr); memoryWrite(addr, value, MemoryOperationType.DummyWrite); value = (value - 1).u8(); setZeroNegativeFlags(value); memoryWrite(addr, value) }
-    private fun ASL(value: Int): Int { clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero); if ((value and 0x80) != 0) setFlags(PSFlags.Carry); val result = (value shl 1).u8(); setZeroNegativeFlags(result); return result }
-    private fun LSR(value: Int): Int { clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero); if ((value and 0x01) != 0) setFlags(PSFlags.Carry); val result = (value shr 1).u8(); setZeroNegativeFlags(result); return result }
-    private fun ROL(value: Int): Int { val carryFlag = checkFlag(PSFlags.Carry); clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero); if ((value and 0x80) != 0) setFlags(PSFlags.Carry); val result = ((value shl 1) or if (carryFlag) 0x01 else 0x00).u8(); setZeroNegativeFlags(result); return result }
-    private fun ROR(value: Int): Int { val carryFlag = checkFlag(PSFlags.Carry); clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero); if ((value and 0x01) != 0) setFlags(PSFlags.Carry); val result = ((value shr 1) or if (carryFlag) 0x80 else 0x00).u8(); setZeroNegativeFlags(result); return result }
-    private fun ASLAddr() { val addr = getOperand(); val value = memoryRead(addr); memoryWrite(addr, value, MemoryOperationType.DummyWrite); memoryWrite(addr, ASL(value)) }
-    private fun LSRAddr() { val addr = getOperand(); val value = memoryRead(addr); memoryWrite(addr, value, MemoryOperationType.DummyWrite); memoryWrite(addr, LSR(value)) }
-    private fun ROLAddr() { val addr = getOperand(); val value = memoryRead(addr); memoryWrite(addr, value, MemoryOperationType.DummyWrite); memoryWrite(addr, ROL(value)) }
-    private fun RORAddr() { val addr = getOperand(); val value = memoryRead(addr); memoryWrite(addr, value, MemoryOperationType.DummyWrite); memoryWrite(addr, ROR(value)) }
-    private fun JMP(addr: Int) { setPC(addr) }
-    private fun branchRelative(branch: Boolean) { val offset = getOperand().toByte().toInt(); if (branch) { runIrq = prevRunIrq; dummyPcRead(); if (checkPageCrossedSigned(PC(), offset)) { runIrq = runIrq or prevRunIrq; memoryRead((PC() and 0xFF00) or ((PC() + offset) and 0xFF), MemoryOperationType.DummyRead) }; setPC(PC() + offset) } }
-    private fun BIT() { val value = getOperandValue(); clearFlags(PSFlags.Zero or PSFlags.Overflow or PSFlags.Negative); if ((A() and value) == 0) setFlags(PSFlags.Zero); if ((value and 0x40) != 0) setFlags(PSFlags.Overflow); if ((value and 0x80) != 0) setFlags(PSFlags.Negative) }
+    private fun AND() {
+        a = a and getOperandValue()
+    }
 
-    private fun LDA() { setA(getOperandValue()) }
-    private fun LDX() { setX(getOperandValue()) }
-    private fun LDY() { setY(getOperandValue()) }
-    private fun STA() { memoryWrite(getOperand(), A()) }
-    private fun STX() { memoryWrite(getOperand(), X()) }
-    private fun STY() { memoryWrite(getOperand(), Y()) }
-    private fun TAX() { setX(A()) }
-    private fun TAY() { setY(A()) }
-    private fun TSX() { setX(SP()) }
-    private fun TXA() { setA(X()) }
-    private fun TXS() { setSP(X()) }
-    private fun TYA() { setA(Y()) }
-    private fun PHA() { push(A()) }
-    private fun PHP() { push(PS() or PSFlags.Break or PSFlags.Reserved) }
-    private fun PLA() { dummyStackRead(); setA(pop()) }
-    private fun PLP() { dummyStackRead(); setPS(pop()) }
-    private fun INX() { setX(X() + 1) }
-    private fun INY() { setY(Y() + 1) }
-    private fun DEX() { setX(X() - 1) }
-    private fun DEY() { setY(Y() - 1) }
-    private fun ASL_Acc() { setA(ASL(A())) }
-    private fun ASL_Memory() { ASLAddr() }
-    private fun LSR_Acc() { setA(LSR(A())) }
-    private fun LSR_Memory() { LSRAddr() }
-    private fun ROL_Acc() { setA(ROL(A())) }
-    private fun ROL_Memory() { ROLAddr() }
-    private fun ROR_Acc() { setA(ROR(A())) }
-    private fun ROR_Memory() { RORAddr() }
-    private fun JMP_Abs() { JMP(getOperand()) }
-    private fun JMP_Ind() { JMP(getInd()) }
-    private fun JSR() { val lo = readByte(); dummyStackRead(); pushWord(PC()); val addr = (readByte() shl 8) or lo; JMP(addr) }
-    private fun RTS() { dummyStackRead(); val addr = popWord(); setPC(addr); dummyPcRead(); setPC(addr + 1) }
-    private fun BCC() { branchRelative(!checkFlag(PSFlags.Carry)) }
-    private fun BCS() { branchRelative(checkFlag(PSFlags.Carry)) }
-    private fun BEQ() { branchRelative(checkFlag(PSFlags.Zero)) }
-    private fun BMI() { branchRelative(checkFlag(PSFlags.Negative)) }
-    private fun BNE() { branchRelative(!checkFlag(PSFlags.Zero)) }
-    private fun BPL() { branchRelative(!checkFlag(PSFlags.Negative)) }
-    private fun BVC() { branchRelative(!checkFlag(PSFlags.Overflow)) }
-    private fun BVS() { branchRelative(checkFlag(PSFlags.Overflow)) }
-    private fun CLC() { clearFlags(PSFlags.Carry) }
-    private fun CLD() { clearFlags(PSFlags.Decimal) }
-    private fun CLI() { clearFlags(PSFlags.Interrupt) }
-    private fun CLV() { clearFlags(PSFlags.Overflow) }
-    private fun SEC() { setFlags(PSFlags.Carry) }
-    private fun SED() { setFlags(PSFlags.Decimal) }
-    private fun SEI() { setFlags(PSFlags.Interrupt) }
-    private fun RTI() { dummyStackRead(); setPS(pop()); setPC(popWord()) }
-    private fun NOP() { getOperandValue() }
+    private fun EOR() {
+        a = a xor getOperandValue()
+    }
 
-    private fun IRQ() { val originalPc = PC(); if (host.region == ConsoleRegion.Pal) processPendingDma(state.PC, MemoryOperationType.ExecOpCode); dummyPcRead(); dummyPcRead(); pushWord(PC()); if (needNmi) { needNmi = false; push(PS() or PSFlags.Reserved); setFlags(PSFlags.Interrupt); setPC(memoryReadWord(NMIVector)) } else { push(PS() or PSFlags.Reserved); setFlags(PSFlags.Interrupt); setPC(memoryReadWord(IRQVector)) }; @Suppress("UNUSED_VARIABLE") val ignored = originalPc }
-    private fun BRK() { pushWord(PC() + 1); val flags = PS() or PSFlags.Break or PSFlags.Reserved; if (needNmi) { needNmi = false; push(flags); setFlags(PSFlags.Interrupt); setPC(memoryReadWord(NMIVector)) } else { push(flags); setFlags(PSFlags.Interrupt); setPC(memoryReadWord(IRQVector)) }; prevNeedNmi = false }
+    private fun ORA() {
+        a = a or getOperandValue()
+    }
 
-    private fun SLO() { val value = getOperandValue(); memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite); val shiftedValue = ASL(value); setA(A() or shiftedValue); memoryWrite(getOperand(), shiftedValue) }
-    private fun SRE() { val value = getOperandValue(); memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite); val shiftedValue = LSR(value); setA(A() xor shiftedValue); memoryWrite(getOperand(), shiftedValue) }
-    private fun RLA() { val value = getOperandValue(); memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite); val shiftedValue = ROL(value); setA(A() and shiftedValue); memoryWrite(getOperand(), shiftedValue) }
-    private fun RRA() { val value = getOperandValue(); memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite); val shiftedValue = ROR(value); ADD(shiftedValue); memoryWrite(getOperand(), shiftedValue) }
-    private fun SAX() { memoryWrite(getOperand(), A() and X()) }
-    private fun LAX() { val value = getOperandValue(); setX(value); setA(value) }
-    private fun DCP() { var value = getOperandValue(); memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite); value = (value - 1).u8(); CMP(A(), value); memoryWrite(getOperand(), value) }
-    private fun ISB() { var value = getOperandValue(); memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite); value = (value + 1).u8(); ADD(value xor 0xFF); memoryWrite(getOperand(), value) }
-    private fun AAC() { setA(A() and getOperandValue()); clearFlags(PSFlags.Carry); if (checkFlag(PSFlags.Negative)) setFlags(PSFlags.Carry) }
-    private fun ASR() { clearFlags(PSFlags.Carry); setA(A() and getOperandValue()); if ((A() and 0x01) != 0) setFlags(PSFlags.Carry); setA(A() shr 1) }
-    private fun ARR() { setA(((A() and getOperandValue()) shr 1) or if (checkFlag(PSFlags.Carry)) 0x80 else 0x00); clearFlags(PSFlags.Carry or PSFlags.Overflow); if ((A() and 0x40) != 0) setFlags(PSFlags.Carry); if (((if (checkFlag(PSFlags.Carry)) 0x01 else 0x00) xor ((A() shr 5) and 0x01)) != 0) setFlags(PSFlags.Overflow) }
-    private fun ATX() { val value = getOperandValue(); setA(value); setX(A()); setA(A()) }
-    private fun AXS() { val opValue = getOperandValue(); val value = ((A() and X()) - opValue).u8(); clearFlags(PSFlags.Carry); if ((A() and X()) >= opValue) setFlags(PSFlags.Carry); setX(value) }
-    private fun syaSxaAxa(baseAddr: Int, indexReg: Int, valueReg: Int) { val pageCrossed = checkPageCrossed(baseAddr, indexReg); val cyc = state.CycleCount; memoryRead(baseAddr + indexReg - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead); val hadDma = state.CycleCount - cyc > 1; val op = baseAddr + indexReg; var addrHigh = op shr 8; val addrLow = op and 0xFF; if (pageCrossed) addrHigh = addrHigh and valueReg; val value = if (hadDma) valueReg else valueReg and ((baseAddr shr 8) + 1); memoryWrite((addrHigh shl 8) or addrLow, value) }
-    private fun SHY() { syaSxaAxa(readWord(), X(), Y()) }
-    private fun SHX() { syaSxaAxa(readWord(), Y(), X()) }
-    private fun SHAA() { syaSxaAxa(readWord(), Y(), X() and A()) }
-    private fun SHAZ() { val zero = readByte(); val baseAddr = if (zero == 0xFF) memoryRead(0xFF) or (memoryRead(0x00) shl 8) else memoryReadWord(zero); syaSxaAxa(baseAddr, Y(), X() and A()) }
-    private fun TAS() { SHAA(); setSP(X() and A()) }
-    private fun HLT() { state.PC = (state.PC - 1).u16(); prevRunIrq = false; prevNeedNmi = false; if (!crashed) { crashed = true; host.onCpuCrash() } }
-    private fun ANE() { val imm = getOperandValue(); setA((A() or 0xEE) and X() and imm) }
-    private fun LAS() { val value = getOperandValue(); setA(value and SP()); setX(A()); setSP(A()) }
+    private fun ADD(value: Int) {
+        val result = a + value.u8() + if (checkFlag(PSFlags.Carry)) PSFlags.Carry else 0
+        clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Overflow or PSFlags.Zero)
+        setZeroNegativeFlags(result)
+        if (((a xor value).inv() and (a xor result) and 0x80) != 0) {
+            setFlags(PSFlags.Overflow)
+        }
+        if (result > 0xFF) {
+            setFlags(PSFlags.Carry)
+        }
+        a = result
+    }
+
+    private fun ADC() {
+        ADD(getOperandValue())
+    }
+
+    private fun SBC() {
+        ADD(getOperandValue() xor 0xFF)
+    }
+
+    private fun CMP(reg: Int, value: Int) {
+        clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero)
+        val result = (reg - value).u8()
+        if (reg >= value) {
+            setFlags(PSFlags.Carry)
+        }
+        if (reg == value) {
+            setFlags(PSFlags.Zero)
+        }
+        if ((result and 0x80) == 0x80) {
+            setFlags(PSFlags.Negative)
+        }
+    }
+
+    private fun CPA() {
+        CMP(a, getOperandValue())
+    }
+
+    private fun CPX() {
+        CMP(x, getOperandValue())
+    }
+
+    private fun CPY() {
+        CMP(y, getOperandValue())
+    }
+
+    private fun INC() {
+        val addr = getOperand()
+        clearFlags(PSFlags.Negative or PSFlags.Zero)
+        var value = memoryRead(addr)
+        memoryWrite(addr, value, MemoryOperationType.DummyWrite)
+        value = (value + 1).u8()
+        setZeroNegativeFlags(value)
+        memoryWrite(addr, value)
+    }
+
+    private fun DEC() {
+        val addr = getOperand()
+        clearFlags(PSFlags.Negative or PSFlags.Zero)
+        var value = memoryRead(addr)
+        memoryWrite(addr, value, MemoryOperationType.DummyWrite)
+        value = (value - 1).u8()
+        setZeroNegativeFlags(value)
+        memoryWrite(addr, value)
+    }
+
+    private fun ASL(value: Int): Int {
+        clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero)
+        if ((value and 0x80) != 0) {
+            setFlags(PSFlags.Carry)
+        }
+        val result = (value shl 1).u8()
+        setZeroNegativeFlags(result)
+        return result
+    }
+
+    private fun LSR(value: Int): Int {
+        clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero)
+        if ((value and 0x01) != 0) {
+            setFlags(PSFlags.Carry)
+        }
+        val result = (value shr 1).u8()
+        setZeroNegativeFlags(result)
+        return result
+    }
+
+    private fun ROL(value: Int): Int {
+        val carryFlag = checkFlag(PSFlags.Carry)
+        clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero)
+        if ((value and 0x80) != 0) {
+            setFlags(PSFlags.Carry)
+        }
+        val result = ((value shl 1) or if (carryFlag) 0x01 else 0x00).u8()
+        setZeroNegativeFlags(result)
+        return result
+    }
+
+    private fun ROR(value: Int): Int {
+        val carryFlag = checkFlag(PSFlags.Carry)
+        clearFlags(PSFlags.Carry or PSFlags.Negative or PSFlags.Zero)
+        if ((value and 0x01) != 0) {
+            setFlags(PSFlags.Carry)
+        }
+        val result = ((value shr 1) or if (carryFlag) 0x80 else 0x00).u8()
+        setZeroNegativeFlags(result)
+        return result
+    }
+
+    private fun ASLAddr() {
+        val addr = getOperand()
+        val value = memoryRead(addr)
+        memoryWrite(addr, value, MemoryOperationType.DummyWrite)
+        memoryWrite(addr, ASL(value))
+    }
+
+    private fun LSRAddr() {
+        val addr = getOperand()
+        val value = memoryRead(addr)
+        memoryWrite(addr, value, MemoryOperationType.DummyWrite)
+        memoryWrite(addr, LSR(value))
+    }
+
+    private fun ROLAddr() {
+        val addr = getOperand()
+        val value = memoryRead(addr)
+        memoryWrite(addr, value, MemoryOperationType.DummyWrite)
+        memoryWrite(addr, ROL(value))
+    }
+
+    private fun RORAddr() {
+        val addr = getOperand()
+        val value = memoryRead(addr)
+        memoryWrite(addr, value, MemoryOperationType.DummyWrite)
+        memoryWrite(addr, ROR(value))
+    }
+
+    private fun JMP(addr: Int) {
+        pc = addr
+    }
+
+    private fun branchRelative(branch: Boolean) {
+        val offset = getOperand().toByte().toInt()
+        if (branch) {
+            runIrq = prevRunIrq
+            dummyPcRead()
+            if (checkPageCrossedSigned(pc, offset)) {
+                runIrq = runIrq or prevRunIrq
+                memoryRead((pc and 0xFF00) or ((pc + offset) and 0xFF), MemoryOperationType.DummyRead)
+            }
+            pc += offset
+        }
+    }
+
+    private fun BIT() {
+        val value = getOperandValue()
+        clearFlags(PSFlags.Zero or PSFlags.Overflow or PSFlags.Negative)
+        if ((a and value) == 0) {
+            setFlags(PSFlags.Zero)
+        }
+        if ((value and 0x40) != 0) {
+            setFlags(PSFlags.Overflow)
+        }
+        if ((value and 0x80) != 0) {
+            setFlags(PSFlags.Negative)
+        }
+    }
+
+    private fun LDA() {
+        a = getOperandValue()
+    }
+
+    private fun LDX() {
+        x = getOperandValue()
+    }
+
+    private fun LDY() {
+        y = getOperandValue()
+    }
+
+    private fun STA() {
+        memoryWrite(getOperand(), a)
+    }
+
+    private fun STX() {
+        memoryWrite(getOperand(), x)
+    }
+
+    private fun STY() {
+        memoryWrite(getOperand(), y)
+    }
+
+    private fun TAX() {
+        x = a
+    }
+
+    private fun TAY() {
+        y = a
+    }
+
+    private fun TSX() {
+        x = sp
+    }
+
+    private fun TXA() {
+        a = x
+    }
+
+    private fun TXS() {
+        sp = x
+    }
+
+    private fun TYA() {
+        a = y
+    }
+
+    private fun PHA() {
+        push(a)
+    }
+
+    private fun PHP() {
+        push(ps or PSFlags.Break or PSFlags.Reserved)
+    }
+
+    private fun PLA() {
+        dummyStackRead()
+        a = pop()
+    }
+
+    private fun PLP() {
+        dummyStackRead()
+        ps = pop()
+    }
+
+    private fun INX() {
+        x++
+    }
+
+    private fun INY() {
+        y++
+    }
+
+    private fun DEX() {
+        x--
+    }
+
+    private fun DEY() {
+        y--
+    }
+
+    private fun ASL_Acc() {
+        a = ASL(a)
+    }
+
+    private fun ASL_Memory() {
+        ASLAddr()
+    }
+
+    private fun LSR_Acc() {
+        a = LSR(a)
+    }
+
+    private fun LSR_Memory() {
+        LSRAddr()
+    }
+
+    private fun ROL_Acc() {
+        a = ROL(a)
+    }
+
+    private fun ROL_Memory() {
+        ROLAddr()
+    }
+
+    private fun ROR_Acc() {
+        a = ROR(a)
+    }
+
+    private fun ROR_Memory() {
+        RORAddr()
+    }
+
+    private fun JMP_Abs() {
+        JMP(getOperand())
+    }
+
+    private fun JMP_Ind() {
+        JMP(getInd())
+    }
+
+    private fun JSR() {
+        val lo = readByte()
+        dummyStackRead()
+        pushWord(pc)
+        val addr = (readByte() shl 8) or lo
+        JMP(addr)
+    }
+
+    private fun RTS() {
+        dummyStackRead()
+        val addr = popWord()
+        pc = addr
+        dummyPcRead()
+        pc = addr + 1
+    }
+
+    private fun BCC() {
+        branchRelative(!checkFlag(PSFlags.Carry))
+    }
+
+    private fun BCS() {
+        branchRelative(checkFlag(PSFlags.Carry))
+    }
+
+    private fun BEQ() {
+        branchRelative(checkFlag(PSFlags.Zero))
+    }
+
+    private fun BMI() {
+        branchRelative(checkFlag(PSFlags.Negative))
+    }
+
+    private fun BNE() {
+        branchRelative(!checkFlag(PSFlags.Zero))
+    }
+
+    private fun BPL() {
+        branchRelative(!checkFlag(PSFlags.Negative))
+    }
+
+    private fun BVC() {
+        branchRelative(!checkFlag(PSFlags.Overflow))
+    }
+
+    private fun BVS() {
+        branchRelative(checkFlag(PSFlags.Overflow))
+    }
+
+    private fun CLC() {
+        clearFlags(PSFlags.Carry)
+    }
+
+    private fun CLD() {
+        clearFlags(PSFlags.Decimal)
+    }
+
+    private fun CLI() {
+        clearFlags(PSFlags.Interrupt)
+    }
+
+    private fun CLV() {
+        clearFlags(PSFlags.Overflow)
+    }
+
+    private fun SEC() {
+        setFlags(PSFlags.Carry)
+    }
+
+    private fun SED() {
+        setFlags(PSFlags.Decimal)
+    }
+
+    private fun SEI() {
+        setFlags(PSFlags.Interrupt)
+    }
+
+    private fun RTI() {
+        dummyStackRead()
+        ps = pop()
+        pc = popWord()
+    }
+
+    private fun NOP() {
+        getOperandValue()
+    }
+
+    private fun IRQ() {
+        val originalPc = pc
+        if (host.region == ConsoleRegion.Pal) {
+            processPendingDma(pc, MemoryOperationType.ExecOpCode)
+        }
+        dummyPcRead()
+        dummyPcRead()
+        pushWord(pc)
+        if (needNmi) {
+            needNmi = false
+            push(ps or PSFlags.Reserved)
+            setFlags(PSFlags.Interrupt)
+            pc = memoryReadWord(NMIVector)
+        } else {
+            push(ps or PSFlags.Reserved)
+            setFlags(PSFlags.Interrupt)
+            pc = memoryReadWord(IRQVector)
+        }
+        @Suppress("UNUSED_VARIABLE") val ignored = originalPc
+    }
+
+    private fun BRK() {
+        pushWord(pc + 1)
+        val flags = ps or PSFlags.Break or PSFlags.Reserved
+        if (needNmi) {
+            needNmi = false
+            push(flags)
+            setFlags(PSFlags.Interrupt)
+            pc = memoryReadWord(NMIVector)
+        } else {
+            push(flags)
+            setFlags(PSFlags.Interrupt)
+            pc = memoryReadWord(IRQVector)
+        }
+        prevNeedNmi = false
+    }
+
+    private fun SLO() {
+        val value = getOperandValue()
+        memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite)
+        val shiftedValue = ASL(value)
+        a = a or shiftedValue
+        memoryWrite(getOperand(), shiftedValue)
+    }
+
+    private fun SRE() {
+        val value = getOperandValue()
+        memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite)
+        val shiftedValue = LSR(value)
+        a = a xor shiftedValue
+        memoryWrite(getOperand(), shiftedValue)
+    }
+
+    private fun RLA() {
+        val value = getOperandValue()
+        memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite)
+        val shiftedValue = ROL(value)
+        a = a and shiftedValue
+        memoryWrite(getOperand(), shiftedValue)
+    }
+
+    private fun RRA() {
+        val value = getOperandValue()
+        memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite)
+        val shiftedValue = ROR(value)
+        ADD(shiftedValue)
+        memoryWrite(getOperand(), shiftedValue)
+    }
+
+    private fun SAX() {
+        memoryWrite(getOperand(), a and x)
+    }
+
+    private fun LAX() {
+        val value = getOperandValue()
+        x = value
+        a = value
+    }
+
+    private fun DCP() {
+        var value = getOperandValue()
+        memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite)
+        value = (value - 1).u8()
+        CMP(a, value)
+        memoryWrite(getOperand(), value)
+    }
+
+    private fun ISB() {
+        var value = getOperandValue()
+        memoryWrite(getOperand(), value, MemoryOperationType.DummyWrite)
+        value = (value + 1).u8()
+        ADD(value xor 0xFF)
+        memoryWrite(getOperand(), value)
+    }
+
+    private fun AAC() {
+        a = a and getOperandValue()
+        clearFlags(PSFlags.Carry)
+        if (checkFlag(PSFlags.Negative)) {
+            setFlags(PSFlags.Carry)
+        }
+    }
+
+    private fun ASR() {
+        clearFlags(PSFlags.Carry)
+        a = a and getOperandValue()
+        if ((a and 0x01) != 0) {
+            setFlags(PSFlags.Carry)
+        }
+        a = a shr 1
+    }
+
+    private fun ARR() {
+        a = ((a and getOperandValue()) shr 1) or if (checkFlag(PSFlags.Carry)) 0x80 else 0x00
+        clearFlags(PSFlags.Carry or PSFlags.Overflow)
+        if ((a and 0x40) != 0) {
+            setFlags(PSFlags.Carry)
+        }
+        if (((if (checkFlag(PSFlags.Carry)) 0x01 else 0x00) xor ((a shr 5) and 0x01)) != 0) {
+            setFlags(PSFlags.Overflow)
+        }
+    }
+
+    private fun ATX() {
+        val value = getOperandValue()
+        a = value
+        x = a
+        a = a
+    }
+
+    private fun AXS() {
+        val opValue = getOperandValue()
+        val value = ((a and x) - opValue).u8()
+        clearFlags(PSFlags.Carry)
+        if ((a and x) >= opValue) {
+            setFlags(PSFlags.Carry)
+        }
+        x = value
+    }
+
+    private fun syaSxaAxa(baseAddr: Int, indexReg: Int, valueReg: Int) {
+        val pageCrossed = checkPageCrossed(baseAddr, indexReg)
+        val cyc = state.CycleCount
+        memoryRead(baseAddr + indexReg - if (pageCrossed) 0x100 else 0, MemoryOperationType.DummyRead)
+        val hadDma = state.CycleCount - cyc > 1
+        val op = baseAddr + indexReg
+        var addrHigh = op shr 8
+        val addrLow = op and 0xFF
+        if (pageCrossed) {
+            addrHigh = addrHigh and valueReg
+        }
+        val value = if (hadDma) valueReg else valueReg and ((baseAddr shr 8) + 1)
+        memoryWrite((addrHigh shl 8) or addrLow, value)
+    }
+
+    private fun SHY() {
+        syaSxaAxa(readWord(), x, y)
+    }
+
+    private fun SHX() {
+        syaSxaAxa(readWord(), y, x)
+    }
+
+    private fun SHAA() {
+        syaSxaAxa(readWord(), y, x and a)
+    }
+
+    private fun SHAZ() {
+        val zero = readByte()
+        val baseAddr = if (zero == 0xFF) {
+            memoryRead(0xFF) or (memoryRead(0x00) shl 8)
+        } else {
+            memoryReadWord(zero)
+        }
+        syaSxaAxa(baseAddr, y, x and a)
+    }
+
+    private fun TAS() {
+        SHAA()
+        sp = x and a
+    }
+
+    private fun HLT() {
+        pc--
+        prevRunIrq = false
+        prevNeedNmi = false
+        if (!crashed) {
+            crashed = true
+            host.onCpuCrash()
+        }
+    }
+
+    private fun ANE() {
+        val imm = getOperandValue()
+        a = (a or 0xEE) and x and imm
+    }
+
+    private fun LAS() {
+        val value = getOperandValue()
+        a = value and sp
+        x = a
+        sp = a
+    }
 
     private fun processPendingDma(readAddress: Int, opType: MemoryOperationType) {
         if (!needHalt) return

@@ -25,7 +25,7 @@ class NesHotPathAllocationTest {
         }
 
         forceGc()
-
+        console.reset()
         val before = allocationCounter.currentThreadAllocatedBytes()
         repeat(MeasuredFrames) {
             console.runFrame()
@@ -62,7 +62,7 @@ class NesHotPathAllocationTest {
 
     private companion object {
         const val WarmupFrames = 120
-        const val MeasuredFrames = 240
+        const val MeasuredFrames = 4_000
         const val AllocationBudgetBytes = 0L
 
         fun forceGc() {
