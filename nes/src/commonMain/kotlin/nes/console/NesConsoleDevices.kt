@@ -34,6 +34,7 @@ interface NesConsoleExpansionAudio : INesMemoryHandler {
 
 interface NesConsoleApu : NesCpuApuBridge {
     fun initConsole(console: NesConsole) {}
+    override fun beginFrame() {}
 }
 
 interface NesConsolePpu : INesMemoryHandler {

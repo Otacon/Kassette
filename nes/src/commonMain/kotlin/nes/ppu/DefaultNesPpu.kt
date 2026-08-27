@@ -11,11 +11,7 @@
 
 package nes.ppu
 
-import nes.console.NesConstants
-
 class DefaultNesPpu : NesPpu() {
-    val frameColorIds = ByteArray(NesConstants.ScreenPixelCount)
-
     override fun storeSpriteInformation(horizontalMirror: Boolean, verticalMirror: Boolean, tileAddr: Int, lineOffset: Int, sprite: NesSpriteInfo) {}
     override fun storeTileInformation() {}
     override fun pushTileInformation() {}
@@ -23,7 +19,7 @@ class DefaultNesPpu : NesPpu() {
     override fun useAdaptiveSpriteLimit(): Boolean = console.options.ppu.adaptiveSpriteLimit
     fun onBeforeSendFrame(): Any? = null
 
-    override fun getPixelBrightness(x: Int, y: Int): Int = getPixel(x, y) and 0x3F
+    override fun getPixelBrightness(x: Int, y: Int): Int = defaultBrightness(getPixel(x, y))
 
     fun getPixel(x: Int, y: Int): Int = currentOutputBuffer[((y and 0xFF) shl 8) or (x and 0xFF)]
 
@@ -38,6 +34,12 @@ class DefaultNesPpu : NesPpu() {
             paletteRam[videoRamAddr and 0x1F]
         }
         currentOutputBuffer[index] = color
-        frameColorIds[index] = (color and 0x3F).toByte()
+    }
+
+    private fun defaultBrightness(color: Int): Int = when (color and 0x30) {
+        0x00 -> 85
+        0x10 -> 155
+        0x20 -> 255
+        else -> 255
     }
 }

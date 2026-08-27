@@ -97,7 +97,6 @@ class NesMachine {
         this.ppuDevice = ppuDevice
         this.controlManager = controlManager
         apu = apuDevice
-        ppu.setFrameBuffer(ppuDevice.frameColorIds)
         ppu.clear()
         console = NesConsole(
             mapper = mapper,
@@ -149,7 +148,7 @@ class NesMachine {
             apu = apu.captureInternalSnapshot(),
             mapper = mapper.captureSnapshot(),
             controls = controls.captureSnapshot(),
-            completedFrameColorIds = ppu.completedFrameColorIds.copyOf(),
+            completedFramePixels = ppu.completedFramePixels.copyOf(),
             completedFrameCount = ppu.frameCount,
         )
     }
@@ -167,31 +166,28 @@ class NesMachine {
         apu.restoreSnapshot(state.apu)
         controls.restoreSnapshot(state.controls)
         c.cpu.restoreSnapshot(state.cpu)
-        ppu.restoreSnapshot(state.completedFrameColorIds, state.completedFrameCount)
+        ppu.restoreSnapshot(state.completedFramePixels, state.completedFrameCount)
         poweredOn.value = state.poweredOn
     }
 
     class FrameOutput {
-        var completedFrameColorIds = ByteArray(256 * 240)
+        var completedFramePixels = IntArray(256 * 240)
             private set
         var frameCount: Int = 0
             private set
 
-        fun setFrameBuffer(frameBuffer: ByteArray) {
-            completedFrameColorIds = frameBuffer
-        }
-
         fun clear() {
-            completedFrameColorIds.fill(0)
+            completedFramePixels.fill(0)
             frameCount = 0
         }
 
         fun onFrame(frame: NesPpuFrame) {
+            completedFramePixels = frame.pixels
             frameCount = frame.frameCount
         }
 
-        fun restoreSnapshot(colorIds: ByteArray, frameCount: Int) {
-            colorIds.copyInto(completedFrameColorIds, endIndex = minOf(colorIds.size, completedFrameColorIds.size))
+        fun restoreSnapshot(pixels: IntArray, frameCount: Int) {
+            pixels.copyInto(completedFramePixels, endIndex = minOf(pixels.size, completedFramePixels.size))
             this.frameCount = frameCount
         }
     }
@@ -221,7 +217,7 @@ data class NesMachineState(
     val apu: NesApuSnapshot,
     val mapper: MapperSnapshot,
     val controls: NesControlManagerSnapshot,
-    val completedFrameColorIds: ByteArray,
+    val completedFramePixels: IntArray,
     val completedFrameCount: Int,
 ) {
     override fun equals(other: Any?): Boolean = other is NesMachineState &&
@@ -234,7 +230,7 @@ data class NesMachineState(
         apu == other.apu &&
         mapper == other.mapper &&
         controls == other.controls &&
-        completedFrameColorIds.contentEquals(other.completedFrameColorIds) &&
+        completedFramePixels.contentEquals(other.completedFramePixels) &&
         completedFrameCount == other.completedFrameCount
 
     override fun hashCode(): Int {
@@ -247,7 +243,7 @@ data class NesMachineState(
         result = 31 * result + apu.hashCode()
         result = 31 * result + mapper.hashCode()
         result = 31 * result + controls.hashCode()
-        result = 31 * result + completedFrameColorIds.contentHashCode()
+        result = 31 * result + completedFramePixels.contentHashCode()
         result = 31 * result + completedFrameCount
         return result
     }

@@ -23,7 +23,7 @@ import nes.memory.MemoryRanges
 class NesApu : NesConsoleApu, INesMemoryHandler {
     companion object {
         const val DEFAULT_SAMPLE_RATE = 44_100
-        const val MAX_FRAME_SAMPLES = 2048
+        const val MAX_FRAME_SAMPLES = 4096
         private const val MIXER_CYCLE_LENGTH = 120_000
         private const val CHANNEL_COUNT = 5
         private const val BLIP_BUFFER_EXTRA = 18
@@ -89,7 +89,10 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         }
     }
 
-    override fun peekRam(addr: Int): Int = status(peek = true)
+    override fun peekRam(addr: Int): Int {
+        run()
+        return status(peek = true)
+    }
 
     override fun writeRam(addr: Int, value: Int) {
         val address = addr and 0xFFFF
@@ -156,7 +159,7 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         previousCycle = 0
     }
 
-    fun beginFrame() {
+    override fun beginFrame() {
         sampleCount = 0
     }
 
@@ -191,6 +194,12 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         PreviousCycle = previousCycle,
         CurrentCycle = currentCycle,
         ApuDisabledStamp = apuDisabledStamp,
+        SampleCount = sampleCount,
+        Samples = samples.copyOf(),
+        ChannelDeltas = channelDeltas.copyOf(),
+        CurrentOutput = currentOutput.copyOf(),
+        PreviousMixedOutput = previousMixedOutput,
+        BlipBuffer = blipBuffer.captureSnapshot(),
         Square1 = square1.captureSnapshot(),
         Square2 = square2.captureSnapshot(),
         Triangle = triangle.captureSnapshot(),
@@ -205,20 +214,27 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         previousCycle = snapshot.PreviousCycle
         currentCycle = snapshot.CurrentCycle
         apuDisabledStamp = snapshot.ApuDisabledStamp
+        sampleCount = snapshot.SampleCount.coerceIn(0, samples.size)
+        snapshot.Samples.copyInto(samples, endIndex = minOf(snapshot.Samples.size, samples.size))
         square1.restoreSnapshot(snapshot.Square1)
         square2.restoreSnapshot(snapshot.Square2)
         triangle.restoreSnapshot(snapshot.Triangle)
         noise.restoreSnapshot(snapshot.Noise)
         dmc.restoreSnapshot(snapshot.Dmc)
         frameCounter.restoreSnapshot(snapshot.FrameCounter)
-        currentOutput[0] = square1.output
-        currentOutput[1] = square2.output
-        currentOutput[2] = triangle.output
-        currentOutput[3] = noise.output
-        currentOutput[4] = dmc.output
+        if (snapshot.CurrentOutput.size >= CHANNEL_COUNT) {
+            snapshot.CurrentOutput.copyInto(currentOutput, endIndex = CHANNEL_COUNT)
+        } else {
+            currentOutput[0] = square1.output
+            currentOutput[1] = square2.output
+            currentOutput[2] = triangle.output
+            currentOutput[3] = noise.output
+            currentOutput[4] = dmc.output
+        }
         channelDeltas.fill(0)
-        blipBuffer.clear()
-        previousMixedOutput = getOutputVolume() * 4
+        snapshot.ChannelDeltas.copyInto(channelDeltas, endIndex = minOf(snapshot.ChannelDeltas.size, channelDeltas.size))
+        blipBuffer.restoreSnapshot(snapshot.BlipBuffer)
+        previousMixedOutput = snapshot.PreviousMixedOutput
     }
 
     internal fun setNeedToRun() {
@@ -311,7 +327,9 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
             cycle++
         }
         blipBuffer.endFrame(time)
-        blipBuffer.readSamples(samples, sampleCount, samples.size - sampleCount).also { sampleCount += it }
+        if (sampleCount < samples.size) {
+            sampleCount += blipBuffer.readSamples(samples, sampleCount, samples.size - sampleCount)
+        }
     }
 
     private fun getOutputVolume(): Int {
@@ -346,7 +364,7 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
     private class BlipBuffer(private val size: Int) {
         private companion object {
             const val TIME_BITS = 20
-            const val TIME_UNIT = 1 shl TIME_BITS
+            const val TIME_UNIT = 1L shl TIME_BITS
             const val BASS_SHIFT = 9
             const val HALF_WIDTH = 8
             const val PHASE_BITS = 5
@@ -395,13 +413,13 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         }
 
         private val buffer = IntArray(size + BLIP_BUFFER_EXTRA)
-        private var factor = 1
-        private var offset = 0
+        private var factor = 1L
+        private var offset = 0L
         private var available = 0
         private var integrator = 0
 
         fun setRates(clockRate: Int, sampleRate: Int) {
-            factor = ((TIME_UNIT.toDouble() * sampleRate / clockRate).toInt()).coerceAtLeast(1)
+            factor = ((TIME_UNIT.toDouble() * sampleRate / clockRate).toLong()).coerceAtLeast(1L)
             if (factor.toDouble() < TIME_UNIT.toDouble() * sampleRate / clockRate) factor++
         }
 
@@ -414,13 +432,13 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
 
         fun addDelta(time: Int, delta: Int) {
             if (delta == 0) return
-            val fixed = time * factor + offset
-            val outIndex = available + (fixed shr FRAC_BITS)
+            val fixed = time.toLong() * factor + offset
+            val outIndex = available + (fixed shr FRAC_BITS).toInt()
             if (outIndex + 15 >= buffer.size) return
 
             val phaseShift = FRAC_BITS - PHASE_BITS
-            val phase = (fixed shr phaseShift) and (PHASE_COUNT - 1)
-            val interp = fixed and (DELTA_UNIT - 1)
+            val phase = ((fixed shr phaseShift) and (PHASE_COUNT - 1).toLong()).toInt()
+            val interp = (fixed and (DELTA_UNIT - 1).toLong()).toInt()
             val delta2 = (delta * interp) shr DELTA_BITS
             val delta1 = delta - delta2
             val reversePhase = PHASE_COUNT - phase
@@ -438,8 +456,8 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
         }
 
         fun endFrame(clockDuration: Int) {
-            val off = clockDuration * factor + offset
-            available += off shr TIME_BITS
+            val off = clockDuration.toLong() * factor + offset
+            available += (off shr TIME_BITS).toInt()
             offset = off and (TIME_UNIT - 1)
             if (available > size) available = size
         }
@@ -471,6 +489,23 @@ class NesApu : NesConsoleApu, INesMemoryHandler {
             buffer.copyInto(buffer, 0, count, count + remain)
             buffer.fill(0, remain, remain + count)
             available -= count
+        }
+
+        fun captureSnapshot(): BlipBufferSnapshot = BlipBufferSnapshot(
+            Buffer = buffer.copyOf(),
+            Factor = factor,
+            Offset = offset,
+            Available = available,
+            Integrator = integrator,
+        )
+
+        fun restoreSnapshot(snapshot: BlipBufferSnapshot) {
+            snapshot.Buffer.copyInto(buffer, endIndex = minOf(snapshot.Buffer.size, buffer.size))
+            if (snapshot.Buffer.size < buffer.size) buffer.fill(0, snapshot.Buffer.size, buffer.size)
+            factor = snapshot.Factor.coerceAtLeast(1L)
+            offset = snapshot.Offset and (TIME_UNIT - 1)
+            available = snapshot.Available.coerceIn(0, size)
+            integrator = snapshot.Integrator
         }
     }
 }

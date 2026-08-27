@@ -28,7 +28,7 @@ class SavestateCodecTest {
             apu = NesApuSnapshot(CurrentCycle = 56),
             mapper = MapperSnapshot(workRam = byteArrayOf(7, 8, 9)),
             controls = NesControlManagerSnapshot(writeAddr = 0x4016, writeValue = 1, writePending = 1),
-            completedFrameColorIds = byteArrayOf(10, 11, 12),
+            completedFramePixels = intArrayOf(10, 11, 12),
             completedFrameCount = 13,
         )
 

@@ -37,7 +37,7 @@ class SavestateCodec(
         apu = apu,
         mapper = mapper,
         controls = controls,
-        completedFrameColorIds = completedFrameColorIds,
+        completedFramePixels = completedFramePixels,
         completedFrameCount = completedFrameCount,
     )
 
@@ -53,7 +53,7 @@ class SavestateCodec(
             apu = apu,
             mapper = mapper,
             controls = controls,
-            completedFrameColorIds = completedFrameColorIds,
+            completedFramePixels = completedFramePixels,
             completedFrameCount = completedFrameCount,
         )
     }
@@ -74,13 +74,13 @@ class SavestateCodec(
     }
 
     private companion object {
-        const val CurrentFormatVersion = 2
+        const val CurrentFormatVersion = 3
     }
 }
 
 @Serializable
 private data class NesSavestateDto(
-    val formatVersion: Int = 2,
+    val formatVersion: Int = 3,
     val oldRegion: Int,
     val poweredOn: Boolean,
     val nextFrameOverclockDisabled: Boolean,
@@ -90,7 +90,7 @@ private data class NesSavestateDto(
     val apu: NesApuSnapshot,
     val mapper: MapperSnapshot,
     val controls: NesControlManagerSnapshot,
-    val completedFrameColorIds: ByteArray,
+    val completedFramePixels: IntArray,
     val completedFrameCount: Int,
 ) {
     override fun equals(other: Any?): Boolean = other is NesSavestateDto &&
@@ -104,7 +104,7 @@ private data class NesSavestateDto(
         apu == other.apu &&
         mapper == other.mapper &&
         controls == other.controls &&
-        completedFrameColorIds.contentEquals(other.completedFrameColorIds) &&
+        completedFramePixels.contentEquals(other.completedFramePixels) &&
         completedFrameCount == other.completedFrameCount
 
     override fun hashCode(): Int {
@@ -118,7 +118,7 @@ private data class NesSavestateDto(
         result = 31 * result + apu.hashCode()
         result = 31 * result + mapper.hashCode()
         result = 31 * result + controls.hashCode()
-        result = 31 * result + completedFrameColorIds.contentHashCode()
+        result = 31 * result + completedFramePixels.contentHashCode()
         result = 31 * result + completedFrameCount
         return result
     }

@@ -78,6 +78,7 @@ class NesConsole(
 
     fun runFrame() {
         updateRegion()
+        apuDevice.beginFrame()
         val frame = ppu.frameCount
         if (nextFrameOverclockDisabled) {
             ppu.updateTimings(currentRegion, overclockEnabled = false)
@@ -192,6 +193,7 @@ data class NesPpuOptions(
     val disablePaletteRead: Boolean = false,
     val disablePpu2004Reads: Boolean = false,
     val enablePpuOamRowCorruption: Boolean = false,
+    val enablePpuSpriteEvalBug: Boolean = false,
     val disableOamAddrBug: Boolean = false,
     val enablePpu2000ScrollGlitch: Boolean = true,
     val enablePpu2006ScrollGlitch: Boolean = true,
