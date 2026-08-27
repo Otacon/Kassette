@@ -47,14 +47,12 @@ enum class MirroringType {
     FourScreens,
 }
 
-@Serializable
 enum class BusConflictType {
     Default,
     Yes,
     No,
 }
 
-@Serializable
 enum class GameSystem {
     Unknown,
     NesNtsc,
@@ -63,12 +61,10 @@ enum class GameSystem {
     VsSystem,
 }
 
-@Serializable
 enum class GameInputType {
     Unspecified,
 }
 
-@Serializable
 enum class PpuModel {
     Ppu2C02,
     Ppu2C05A,
@@ -78,13 +74,11 @@ enum class PpuModel {
     Ppu2C05E,
 }
 
-@Serializable
 enum class VsSystemType {
     Default,
     VsDualSystem,
 }
 
-@Serializable
 enum class RomFormat {
     Unknown,
     INes,
@@ -95,24 +89,20 @@ enum class RomFormat {
     StudyBox,
 }
 
-@Serializable
 enum class RomHeaderVersion {
     iNes,
     Nes20,
     OldiNes,
 }
 
-@Serializable
 data class NesHeader(
     val version: RomHeaderVersion = RomHeaderVersion.iNes,
 )
 
-@Serializable
 data class HashInfo(
     val crc: UInt = 0u,
 )
 
-@Serializable
 data class GameInfo(
     val crc: UInt = 0u,
     val system: String = "",
@@ -134,12 +124,10 @@ data class GameInfo(
     val vsPpuModel: PpuModel = PpuModel.Ppu2C02,
 )
 
-@Serializable
 data class NsfHeader(
     val version: Int = 0,
 )
 
-@Serializable
 data class NesRomInfo(
     val romName: String = "",
     val filename: String = "",
@@ -166,7 +154,6 @@ data class NesRomInfo(
     val databaseInfo: GameInfo = GameInfo(),
 )
 
-@Serializable
 data class RomData(
     val info: NesRomInfo = NesRomInfo(),
     val chrRamSize: Int = -1,
@@ -200,7 +187,6 @@ data class RomData(
     }
 }
 
-@Serializable
 enum class MapperStateValueType {
     None,
     String,
@@ -210,7 +196,6 @@ enum class MapperStateValueType {
     Number32,
 }
 
-@Serializable
 data class MapperStateEntry(
     val address: String = "",
     val name: String = "",
@@ -219,7 +204,6 @@ data class MapperStateEntry(
     val type: MapperStateValueType = MapperStateValueType.Number8,
 )
 
-@Serializable
 data class CartridgeState(
     var prgRomSize: Int = 0,
     var chrRomSize: Int = 0,
