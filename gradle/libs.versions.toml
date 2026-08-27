@@ -1,6 +1,5 @@
 [versions]
 androidx-lifecycle = "2.11.0"
-benchmark = "0.4.19"
 buildKonfig = "0.22.0"
 clikt = "5.1.0"
 compose = "1.11.1"
@@ -56,7 +55,6 @@ conveyor = { id = "dev.hydraulic.conveyor", version.ref = "conveyor" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotest = { id = "io.kotest", version.ref = "kotest" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlinxBenchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "benchmark" }
 kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
