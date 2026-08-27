@@ -2,7 +2,7 @@
 androidx-lifecycle = "2.11.0"
 buildKonfig = "0.22.0"
 clikt = "5.1.0"
-compose = "1.11.1"
+compose = "1.12.0"
 conveyor = "2.0"
 kermit = "2.1.0"
 ksp = "2.3.11"
