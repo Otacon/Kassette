@@ -21,3 +21,4 @@ rootProject.name = "kassette"
 
 include(":nes")
 include(":frontend")
+include(":nes-allocation-tests")

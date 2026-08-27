@@ -55,8 +55,8 @@ abstract class NesPpu : BaseNesPpu() {
             paletteRamBootValues.copyInto(paletteRam)
         }
         videoRamAddr = 0
-        console.initializeRam(intArrayAsByteArray(spriteRam))
-        console.initializeRam(intArrayAsByteArray(secondarySpriteRam))
+        initializeRam(spriteRam)
+        initializeRam(secondarySpriteRam)
         updateTimings(ConsoleRegion.Ntsc)
         reset(false)
     }
@@ -352,7 +352,7 @@ abstract class NesPpu : BaseNesPpu() {
         } else {
             processScanlineFirstCycle()
         }
-        processDelayedStateUpdates()
+        if (needStateUpdate) updateState()
     }
 
     protected open fun processScanline() {
@@ -455,8 +455,6 @@ abstract class NesPpu : BaseNesPpu() {
             if (scanline == -1) {
                 statusFlags.spriteOverflow = false
                 statusFlags.sprite0Hit = false
-                statusFlags.verticalBlank = false
-                console.cpu.clearNmiFlag()
                 allowFullPpuAccess = true
                 if (isRenderingEnabled() && !console.options.ppu.disableOamAddrBug) corruptOamRow(spriteRamAddr shr 3, secondaryOamAddr and 0x1F)
                 currentOutputBuffer = if (currentOutputBuffer === outputBuffers[0]) outputBuffers[1] else outputBuffers[0]
@@ -545,7 +543,6 @@ abstract class NesPpu : BaseNesPpu() {
             needStateUpdate = needStateUpdate || dotSkipped != 0
             updateProcessSpritesFlag()
         }
-        if (needStateUpdate) updateState()
     }
 
     protected fun updateState() {
@@ -566,6 +563,7 @@ abstract class NesPpu : BaseNesPpu() {
             renderingEnabled = newRenderingEnabled
             needStateUpdate = true
         }
+        processDelayedStateUpdates()
     }
 
     protected fun loadTileInfo() {
@@ -746,7 +744,7 @@ abstract class NesPpu : BaseNesPpu() {
         }
         var spriteAddrH = spriteRamAddr shr 2
         var spriteAddrL = spriteRamAddr and 3
-        if (oamCopyDone && !console.options.ppu.enablePpuOamRowCorruption) {
+        if (oamCopyDone && !console.options.ppu.enablePpuSpriteEvalBug) {
             spriteAddrH = (spriteAddrH + 1) and 0x3F
             oamCopybuffer = secondarySpriteRam[secondaryOamAddr and 0x1F]
         } else {
@@ -1023,7 +1021,6 @@ abstract class NesPpu : BaseNesPpu() {
         updateTimings(region)
         updateMinimumDrawCycles()
         updateGrayscaleAndIntensifyBits()
-        for (i in oamDecayCycles.indices) oamDecayCycles[i] = console.cpu.getCycleCount()
         lastUpdatedPixel = -1
         updateApuStatus()
     }
@@ -1174,8 +1171,30 @@ abstract class NesPpu : BaseNesPpu() {
     protected fun setBusAddress(addr: Int) { ppuBusAddress = addr and 0x3FFF; if (mapper.hasVramAddressHook()) mapper.notifyVramAddressChange(ppuBusAddress) }
     protected fun readVram(addr: Int, type: MemoryOperationType = MemoryOperationType.Read): Int { setBusAddress(addr); return mapper.readVram(addr and 0x3FFF, type) }
     protected fun writeVram(addr: Int, value: Int) { setBusAddress(addr); mapper.writeVram(addr and 0x3FFF, value and 0xFF) }
-    protected fun readSpriteRam(addr: Int): Int = spriteRam[addr and 0xFF] and 0xFF
-    protected fun writeSpriteRam(addr: Int, value: Int) { spriteRam[addr and 0xFF] = value and 0xFF; oamDecayCycles[(addr and 0xFF) shr 3] = masterClock }
+    protected fun readSpriteRam(addr: Int): Int {
+        val address = addr and 0xFF
+        if (enableOamDecay) {
+            val row = address shr 3
+            val cpuCycle = console.cpu.getCycleCount()
+            if (cpuCycle - oamDecayCycles[row] <= OamDecayCycleCount) {
+                oamDecayCycles[row] = cpuCycle
+            } else {
+                val base = address and 0xF8
+                var i = 0
+                while (i < 8) {
+                    val spriteAddr = base or i
+                    spriteRam[spriteAddr] = if ((spriteAddr and 0x03) == 0x02) spriteAddr and 0xE3 else spriteAddr
+                    i++
+                }
+            }
+        }
+        return spriteRam[address] and 0xFF
+    }
+    protected fun writeSpriteRam(addr: Int, value: Int) {
+        val address = addr and 0xFF
+        spriteRam[address] = value and 0xFF
+        if (enableOamDecay) oamDecayCycles[address shr 3] = console.cpu.getCycleCount()
+    }
     protected fun corruptOamRow(sourceRow: Int, destRow: Int) {
         val source = sourceRow and 0x1F
         val dest = destRow and 0x1F
@@ -1219,7 +1238,15 @@ abstract class NesPpu : BaseNesPpu() {
         return i
     }
 
-    private fun intArrayAsByteArray(values: IntArray): ByteArray = ByteArray(values.size) { values[it].toByte() }
+    private fun initializeRam(values: IntArray) {
+        val bytes = ByteArray(values.size)
+        console.initializeRam(bytes)
+        var i = 0
+        while (i < values.size) {
+            values[i] = bytes[i].toInt() and 0xFF
+            i++
+        }
+    }
     private fun copyControl(source: PpuControlFlags) {
         control.backgroundPatternAddr = source.backgroundPatternAddr
         control.spritePatternAddr = source.spritePatternAddr

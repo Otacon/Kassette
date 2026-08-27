@@ -33,9 +33,11 @@ internal class TriangleChannel(private val apu: NesApu) {
 
     fun run(targetCycle: Int) {
         while (timer.run(targetCycle)) {
-            if (lengthCounter.status() && linearCounter > 0 && (!apu.silenceTriangleHighFrequency() || timer.period >= 2)) {
+            if (lengthCounter.status() && linearCounter > 0) {
                 sequencePosition = (sequencePosition + 1) and 0x1F
-                timer.addOutput(sequence[sequencePosition])
+                if (!apu.silenceTriangleHighFrequency() || timer.period >= 2) {
+                    timer.addOutput(sequence[sequencePosition])
+                }
             }
         }
     }

@@ -39,7 +39,6 @@ internal class DeltaModulationChannel(private val apu: NesApu) {
 
     fun setRegion(region: ConsoleRegion) {
         periods = if (region == ConsoleRegion.Pal) pal else ntsc
-        timer.period = periods[0] - 1
     }
 
     fun reset(softReset: Boolean) {

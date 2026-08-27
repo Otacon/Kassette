@@ -20,13 +20,84 @@ data class NesApuSnapshot(
     val PreviousCycle: Int = 0,
     val CurrentCycle: Int = 0,
     val ApuDisabledStamp: Long = 0,
+    val SampleCount: Int = 0,
+    val Samples: ShortArray = ShortArray(0),
+    val ChannelDeltas: IntArray = IntArray(0),
+    val CurrentOutput: IntArray = IntArray(0),
+    val PreviousMixedOutput: Int = 0,
+    val BlipBuffer: BlipBufferSnapshot = BlipBufferSnapshot(),
     val Square1: SquareChannelSnapshot = SquareChannelSnapshot(),
     val Square2: SquareChannelSnapshot = SquareChannelSnapshot(),
     val Triangle: TriangleChannelSnapshot = TriangleChannelSnapshot(),
     val Noise: NoiseChannelSnapshot = NoiseChannelSnapshot(),
     val Dmc: DeltaModulationChannelSnapshot = DeltaModulationChannelSnapshot(),
     val FrameCounter: ApuFrameCounterSnapshot = ApuFrameCounterSnapshot(),
-)
+) {
+    override fun equals(other: Any?): Boolean = other is NesApuSnapshot &&
+        ApuEnabled == other.ApuEnabled &&
+        NeedToRun == other.NeedToRun &&
+        PreviousCycle == other.PreviousCycle &&
+        CurrentCycle == other.CurrentCycle &&
+        ApuDisabledStamp == other.ApuDisabledStamp &&
+        SampleCount == other.SampleCount &&
+        Samples.contentEquals(other.Samples) &&
+        ChannelDeltas.contentEquals(other.ChannelDeltas) &&
+        CurrentOutput.contentEquals(other.CurrentOutput) &&
+        PreviousMixedOutput == other.PreviousMixedOutput &&
+        BlipBuffer == other.BlipBuffer &&
+        Square1 == other.Square1 &&
+        Square2 == other.Square2 &&
+        Triangle == other.Triangle &&
+        Noise == other.Noise &&
+        Dmc == other.Dmc &&
+        FrameCounter == other.FrameCounter
+
+    override fun hashCode(): Int {
+        var result = ApuEnabled.hashCode()
+        result = 31 * result + NeedToRun.hashCode()
+        result = 31 * result + PreviousCycle
+        result = 31 * result + CurrentCycle
+        result = 31 * result + ApuDisabledStamp.hashCode()
+        result = 31 * result + SampleCount
+        result = 31 * result + Samples.contentHashCode()
+        result = 31 * result + ChannelDeltas.contentHashCode()
+        result = 31 * result + CurrentOutput.contentHashCode()
+        result = 31 * result + PreviousMixedOutput
+        result = 31 * result + BlipBuffer.hashCode()
+        result = 31 * result + Square1.hashCode()
+        result = 31 * result + Square2.hashCode()
+        result = 31 * result + Triangle.hashCode()
+        result = 31 * result + Noise.hashCode()
+        result = 31 * result + Dmc.hashCode()
+        result = 31 * result + FrameCounter.hashCode()
+        return result
+    }
+}
+
+@Serializable
+data class BlipBufferSnapshot(
+    val Buffer: IntArray = IntArray(0),
+    val Factor: Long = 1,
+    val Offset: Long = 0,
+    val Available: Int = 0,
+    val Integrator: Int = 0,
+) {
+    override fun equals(other: Any?): Boolean = other is BlipBufferSnapshot &&
+        Buffer.contentEquals(other.Buffer) &&
+        Factor == other.Factor &&
+        Offset == other.Offset &&
+        Available == other.Available &&
+        Integrator == other.Integrator
+
+    override fun hashCode(): Int {
+        var result = Buffer.contentHashCode()
+        result = 31 * result + Factor.hashCode()
+        result = 31 * result + Offset.hashCode()
+        result = 31 * result + Available
+        result = 31 * result + Integrator
+        return result
+    }
+}
 
 @Serializable
 data class ApuTimerSnapshot(

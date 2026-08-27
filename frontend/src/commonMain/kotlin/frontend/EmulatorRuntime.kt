@@ -25,7 +25,7 @@ class EmulatorRuntime(
                 machine.controller.poll()
             }
             if (soundEnabled) audio.submit(machine.apu.samples, machine.apu.sampleCount)
-            frameBuffer.submit(machine.ppu.completedFrameColorIds, machine.ppu.frameCount)
+            frameBuffer.submit(machine.ppu.completedFramePixels, machine.ppu.frameCount)
 
             frameRendered = true
         }

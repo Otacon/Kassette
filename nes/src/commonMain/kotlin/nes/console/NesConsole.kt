@@ -13,7 +13,6 @@ package nes.console
 
 import nes.apu.NesApu
 import nes.cpu.ConsoleRegion
-import nes.cpu.MemoryOperationType
 import nes.cpu.NesCpu
 import nes.cpu.NesCpuApuBridge
 import nes.cpu.NesCpuHost
@@ -22,6 +21,8 @@ import nes.memory.INesMemoryHandler
 import nes.memory.NesMemoryManager
 import nes.memory.NesMemoryManagerHost
 import nes.memory.NesMemoryMapper
+import nes.memory.CpuCheatHandler
+import nes.memory.CpuMemoryAccessHandler
 import nes.input.NesConsoleType
 
 class NesConsole(
@@ -35,6 +36,8 @@ class NesConsole(
     override val region: ConsoleRegion get() = currentRegion
     override val randomizeCpuPpuAlignment: Boolean get() = options.randomizeCpuPpuAlignment
     override val apu: NesCpuApuBridge get() = apuDevice
+    override val cpuCheatHandler: CpuCheatHandler? get() = options.cpuCheatHandler
+    override val cpuMemoryAccessHandler: CpuMemoryAccessHandler? get() = options.cpuMemoryAccessHandler
     val cpu: NesCpu = NesCpu(this)
 
     private var currentRegion: ConsoleRegion = options.region
@@ -75,6 +78,7 @@ class NesConsole(
 
     fun runFrame() {
         updateRegion()
+        apuDevice.beginFrame()
         val frame = ppu.frameCount
         if (nextFrameOverclockDisabled) {
             ppu.updateTimings(currentRegion, overclockEnabled = false)
@@ -131,20 +135,17 @@ class NesConsole(
         options.initializeRam(ram)
     }
 
-    override fun hasCpuCheats(): Boolean = options.hasCpuCheats()
-    override fun applyCpuCheat(addr: Int, value: Int): Int = options.applyCpuCheat(addr, value)
-    override fun processMemoryRead(addr: Int, value: Int, operationType: MemoryOperationType) =
-        options.processMemoryRead(addr, value, operationType)
-
-    override fun processMemoryWrite(addr: Int, value: Int, operationType: MemoryOperationType): Boolean =
-        options.processMemoryWrite(addr, value, operationType)
-
     fun getOpenBus(): Int = memoryManager.getOpenBus()
     fun getMasterClock(): Long = cpu.getCycleCount()
     fun getMasterClockRate(): Int = NesConstants.getClockRate(currentRegion)
     fun getFps(): Double = if (currentRegion == ConsoleRegion.Ntsc) 60.0988118623484 else 50.0069789081886
-    fun notifyPpuFrame(frame: NesPpuFrame) = options.ppu.onFrame(frame)
-    fun notifyPpuStartFrame(frameCount: Int) = options.ppu.onStartFrame(frameCount)
+    fun notifyPpuFrame(frame: NesPpuFrame) {
+        options.ppu.frameListener?.onFrame(frame)
+    }
+
+    fun notifyPpuStartFrame(frameCount: Int) {
+        options.ppu.frameListener?.onStartFrame(frameCount)
+    }
 
     private fun registerOptionalIODevice(handler: INesMemoryHandler?) {
         if (handler != null) {
@@ -161,10 +162,8 @@ data class NesConsoleOptions(
     val regionProvider: (() -> ConsoleRegion)? = null,
     val randomInt: (boundExclusive: Int) -> Int = { 0 },
     val initializeRam: (ByteArray) -> Unit = { it.fill(0) },
-    val hasCpuCheats: () -> Boolean = { false },
-    val applyCpuCheat: (addr: Int, value: Int) -> Int = { _, value -> value },
-    val processMemoryRead: (addr: Int, value: Int, operationType: MemoryOperationType) -> Unit = { _, _, _ -> },
-    val processMemoryWrite: (addr: Int, value: Int, operationType: MemoryOperationType) -> Boolean = { _, _, _ -> true },
+    val cpuCheatHandler: CpuCheatHandler? = null,
+    val cpuMemoryAccessHandler: CpuMemoryAccessHandler? = null,
     val onCpuCrash: () -> Unit = {},
     val ppu: NesPpuOptions = NesPpuOptions(),
     val apu: NesApuOptions = NesApuOptions(),
@@ -194,15 +193,20 @@ data class NesPpuOptions(
     val disablePaletteRead: Boolean = false,
     val disablePpu2004Reads: Boolean = false,
     val enablePpuOamRowCorruption: Boolean = false,
+    val enablePpuSpriteEvalBug: Boolean = false,
     val disableOamAddrBug: Boolean = false,
     val enablePpu2000ScrollGlitch: Boolean = true,
     val enablePpu2006ScrollGlitch: Boolean = true,
     val randomizePowerOnState: Boolean = false,
     val extraScanlinesBeforeNmi: Int = 0,
     val extraScanlinesAfterNmi: Int = 0,
-    val onStartFrame: (frameCount: Int) -> Unit = {},
-    val onFrame: (NesPpuFrame) -> Unit = {},
+    val frameListener: NesPpuFrameListener? = null,
 )
+
+interface NesPpuFrameListener {
+    fun onStartFrame(frameCount: Int) {}
+    fun onFrame(frame: NesPpuFrame) {}
+}
 
 class NesPpuFrame(
     var pixels: IntArray,

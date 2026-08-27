@@ -77,5 +77,5 @@ class RendererTest {
         }
     }
 
-    private fun testFrame(): ByteArray = ByteArray(256 * 240) { 0x21 }
+    private fun testFrame(): IntArray = IntArray(256 * 240) { 0x21 }
 }

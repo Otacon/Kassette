@@ -28,11 +28,15 @@ interface NesControlDevice {
     fun reset(softReset: Boolean) {}
 }
 
+fun interface NesControlDeviceProvider {
+    fun getControlDevices(): Array<NesControlDevice>
+}
+
 class NesControlManager(
-    private val devicesProvider: () -> List<NesControlDevice> = { emptyList() },
+    private val devicesProvider: NesControlDeviceProvider = EmptyNesControlDeviceProvider,
 ) : NesConsoleControlManager {
     private var console: NesConsole? = null
-    private var devices: List<NesControlDevice> = emptyList()
+    private var devices: Array<NesControlDevice> = EmptyControlDevices
     private var writeAddr = 0
     private var writeValue = 0
     private var writePending = 0
@@ -54,8 +58,12 @@ class NesControlManager(
         inputReadFlag = true
         val address = addr and 0xFFFF
         var value = c?.memoryManager?.getOpenBus(getOpenBusMask(address - 0x4016)) ?: 0
-        for (device in devices) {
+        val currentDevices = devices
+        var i = 0
+        while (i < currentDevices.size) {
+            val device = currentDevices[i]
             if (device.connected) value = value or readDevice(device, address)
+            i++
         }
         prevReadAddr = address
         return value and 0xFF
@@ -74,8 +82,12 @@ class NesControlManager(
             if (writeAddr == 0x4016) {
                 c.mapper.epsm?.write(c.memoryManager.getOpenBus(), writeValue)
             }
-            for (device in devices) {
+            val currentDevices = devices
+            var i = 0
+            while (i < currentDevices.size) {
+                val device = currentDevices[i]
                 if (device.connected) device.writeRam(writeAddr, writeValue)
+                i++
             }
         }
     }
@@ -85,15 +97,25 @@ class NesControlManager(
     override fun reset(softReset: Boolean) {
         writePending = 0
         inputReadFlag = false
-        for (device in devices) device.reset(softReset)
+        val currentDevices = devices
+        var i = 0
+        while (i < currentDevices.size) {
+            currentDevices[i].reset(softReset)
+            i++
+        }
     }
 
     override fun updateControlDevices() {
-        devices = devicesProvider()
+        devices = devicesProvider.getControlDevices()
     }
 
     override fun updateInputState() {
-        for (device in devices) device.updateInputState()
+        val currentDevices = devices
+        var i = 0
+        while (i < currentDevices.size) {
+            currentDevices[i].updateInputState()
+            i++
+        }
     }
 
     override fun getOpenBusMask(port: Int): Int {
@@ -138,6 +160,12 @@ class NesControlManager(
         device.previousReadValue = value
         return value
     }
+}
+
+private val EmptyControlDevices: Array<NesControlDevice> = emptyArray()
+
+private object EmptyNesControlDeviceProvider : NesControlDeviceProvider {
+    override fun getControlDevices(): Array<NesControlDevice> = EmptyControlDevices
 }
 
 enum class NesConsoleType {

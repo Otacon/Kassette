@@ -1,7 +1,5 @@
 package nes.input
 
-import co.touchlab.kermit.Logger
-
 class NesController {
     companion object {
         const val BUTTON_A = 0
@@ -21,7 +19,6 @@ class NesController {
     private var index = 0
     private var strobe = false
     private var buffered = 0
-    private val log = Logger.withTag("NesController")
 
     fun reset() {
         latched = live
@@ -36,7 +33,7 @@ class NesController {
     }
 
     fun press(button: Int) {
-        require(button in BUTTON_A..BUTTON_RIGHT) { "Invalid controller button: $button" }
+        require(button >= BUTTON_A && button <= BUTTON_RIGHT) { "Invalid controller button: $button" }
         buffered = buffered or (1 shl button)
     }
 
@@ -59,7 +56,6 @@ class NesController {
     }
 
     private fun commit(buttons: Int) {
-        val previous = live
         live = buttons and 0xFF
         if ((live and (1 shl BUTTON_LEFT)) != 0 && (live and (1 shl BUTTON_RIGHT)) != 0) {
             live = live and (1 shl BUTTON_RIGHT).inv()
@@ -67,25 +63,6 @@ class NesController {
         if ((live and (1 shl BUTTON_UP)) != 0 && (live and (1 shl BUTTON_DOWN)) != 0) {
             live = live and (1 shl BUTTON_DOWN).inv()
         }
-        logButtonEdges(previous, live)
         if (strobe) latched = live
-    }
-
-    private fun logButtonEdges(previous: Int, current: Int) {
-        val pressed = current and previous.inv()
-        val released = previous and current.inv()
-        logEdges(pressed, "pressed")
-        logEdges(released, "released")
-    }
-
-    private fun logEdges(buttons: Int, action: String) {
-        if ((buttons and (1 shl BUTTON_START)) != 0) log.d { "START $action" }
-        if ((buttons and (1 shl BUTTON_A)) != 0) log.d { "A $action" }
-        if ((buttons and (1 shl BUTTON_B)) != 0) log.d { "B $action" }
-        if ((buttons and (1 shl BUTTON_SELECT)) != 0) log.d { "SELECT $action" }
-        if ((buttons and (1 shl BUTTON_UP)) != 0) log.d { "UP $action" }
-        if ((buttons and (1 shl BUTTON_DOWN)) != 0) log.d { "DOWN $action" }
-        if ((buttons and (1 shl BUTTON_LEFT)) != 0) log.d { "LEFT $action" }
-        if ((buttons and (1 shl BUTTON_RIGHT)) != 0) log.d { "RIGHT $action" }
     }
 }

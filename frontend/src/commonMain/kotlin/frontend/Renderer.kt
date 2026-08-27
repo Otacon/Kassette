@@ -8,15 +8,14 @@ class Renderer {
     private val frameImageInfo = ImageInfo(
         FRAME_WIDTH,
         FRAME_HEIGHT,
-        ColorType.ALPHA_8,
+        ColorType.RGBA_8888,
         ColorAlphaType.OPAQUE,
         ColorSpace.sRGB,
     )
+    private val frameUploadBuffer = ByteArray(FRAME_WIDTH * FRAME_HEIGHT * 4)
     private var frameBitmap: Bitmap? = null
     private var backgroundPaint: Paint? = null
     private var framePaint: Paint? = null
-    private var paletteEffect: RuntimeEffect? = null
-    private var paletteBuilder: RuntimeShaderBuilder? = null
     private var crtEffect: RuntimeEffect? = null
     private var crtBuilder: RuntimeShaderBuilder? = null
     private var videoFilter = VideoFilter.NONE
@@ -31,8 +30,6 @@ class Renderer {
             this.videoFilter = videoFilter
             backgroundPaint = Paint().apply { color = Color.BLACK }
             framePaint = Paint().apply { isAntiAlias = false }
-            paletteEffect = RuntimeEffect.makeForShader(readTextResource(PALETTE_SHADER_RESOURCE))
-            paletteBuilder = RuntimeShaderBuilder(requireNotNull(paletteEffect))
             when (videoFilter) {
                 VideoFilter.CRT -> {
                     crtEffect = RuntimeEffect.makeForShader(readTextResource(CRT_SHADER_RESOURCE))
@@ -49,7 +46,7 @@ class Renderer {
         }
     }
 
-    fun present(framebuffer: ByteArray, windowWidth: Int, windowHeight: Int) {
+    fun present(framebuffer: IntArray, windowWidth: Int, windowHeight: Int) {
         check(initialized) { "Skiko renderer is not initialized" }
         require(framebuffer.size >= FRAME_WIDTH * FRAME_HEIGHT) { "Incomplete NES frame" }
 
@@ -68,8 +65,18 @@ class Renderer {
         }
     }
 
-    private fun uploadFrame(source: ByteArray, bitmap: Bitmap) {
-        check(bitmap.installPixels(frameImageInfo, source, FRAME_WIDTH)) { "Failed to upload NES frame bitmap" }
+    private fun uploadFrame(source: IntArray, bitmap: Bitmap) {
+        var pixel = 0
+        var offset = 0
+        while (pixel < FRAME_WIDTH * FRAME_HEIGHT) {
+            val rgb = nesRgb(source[pixel])
+            frameUploadBuffer[offset++] = ((rgb shr 16) and 0xFF).toByte()
+            frameUploadBuffer[offset++] = ((rgb shr 8) and 0xFF).toByte()
+            frameUploadBuffer[offset++] = (rgb and 0xFF).toByte()
+            frameUploadBuffer[offset++] = 0xFF.toByte()
+            pixel++
+        }
+        check(bitmap.installPixels(frameImageInfo, frameUploadBuffer, FRAME_WIDTH * 4)) { "Failed to upload NES frame bitmap" }
     }
 
     fun draw(canvas: Canvas) {
@@ -92,7 +99,7 @@ class Renderer {
     }
 
     private fun drawLayer(canvas: Canvas, bitmap: Bitmap, destination: Rect) {
-        val shader = makeFrameColorShader(bitmap)
+        val shader = makeFrameShader(bitmap)
         val paint = requireNotNull(framePaint)
         try {
             paint.shader = shader
@@ -115,7 +122,7 @@ class Renderer {
     }
 
     private fun drawCrt(canvas: Canvas, frameBitmap: Bitmap, destination: Rect) {
-        val frameShader = makeFrameColorShader(frameBitmap)
+        val frameShader = makeFrameShader(frameBitmap)
         try {
             val builder = requireNotNull(crtBuilder)
             builder.child("frameTexture", frameShader)
@@ -138,20 +145,13 @@ class Renderer {
         }
     }
 
-    private fun makeFrameColorShader(frameBitmap: Bitmap): Shader {
-        val indexShader = frameBitmap.makeShader(
+    private fun makeFrameShader(frameBitmap: Bitmap): Shader {
+        return frameBitmap.makeShader(
             FilterTileMode.CLAMP,
             FilterTileMode.CLAMP,
             SamplingMode.DEFAULT,
             null,
         )
-        try {
-            val builder = requireNotNull(paletteBuilder)
-            builder.child("indexTexture", indexShader)
-            return builder.makeShader()
-        } finally {
-            indexShader.close()
-        }
     }
 
     private fun destinationRect(): Rect {
@@ -168,15 +168,11 @@ class Renderer {
     private fun release() {
         framePaint?.shader = null
         frameBitmap?.close()
-        paletteBuilder?.close()
-        paletteEffect?.close()
         crtBuilder?.close()
         crtEffect?.close()
         framePaint?.close()
         backgroundPaint?.close()
         frameBitmap = null
-        paletteBuilder = null
-        paletteEffect = null
         crtBuilder = null
         crtEffect = null
         framePaint = null
@@ -187,8 +183,31 @@ class Renderer {
     private companion object {
         const val FRAME_WIDTH = 256
         const val FRAME_HEIGHT = 240
-        const val PALETTE_SHADER_RESOURCE = "shaders/palette.sksl"
         const val CRT_SHADER_RESOURCE = "shaders/crt.sksl"
         val SOURCE_RECT = Rect.makeWH(FRAME_WIDTH.toFloat(), FRAME_HEIGHT.toFloat())
+
+        val NES_PALETTE = intArrayOf(
+            0x545454, 0x001D74, 0x081090, 0x300088, 0x440064, 0x5C0030, 0x540400, 0x3C1800,
+            0x202A00, 0x083A00, 0x004000, 0x003C00, 0x00323C, 0x000000, 0x000000, 0x000000,
+            0x989698, 0x084CC4, 0x3032EC, 0x5C1EE4, 0x8814B0, 0xA01464, 0x982220, 0x783C00,
+            0x545A00, 0x287200, 0x087C00, 0x007628, 0x006678, 0x000000, 0x000000, 0x000000,
+            0xECEEEC, 0x4C9AEC, 0x787CEC, 0xB062EC, 0xE454EC, 0xEC58B4, 0xEC6A64, 0xD48820,
+            0xA0AA00, 0x74C400, 0x4CD020, 0x38CC6C, 0x38B4CC, 0x3C3C3C, 0x000000, 0x000000,
+            0xECEEEC, 0xA8CCEC, 0xBCBCEC, 0xD4B2EC, 0xECAEEC, 0xECAED4, 0xECB4B0, 0xE4C490,
+            0xCCD278, 0xB4DE78, 0xA8E290, 0x98E2B4, 0xA0D6E4, 0xA0A2A0, 0x000000, 0x000000,
+        )
+
+        fun nesRgb(value: Int): Int {
+            var rgb = NES_PALETTE[value and 0x3F]
+            val emphasis = value and 0x1C0
+            if (emphasis == 0) return rgb
+            var r = (rgb shr 16) and 0xFF
+            var g = (rgb shr 8) and 0xFF
+            var b = rgb and 0xFF
+            if ((emphasis and 0x040) == 0) r = r * 3 / 4
+            if ((emphasis and 0x080) == 0) g = g * 3 / 4
+            if ((emphasis and 0x100) == 0) b = b * 3 / 4
+            return (r shl 16) or (g shl 8) or b
+        }
     }
 }

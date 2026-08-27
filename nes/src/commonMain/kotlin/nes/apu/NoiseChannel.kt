@@ -23,7 +23,7 @@ internal class NoiseChannel(private val apu: NesApu) {
     private var modeFlag = false
     val output: Int get() = timer.lastOutput
 
-    fun setRegion(region: ConsoleRegion) { periods = if (region == ConsoleRegion.Pal) pal else ntsc; timer.period = periods[0] - 1 }
+    fun setRegion(region: ConsoleRegion) { periods = if (region == ConsoleRegion.Pal) pal else ntsc }
     fun writeRam(addr: Int, value: Int) { apu.run(); when (addr and 3) { 0 -> envelope.initialize(value); 2 -> { timer.period = periods[value and 0x0F] - 1; modeFlag = (value and 0x80) != 0 }; 3 -> { envelope.lengthCounter.load(value shr 3); envelope.resetEnvelope() } } }
     fun run(targetCycle: Int) { while (timer.run(targetCycle)) { val feedback = (shiftRegister and 1) xor ((shiftRegister shr if (modeFlag && !apu.disableNoiseModeFlag()) 6 else 1) and 1); shiftRegister = (shiftRegister shr 1) or (feedback shl 14); timer.addOutput(if ((shiftRegister and 1) != 0) 0 else envelope.getVolume()) } }
     fun reset(softReset: Boolean) { envelope.reset(softReset); timer.reset(); timer.period = periods[0] - 1; shiftRegister = 1; modeFlag = false }

@@ -133,6 +133,7 @@ interface NesCpuApuBridge {
     fun processCpuClock() {}
     fun reset(softReset: Boolean) {}
     fun setRegion(region: ConsoleRegion) {}
+    fun beginFrame() {}
     fun endFrame() {}
     fun setApuStatus(enabled: Boolean) {}
 }
