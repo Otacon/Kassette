@@ -2,15 +2,16 @@
 androidx-lifecycle = "2.11.0"
 buildKonfig = "0.22.0"
 clikt = "5.1.0"
-compose = "1.12.0"
+compose = "1.13.0-alpha01"
+composeNative = "1.13.0-alpha10"
 conveyor = "2.0"
 kermit = "2.1.0"
-ksp = "2.3.11"
+ksp = "2.3.12"
 kotest = "6.2.4"
 kotlinxBrowser = "0.5.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerializationJson = "1.11.0"
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 lwjgl = "3.4.2"
 metro = "1.4.2"
 settings = "1.3.0"
@@ -44,13 +45,14 @@ kotlinxCoroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-sw
 kotlinxSerializationCbor = { module = "org.jetbrains.kotlinx:kotlinx-serialization-cbor", version.ref = "kotlinxSerializationJson" }
 kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 
-settings = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "settings" }
+settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "settings" }
 settingsSerialization = { module = "com.russhwolf:multiplatform-settings-serialization", version.ref = "settings" }
 
 [plugins]
 buildKonfig = { id = "com.codingfeline.buildkonfig", version.ref = "buildKonfig" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
+composeNative = { id = "dev.brahmkshatriya.compose", version.ref = "composeNative" }
 conveyor = { id = "dev.hydraulic.conveyor", version.ref = "conveyor" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotest = { id = "io.kotest", version.ref = "kotest" }

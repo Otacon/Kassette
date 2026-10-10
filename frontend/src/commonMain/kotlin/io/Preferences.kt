@@ -1,51 +1,48 @@
 package io
 
 import androidx.compose.ui.input.key.Key
-import com.russhwolf.settings.ExperimentalSettingsApi
-import com.russhwolf.settings.Settings
-import com.russhwolf.settings.serialization.decodeValueOrNull
-import com.russhwolf.settings.serialization.encodeValue
 import frontend.controllerSettings.AXIS_NEGATIVE
 import frontend.controllerSettings.AXIS_POSITIVE
 import frontend.controllerSettings.InputMappings
 import frontend.controllerSettings.gamepadAxis
 import frontend.controllerSettings.gamepadButton
 import frontend.controllerSettings.inputButton
+import com.russhwolf.settings.Settings
+import com.russhwolf.settings.ExperimentalSettingsApi
+import com.russhwolf.settings.serialization.decodeValue
+import com.russhwolf.settings.serialization.encodeValue
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-@OptIn(ExperimentalSerializationApi::class)
+expect fun createSettings(name: String): Settings
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalSettingsApi::class)
 class Preferences {
+    private val settings = createSettings("kassette")
 
-    private val settings = Settings()
-
-    @OptIn(ExperimentalSettingsApi::class)
     var mappings: ControllerMappings
-        get() = runCatching {
-            settings.decodeValueOrNull<ControllerMappings>(KEY_GAMEPAD_MAPPINGS)
-        }.getOrNull() ?: DEFAULT_CONTROLLER_MAPPINGS
-        set(value) = settings.encodeValue(key = KEY_GAMEPAD_MAPPINGS, value = value)
+        get() = settings.decodeValue(ControllerMappings.serializer(), MAPPINGS_KEY, DEFAULT_CONTROLLER_MAPPINGS)
+        set(value) {
+            settings.encodeValue(ControllerMappings.serializer(), MAPPINGS_KEY, value)
+        }
 
     var videoFilter: VideoFilter
-        get() = settings.getStringOrNull(KEY_VIDEO_FILTER)
-            ?.let {
-                runCatching { VideoFilter.valueOf(it) }.getOrNull()
-            } ?: VideoFilter.NONE
+        get() = settings.decodeValue(VideoFilter.serializer(), VIDEO_FILTER_KEY, VideoFilter.NONE)
         set(value) {
-            settings.putString(key = KEY_VIDEO_FILTER, value = value.name)
+            settings.encodeValue(VideoFilter.serializer(), VIDEO_FILTER_KEY, value)
         }
 
     var soundEnabled: Boolean
-        get() = settings.getBoolean(KEY_SOUND_ENABLED, true)
+        get() = settings.getBoolean(SOUND_ENABLED_KEY, true)
         set(value) {
-            settings.putBoolean(key = KEY_SOUND_ENABLED, value = value)
+            settings.putBoolean(SOUND_ENABLED_KEY, value)
         }
 
     companion object {
-        private const val KEY_VIDEO_FILTER = "video-filter"
-        private const val KEY_SOUND_ENABLED = "sound-enabled"
-        private const val KEY_GAMEPAD_MAPPINGS = "gamepad-mappings"
+        private const val MAPPINGS_KEY = "mappings"
+        private const val VIDEO_FILTER_KEY = "videoFilter"
+        private const val SOUND_ENABLED_KEY = "soundEnabled"
 
         private val DEFAULT_CONTROLLER_MAPPINGS = ControllerMappings(
             buttons = listOf(
@@ -62,6 +59,7 @@ class Preferences {
     }
 }
 
+@Serializable
 enum class VideoFilter {
     CRT, NONE
 }

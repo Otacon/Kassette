@@ -12,6 +12,11 @@ val jvmToolchainVersion = providers.gradleProperty("jvmToolchainVersion").map(St
 
 kotlin {
     jvm()
+    linuxX64()
+    linuxArm64()
+    mingwX64()
+    macosX64()
+    macosArm64()
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()

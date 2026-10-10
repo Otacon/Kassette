@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.buildKonfig)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeNative)
     alias(libs.plugins.conveyor)
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinxSerialization)
@@ -95,8 +96,51 @@ tasks.matching { it.name.endsWith("ProcessResources") }.configureEach {
     dependsOn(generateNes20DbCsv)
 }
 
+tasks.matching { it.name.startsWith("copy") && it.name.endsWith("ExecutableResources") }.configureEach {
+    dependsOn(generateNes20DbCsv)
+    this as Copy
+    from(layout.projectDirectory.dir("src/commonMain/resources"))
+}
+
+val syncMacosArm64ReleaseResources = tasks.register<Sync>("syncMacosArm64ReleaseResources") {
+    dependsOn(generateNes20DbCsv)
+    dependsOn("prepareMacosArm64ReleaseAppBundle")
+    from(layout.projectDirectory.dir("src/commonMain/resources"))
+    into(layout.buildDirectory.dir("compose/binaries/main/app/Kassette.app/Contents/Resources"))
+}
+
+val syncMacosX64ReleaseResources = tasks.register<Sync>("syncMacosX64ReleaseResources") {
+    dependsOn(generateNes20DbCsv)
+    dependsOn("prepareMacosX64ReleaseAppBundle")
+    from(layout.projectDirectory.dir("src/commonMain/resources"))
+    into(layout.buildDirectory.dir("compose/binaries/main/app/Kassette.app/Contents/Resources"))
+}
+
+tasks.matching { it.name == "packageMacosArm64ReleaseDmg" }.configureEach {
+    dependsOn(syncMacosArm64ReleaseResources)
+}
+
+tasks.matching { it.name == "packageMacosX64ReleaseDmg" }.configureEach {
+    dependsOn(syncMacosX64ReleaseResources)
+}
+
 kotlin {
     jvm()
+    desktopNative {
+        binaries.executable {
+            entryPoint = "app.main"
+        }
+    }
+    macosArm64 {
+        binaries.configureEach {
+            linkerOpts("-L/opt/homebrew/opt/sdl3/lib", "-lSDL3")
+            @OptIn(org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi::class)
+            disableNativeCache(
+                org.jetbrains.kotlin.gradle.plugin.mpp.DisableCacheInKotlinVersion.`2_4_20`,
+                "Temporary workaround for Compose Native PoC linking",
+            )
+        }
+    }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser {
@@ -145,7 +189,20 @@ kotlin {
             runtimeOnly(dependencies.variantOf(libs.lwjglOpenal) { classifier(lwjglNatives) })
             runtimeOnly(dependencies.variantOf(libs.lwjglGlfw) { classifier(lwjglNatives) })
         }
+        desktopNativeMain.dependencies {
+            val composeNativeVersion = libs.versions.composeNative.get()
+
+            implementation("dev.brahmkshatriya.compose.desktop:desktop-native:$composeNativeVersion")
+            implementation("dev.brahmkshatriya.compose.ui:ui:$composeNativeVersion")
+            implementation("dev.brahmkshatriya.compose.foundation:foundation:$composeNativeVersion")
+        }
     }
+}
+
+composeNativeApplication {
+    applicationName.set("Kassette")
+    packageName.set("com.cyanotic.kassette")
+    executableName.set("kassette")
 }
 
 compose.desktop {
